@@ -8,7 +8,6 @@ export enum ClassifiedType {
 }
 
 export type ClassifierConfig = {
-  dexContractAllowlist: string[];
   swapMethodAllowlist: string[];
   gasClaimContracts: string[];
 };
@@ -30,21 +29,22 @@ export const classifyTransaction = (
 ): ClassifiedResult => {
   const invocation = tx.invocation;
   const transfers = tx.transfers ?? [];
-  const normalizedAllowlist = config.dexContractAllowlist.map(normalize);
   const normalizedGasContracts = config.gasClaimContracts.map(normalize);
 
   if (invocation) {
     const contract = normalize(invocation.contract);
     const method = normalize(invocation.method);
-    const isSwapContract = normalizedAllowlist.includes(contract);
     const isSwapMethod = config.swapMethodAllowlist.map(normalize).includes(method);
 
-    if (isSwapContract && isSwapMethod) {
+    // Detect swap based on transaction data:
+    // - Has a swap-like method invocation
+    // - Has at least 2 transfers (representing the token exchange)
+    if (isSwapMethod && transfers.length >= 2) {
       return {
         type: ClassifiedType.SWAP,
         from: transfers[0]?.from,
         to: transfers[0]?.to,
-        reason: 'Matched swap contract and method.',
+        reason: 'Detected swap: multiple transfers with swap method invocation.',
       };
     }
 

@@ -13,7 +13,6 @@ A NestJS + Handlebars dashboard that tracks Neo N3 daily activity and classifies
 DATABASE_URL="postgresql://user:password@localhost:5432/neo_usage"
 NEO_NETWORK=MainNet
 NEO_API_BASE_URL="https://your-neo-api"
-DEX_CONTRACT_ALLOWLIST="0xswapcontract1,0xswapcontract2"
 ADMIN_TOKEN="change-me"
 ```
 
@@ -33,7 +32,10 @@ Visit http://localhost:3000 to see the dashboard.
 Classification is handled in `src/classifier/classifier.ts` and is deterministic.
 
 - **Swap (real usage)**
-  - A transaction is a swap if it invokes a contract script hash that is in the DEX allowlist (`DEX_CONTRACT_ALLOWLIST`) **and** the invocation method name matches a swap-like method name (e.g. `swap`, `swapToken`).
+  - A transaction is classified as a swap if it has **both**:
+    1. An invocation with a swap-like method name (e.g. `swap`, `swapToken`, `swapTokens`, `swapExactTokens`)
+    2. Multiple transfers (2 or more), which represent the token exchange in a swap operation
+  - The detection is based on transaction data, not on a DEX contract allowlist
 - **Gas claim (not real usage)**
   - Gas claims are detected using a known contract allowlist (defaulted in `IngestionService` to known GAS claim contracts).
   - If your provider exposes explicit claim transactions, map them to an invocation contract hash or expand the allowlist.

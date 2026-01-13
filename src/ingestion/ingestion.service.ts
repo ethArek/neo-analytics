@@ -9,7 +9,6 @@ import { parseDate } from './date-utils';
 @Injectable()
 export class IngestionService {
   private readonly logger = new Logger(IngestionService.name);
-  private readonly dexAllowlist: string[];
   private readonly gasClaimContracts: string[];
 
   constructor(
@@ -17,7 +16,6 @@ export class IngestionService {
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
   ) {
-    this.dexAllowlist = configService.get<string[]>('app.dexContractAllowlist') ?? [];
     this.gasClaimContracts = [
       '0xef4073a0f2b305a38ec4050e4d3d28bc40ea63f5',
       '0xd2a4cff31913016155e38e474a2c06d08be276cf',
@@ -31,7 +29,6 @@ export class IngestionService {
     await this.prisma.$transaction(async (tx) => {
       const data = transactions.map((transaction) => {
         const classification = classifyTransaction(transaction, {
-          dexContractAllowlist: this.dexAllowlist,
           swapMethodAllowlist: defaultSwapMethods,
           gasClaimContracts: this.gasClaimContracts,
         });
