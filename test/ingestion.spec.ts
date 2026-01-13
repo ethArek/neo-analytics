@@ -63,8 +63,11 @@ describe('IngestionService', () => {
             txid: 'swap-1',
             timestamp: new Date().toISOString(),
             blockIndex: 1,
-            invocation: { contract: '0xswap', method: 'swap' },
-            transfers: [{ from: 'a', to: 'b', asset: 'NEO', amount: '1' }],
+            invocation: { contract: '0xanycontract', method: 'swap' },
+            transfers: [
+              { from: 'a', to: 'b', asset: 'NEO', amount: '1' },
+              { from: 'b', to: 'a', asset: 'GAS', amount: '10' },
+            ],
             raw: {},
           },
           {
@@ -81,7 +84,6 @@ describe('IngestionService', () => {
     const prisma = new FakePrismaService();
     const configService = new ConfigService({
       app: {
-        dexContractAllowlist: ['0xswap'],
         neoNetwork: 'MainNet',
       },
     });
