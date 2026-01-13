@@ -37,8 +37,9 @@ Classification is handled in `src/classifier/classifier.ts` and is deterministic
     2. Multiple transfers (2 or more), which represent the token exchange in a swap operation
   - The detection is based on transaction data, not on a DEX contract allowlist
 - **Gas claim (not real usage)**
-  - Gas claims are detected using a known contract allowlist (defaulted in `IngestionService` to known GAS claim contracts).
-  - If your provider exposes explicit claim transactions, map them to an invocation contract hash or expand the allowlist.
+  - Gas claims are detected based on transaction data: GAS transfers with no `from` address (or an empty `from` field).
+  - This pattern indicates GAS being distributed from the system to a user, which is characteristic of gas claim operations in Neo N3.
+  - Normal GAS transfers (with a valid `from` address) are classified as normal transfers.
 - **Normal transfer (real usage)**
   - Native NEO/GAS transfers that are not swaps and not gas claims.
   - Self-transfers (`from == to`) are excluded from real usage.

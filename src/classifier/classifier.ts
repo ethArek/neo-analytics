@@ -9,7 +9,6 @@ export enum ClassifiedType {
 
 export type ClassifierConfig = {
   swapMethodAllowlist: string[];
-  gasClaimContracts: string[];
 };
 
 export type ClassifiedResult = {
@@ -29,10 +28,8 @@ export const classifyTransaction = (
 ): ClassifiedResult => {
   const invocation = tx.invocation;
   const transfers = tx.transfers ?? [];
-  const normalizedGasContracts = config.gasClaimContracts.map(normalize);
 
   if (invocation) {
-    const contract = normalize(invocation.contract);
     const method = normalize(invocation.method);
     const isSwapMethod = config.swapMethodAllowlist.map(normalize).includes(method);
 
@@ -47,15 +44,21 @@ export const classifyTransaction = (
         reason: 'Detected swap: multiple transfers with swap method invocation.',
       };
     }
+  }
 
-    if (normalizedGasContracts.includes(contract)) {
-      return {
-        type: ClassifiedType.GAS_CLAIM,
-        from: transfers[0]?.from,
-        to: transfers[0]?.to,
-        reason: 'Matched known GAS claim contract.',
-      };
-    }
+  // Detect gas claim based on transaction data:
+  // - GAS transfer with no 'from' address (or undefined/null)
+  // - This pattern indicates GAS being distributed from the system
+  const gasClaimTransfer = transfers.find(
+    (transfer) => transfer.asset === 'GAS' && (!transfer.from || transfer.from.trim() === '')
+  );
+  if (gasClaimTransfer && gasClaimTransfer.to) {
+    return {
+      type: ClassifiedType.GAS_CLAIM,
+      from: gasClaimTransfer.from,
+      to: gasClaimTransfer.to,
+      reason: 'Detected GAS claim: GAS transfer with no from address.',
+    };
   }
 
   const primaryTransfer = transfers.find((transfer) => transfer.asset === 'NEO' || transfer.asset === 'GAS');

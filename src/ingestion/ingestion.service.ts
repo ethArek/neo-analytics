@@ -9,18 +9,12 @@ import { parseDate } from './date-utils';
 @Injectable()
 export class IngestionService {
   private readonly logger = new Logger(IngestionService.name);
-  private readonly gasClaimContracts: string[];
 
   constructor(
     @Inject(NEO_CLIENT) private readonly neoClient: NeoClient,
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
-  ) {
-    this.gasClaimContracts = [
-      '0xef4073a0f2b305a38ec4050e4d3d28bc40ea63f5',
-      '0xd2a4cff31913016155e38e474a2c06d08be276cf',
-    ];
-  }
+  ) {}
 
   async ingestDay(date: string): Promise<void> {
     const transactions = await this.fetchAllTransactionsForDay(date);
@@ -30,7 +24,6 @@ export class IngestionService {
       const data = transactions.map((transaction) => {
         const classification = classifyTransaction(transaction, {
           swapMethodAllowlist: defaultSwapMethods,
-          gasClaimContracts: this.gasClaimContracts,
         });
 
         return {

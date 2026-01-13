@@ -4,7 +4,6 @@ import { NeoTransaction } from '../src/neo-client/neo-client.interface';
 describe('classifier', () => {
   const config = {
     swapMethodAllowlist: defaultSwapMethods,
-    gasClaimContracts: ['0xclaim'],
   };
 
   it('classifies swap as real usage when multiple transfers with swap method', () => {
@@ -23,17 +22,17 @@ describe('classifier', () => {
     expect(result.type).toBe(ClassifiedType.SWAP);
   });
 
-  it('classifies gas claim as not real usage', () => {
+  it('classifies gas claim based on transaction data (no from address)', () => {
     const tx: NeoTransaction = {
       txid: '2',
       timestamp: new Date().toISOString(),
-      invocation: { contract: '0xclaim', method: 'claim' },
-      transfers: [{ from: 'a', to: 'b', asset: 'GAS', amount: '1' }],
+      transfers: [{ from: undefined, to: 'user123', asset: 'GAS', amount: '5.5' }],
       raw: {},
     };
 
     const result = classifyTransaction(tx, config);
     expect(result.type).toBe(ClassifiedType.GAS_CLAIM);
+    expect(result.reason).toContain('GAS claim');
   });
 
   it('excludes self-transfer from real usage', () => {
@@ -75,5 +74,45 @@ describe('classifier', () => {
 
     const result = classifyTransaction(tx, config);
     expect(result.type).toBe(ClassifiedType.NORMAL_TRANSFER);
+  });
+
+  it('classifies gas claim with empty string as from address', () => {
+    const tx: NeoTransaction = {
+      txid: '6',
+      timestamp: new Date().toISOString(),
+      transfers: [{ from: '', to: 'user456', asset: 'GAS', amount: '2.5' }],
+      raw: {},
+    };
+
+    const result = classifyTransaction(tx, config);
+    expect(result.type).toBe(ClassifiedType.GAS_CLAIM);
+  });
+
+  it('does not classify normal GAS transfer as gas claim', () => {
+    const tx: NeoTransaction = {
+      txid: '7',
+      timestamp: new Date().toISOString(),
+      transfers: [{ from: 'userA', to: 'userB', asset: 'GAS', amount: '3' }],
+      raw: {},
+    };
+
+    const result = classifyTransaction(tx, config);
+    expect(result.type).toBe(ClassifiedType.NORMAL_TRANSFER);
+  });
+
+  it('gives swap precedence over gas claim when both patterns present', () => {
+    const tx: NeoTransaction = {
+      txid: '8',
+      timestamp: new Date().toISOString(),
+      invocation: { contract: '0xdex', method: 'swap' },
+      transfers: [
+        { from: undefined, to: 'user', asset: 'GAS', amount: '1' },
+        { from: 'user', to: 'pool', asset: 'NEO', amount: '10' },
+      ],
+      raw: {},
+    };
+
+    const result = classifyTransaction(tx, config);
+    expect(result.type).toBe(ClassifiedType.SWAP);
   });
 });
