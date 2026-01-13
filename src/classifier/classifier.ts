@@ -38,7 +38,7 @@ export const classifyTransaction = (
 
     // Detect swap based on transaction data:
     // - Has a swap-like method invocation
-    // - Has multiple transfers (typically 2+, representing the token exchange)
+    // - Has at least 2 transfers (representing the token exchange)
     if (isSwapMethod && transfers.length >= 2) {
       return {
         type: ClassifiedType.SWAP,
