@@ -1,0 +1,48 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TxType {
+  SWAP
+  NORMAL_TRANSFER
+  GAS_CLAIM
+  IGNORED
+}
+
+model DailyStat {
+  id              Int      @id @default(autoincrement())
+  date            DateTime @unique
+  swapsCount      Int      @default(0)
+  transfersCount  Int      @default(0)
+  gasClaimsCount  Int      @default(0)
+  realUsageTotal  Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model DailyTx {
+  id        Int      @id @default(autoincrement())
+  date      DateTime
+  txid      String   @unique
+  type      TxType
+  from      String?
+  to        String?
+  timestamp DateTime
+  rawJson   Json
+  createdAt DateTime @default(now())
+
+  @@index([date])
+}
+
+model IngestionCursor {
+  id                    Int       @id @default(autoincrement())
+  network               String    @unique
+  lastProcessedBlock    Int?
+  lastProcessedTimestamp DateTime?
+  updatedAt             DateTime  @updatedAt
+}
