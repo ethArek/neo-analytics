@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Neo N3 Real Usage - {{date}}</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <main class="container">
+    <header class="header">
+      <div>
+        <h1>Day details: {{date}}</h1>
+        <p class="subtitle">Classified transactions with summary.</p>
+      </div>
+      <a href="/" class="button">Back to dashboard</a>
+    </header>
+
+    {{#if stat}}
+    <section class="totals">
+      <div class="card">
+        <p>Swaps</p>
+        <strong>{{stat.swapsCount}}</strong>
+      </div>
+      <div class="card">
+        <p>Normal transfers</p>
+        <strong>{{stat.transfersCount}}</strong>
+      </div>
+      <div class="card">
+        <p>Gas claims</p>
+        <strong>{{stat.gasClaimsCount}}</strong>
+      </div>
+      <div class="card">
+        <p>Real usage total</p>
+        <strong>{{stat.realUsageTotal}}</strong>
+      </div>
+    </section>
+    {{else}}
+    <p>No stats found for this day.</p>
+    {{/if}}
+
+    <section class="table">
+      <table>
+        <thead>
+          <tr>
+            <th>Timestamp</th>
+            <th>Txid</th>
+            <th>Type</th>
+            <th>From</th>
+            <th>To</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{#each transactions}}
+          <tr>
+            <td>{{this.timestampLabel}}</td>
+            <td class="mono">{{this.txid}}</td>
+            <td>{{this.type}}</td>
+            <td class="mono">{{this.from}}</td>
+            <td class="mono">{{this.to}}</td>
+          </tr>
+          {{/each}}
+        </tbody>
+      </table>
+    </section>
+  </main>
+</body>
+</html>

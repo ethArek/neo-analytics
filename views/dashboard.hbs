@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Neo N3 Real Usage</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <main class="container">
+    <header class="header">
+      <div>
+        <h1>Neo N3 Real Usage</h1>
+        <p class="subtitle">Daily classified activity (last 30 days).</p>
+      </div>
+    </header>
+
+    <section class="totals">
+      <div class="card">
+        <p>Swaps</p>
+        <strong>{{totals.swaps}}</strong>
+      </div>
+      <div class="card">
+        <p>Normal transfers</p>
+        <strong>{{totals.transfers}}</strong>
+      </div>
+      <div class="card">
+        <p>Gas claims</p>
+        <strong>{{totals.gasClaims}}</strong>
+      </div>
+      <div class="card">
+        <p>Real usage total</p>
+        <strong>{{totals.realUsage}}</strong>
+      </div>
+    </section>
+
+    <section class="table">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Swaps</th>
+            <th>Transfers</th>
+            <th>Gas Claims</th>
+            <th>Real Usage</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{#each stats}}
+          <tr>
+            <td><a href="/day/{{this.dateLabel}}">{{this.dateLabel}}</a></td>
+            <td>{{this.swapsCount}}</td>
+            <td>{{this.transfersCount}}</td>
+            <td>{{this.gasClaimsCount}}</td>
+            <td>{{this.realUsageTotal}}</td>
+          </tr>
+          {{/each}}
+        </tbody>
+      </table>
+    </section>
+  </main>
+</body>
+</html>
