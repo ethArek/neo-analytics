@@ -1,10 +1,9 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
-import { HttpModule } from '@nestjs/axios';
 import appConfig from '../config/app.config';
 import { PrismaService } from '../common/prisma.service';
-import { HttpNeoClient } from '../neo-client/neo-client.service';
+import { RpcNeoClient } from '../neo-client/neo-client.service';
 import { NEO_CLIENT } from '../neo-client/neo-client.provider';
 import { IngestionService } from '../ingestion/ingestion.service';
 import { IngestionJob } from '../ingestion/ingestion.job';
@@ -19,7 +18,6 @@ import { ApiController } from '../web/api.controller';
       load: [appConfig],
     }),
     ScheduleModule.forRoot(),
-    HttpModule,
   ],
   controllers: [WebController, ApiController],
   providers: [
@@ -29,7 +27,7 @@ import { ApiController } from '../web/api.controller';
     StatsService,
     {
       provide: NEO_CLIENT,
-      useClass: HttpNeoClient,
+      useClass: RpcNeoClient,
     },
   ],
 })
