@@ -4,45 +4,158 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Neo N3 Real Usage</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap"
+    rel="stylesheet"
+  />
   <link rel="stylesheet" href="/css/styles.css" />
 </head>
 <body>
   <main class="container">
-    <header class="header">
+    <header class="hero" data-animate style="--delay: 0s;">
       <div>
-        <h1>Neo N3 Real Usage</h1>
-        <p class="subtitle">Daily classified activity (last 30 days).</p>
+        <p class="eyebrow">Neo N3 Real Usage</p>
+        <h1>Signal-rich activity, not noise.</h1>
+        <p class="subtitle">
+          Range: {{rangeLabel}}. Real usage excludes self-transfers and gas claims.
+        </p>
+      </div>
+      <div class="hero-actions">
+        <form class="range-form" method="get">
+          <label>
+            From
+            <input type="date" name="from" value="{{rangeFrom}}" />
+          </label>
+          <label>
+            To
+            <input type="date" name="to" value="{{rangeTo}}" />
+          </label>
+          <button class="button" type="submit">Apply</button>
+        </form>
+        <span class="pill">{{rangeLabel}}</span>
       </div>
     </header>
 
-    <section class="totals">
-      <div class="card">
-        <p>Swaps</p>
-        <strong>{{totals.swaps}}</strong>
-      </div>
-      <div class="card">
-        <p>Normal transfers</p>
-        <strong>{{totals.transfers}}</strong>
-      </div>
-      <div class="card">
-        <p>Gas claims</p>
-        <strong>{{totals.gasClaims}}</strong>
-      </div>
-      <div class="card">
-        <p>Real usage total</p>
+    <section class="summary-grid">
+      <div class="card accent" data-animate style="--delay: 0.05s;">
+        <span>Real usage total</span>
         <strong>{{totals.realUsage}}</strong>
+        <small>Swaps + transfers</small>
+      </div>
+      <div class="card" data-animate style="--delay: 0.1s;">
+        <span>Total transactions</span>
+        <strong>{{totals.totalTxs}}</strong>
+        <small>All scanned blocks</small>
+      </div>
+      <div class="card" data-animate style="--delay: 0.15s;">
+        <span>Active addresses</span>
+        <strong>{{totals.activeAddresses}}</strong>
+        <small>Unique senders + receivers</small>
+      </div>
+      <div class="card" data-animate style="--delay: 0.2s;">
+        <span>NEO volume</span>
+        <strong>{{totals.neoVolume}}</strong>
+        <small>Raw units</small>
+      </div>
+      <div class="card" data-animate style="--delay: 0.25s;">
+        <span>GAS volume</span>
+        <strong>{{totals.gasVolume}}</strong>
+        <small>Raw units</small>
+      </div>
+      <div class="card" data-animate style="--delay: 0.3s;">
+        <span>Blocks scanned</span>
+        <strong>{{totals.blocks}}</strong>
+        <small>Daily totals</small>
       </div>
     </section>
 
-    <section class="table">
+    <section class="chart-grid">
+      <div class="chart-card wide" data-animate style="--delay: 0.05s;">
+        <div class="chart-title">
+          <h3>Real usage trend</h3>
+          <span>Swaps + transfers</span>
+        </div>
+        <canvas id="chart-real-usage" class="chart-canvas"></canvas>
+      </div>
+      <div class="chart-card tall" data-animate style="--delay: 0.1s;">
+        <div class="chart-title">
+          <h3>Mix by type</h3>
+          <span>Daily</span>
+        </div>
+        <canvas id="chart-types" class="chart-canvas"></canvas>
+      </div>
+      <div class="chart-card" data-animate style="--delay: 0.15s;">
+        <div class="chart-title">
+          <h3>Active addresses</h3>
+          <span>Unique</span>
+        </div>
+        <canvas id="chart-addresses" class="chart-canvas"></canvas>
+      </div>
+      <div class="chart-card" data-animate style="--delay: 0.2s;">
+        <div class="chart-title">
+          <h3>Transfer activity by asset</h3>
+          <span>Top assets</span>
+        </div>
+        <canvas id="chart-assets" class="chart-canvas"></canvas>
+      </div>
+      <div class="chart-card" data-animate style="--delay: 0.25s;">
+        <div class="chart-title">
+          <h3>Top methods</h3>
+          <span>Invocation</span>
+        </div>
+        <canvas id="chart-methods" class="chart-canvas"></canvas>
+      </div>
+      <div class="chart-card" data-animate style="--delay: 0.3s;">
+        <div class="chart-title">
+          <h3>Top contracts</h3>
+          <span>Invocation</span>
+        </div>
+        <canvas id="chart-contracts" class="chart-canvas"></canvas>
+      </div>
+    </section>
+
+    <section class="list-grid">
+      <div class="list-card" data-animate style="--delay: 0.35s;">
+        <h3>Top senders</h3>
+        <ul>
+          {{#each topSenders}}
+          <li>
+            <div>
+              <div class="mono">{{this.shortAddress}}</div>
+              <small>{{this.address}}</small>
+            </div>
+            <strong>{{this.transferCount}}</strong>
+          </li>
+          {{/each}}
+        </ul>
+      </div>
+      <div class="list-card" data-animate style="--delay: 0.4s;">
+        <h3>Top receivers</h3>
+        <ul>
+          {{#each topReceivers}}
+          <li>
+            <div>
+              <div class="mono">{{this.shortAddress}}</div>
+              <small>{{this.address}}</small>
+            </div>
+            <strong>{{this.transferCount}}</strong>
+          </li>
+          {{/each}}
+        </ul>
+      </div>
+    </section>
+
+    <section class="table" data-animate style="--delay: 0.45s;">
       <table>
         <thead>
           <tr>
             <th>Date</th>
             <th>Swaps</th>
             <th>Transfers</th>
-            <th>Gas Claims</th>
-            <th>Real Usage</th>
+            <th>Gas claims</th>
+            <th>Real usage</th>
           </tr>
         </thead>
         <tbody>
@@ -59,5 +172,11 @@
       </table>
     </section>
   </main>
+
+  <script>
+    window.__DASHBOARD__ = {{{chartData}}};
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="/js/dashboard.js"></script>
 </body>
 </html>

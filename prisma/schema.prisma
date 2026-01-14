@@ -17,10 +17,19 @@ enum TxType {
 model DailyStat {
   id              Int      @id @default(autoincrement())
   date            DateTime @unique
+  totalTxCount    Int      @default(0)
   swapsCount      Int      @default(0)
   transfersCount  Int      @default(0)
   gasClaimsCount  Int      @default(0)
+  ignoredCount    Int      @default(0)
   realUsageTotal  Int      @default(0)
+  totalTransfers  Int      @default(0)
+  uniqueSenders   Int      @default(0)
+  uniqueReceivers Int      @default(0)
+  uniqueAddresses Int      @default(0)
+  neoVolumeRaw    BigInt   @default(0)
+  gasVolumeRaw    BigInt   @default(0)
+  blockCount      Int      @default(0)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }
@@ -32,10 +41,74 @@ model DailyTx {
   type      TxType
   from      String?
   to        String?
+  asset     String?
+  amountRaw BigInt?
+  transferCount Int @default(0)
+  method    String?
+  contract  String?
   timestamp DateTime
+  blockIndex Int?
   rawJson   Json
   createdAt DateTime @default(now())
 
+  @@index([date])
+}
+
+model DailyTransfer {
+  id            Int      @id @default(autoincrement())
+  date          DateTime
+  txid          String
+  transferIndex Int
+  asset         String
+  amountRaw     BigInt
+  from          String?
+  to            String?
+  createdAt     DateTime @default(now())
+
+  @@unique([txid, transferIndex])
+  @@index([date])
+  @@index([asset])
+  @@index([from])
+  @@index([to])
+}
+
+model DailyAssetStat {
+  id              Int      @id @default(autoincrement())
+  date            DateTime
+  asset           String
+  transferCount   Int      @default(0)
+  txCount         Int      @default(0)
+  uniqueSenders   Int      @default(0)
+  uniqueReceivers Int      @default(0)
+  volumeRaw       BigInt   @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([date, asset])
+  @@index([date])
+}
+
+model DailyMethodStat {
+  id        Int      @id @default(autoincrement())
+  date      DateTime
+  method    String
+  txCount   Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([date, method])
+  @@index([date])
+}
+
+model DailyContractStat {
+  id        Int      @id @default(autoincrement())
+  date      DateTime
+  contract  String
+  txCount   Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([date, contract])
   @@index([date])
 }
 

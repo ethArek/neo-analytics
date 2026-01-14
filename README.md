@@ -12,7 +12,8 @@ A NestJS + Handlebars dashboard that tracks Neo N3 daily activity and classifies
 ```bash
 DATABASE_URL="postgresql://user:password@localhost:5432/neo_usage"
 NEO_NETWORK=MainNet
-NEO_API_BASE_URL="https://your-neo-api"
+RPC_ENDPOINT_1="https://mainnet1.neo.coz.io"
+RPC_ENDPOINT_2="https://mainnet2.neo.coz.io"
 ADMIN_TOKEN="change-me"
 ```
 
@@ -26,6 +27,8 @@ npm run start:dev
 ```
 
 Visit http://localhost:3000 to see the dashboard.
+
+The dashboard supports date range filters via `?from=YYYY-MM-DD&to=YYYY-MM-DD`.
 
 ## Classification rules
 
@@ -47,40 +50,34 @@ Classification is handled in `src/classifier/classifier.ts` and is deterministic
 
 Precedence order: **swap > gas claim > normal transfer**.
 
-## Neo API provider
+## Neo RPC provider
 
 The provider is abstracted behind the `NeoClient` interface (`src/neo-client/neo-client.interface.ts`).
-The HTTP implementation assumes a REST endpoint:
+The RPC implementation uses JSON-RPC calls to scan blocks by date and extract NEP-17 `Transfer`
+notifications for transactions (`src/neo-client/neo-client.service.ts`).
 
-```
-GET {NEO_API_BASE_URL}/transactions?date=YYYY-MM-DD&cursor=...
-```
+It relies on:
+- `getblockcount`
+- `getblock`
+- `getapplicationlog`
+- `getnativecontracts`
 
-Expected response:
+## Analytics API
 
-```json
-{
-  "transactions": [
-    {
-      "txid": "...",
-      "timestamp": "2024-01-01T00:00:00Z",
-      "blockIndex": 123456,
-      "transfers": [{ "from": "...", "to": "...", "asset": "NEO", "amount": "1" }],
-      "invocation": { "contract": "0x...", "method": "swap" },
-      "raw": {}
-    }
-  ],
-  "nextCursor": "...",
-  "lastBlockIndex": 123456
-}
-```
-
-If your provider uses a different response, adapt `HttpNeoClient`.
+- `GET /api/stats` (latest 30 days) or `?from=YYYY-MM-DD&to=YYYY-MM-DD`
+- `GET /api/stats/summary` (totals for range)
+- `GET /api/stats/assets` (asset transfer breakdown)
+- `GET /api/stats/methods` (top invocation methods)
+- `GET /api/stats/contracts` (top contracts)
+- `GET /api/stats/top` with `type=senders|receivers`
 
 ## Admin job endpoints
 
 - `POST /api/jobs/run` with optional `{ "date": "YYYY-MM-DD" }`.
 - `POST /api/jobs/rebuild` with `{ "date": "YYYY-MM-DD" }` and `x-admin-token` header.
+- `POST /api/jobs/backfill` with `{ "from": "YYYY-MM-DD", "to": "YYYY-MM-DD" }` and `x-admin-token` header.
+- `POST /api/jobs/backfill-last-30` with `x-admin-token` header (ingests yesterday + previous 29 days).
+- `POST /api/jobs/backfill-10-minutes` with optional `{ "from": "YYYY-MM-DDTHH:mm:ssZ" }` and `x-admin-token` header (defaults to last 10 minutes).
 
 ## Tests
 

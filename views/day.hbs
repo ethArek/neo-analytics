@@ -4,60 +4,128 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Neo N3 Real Usage - {{date}}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap"
+    rel="stylesheet"
+  />
   <link rel="stylesheet" href="/css/styles.css" />
 </head>
 <body>
   <main class="container">
-    <header class="header">
+    <header class="hero" data-animate style="--delay: 0s;">
       <div>
+        <p class="eyebrow">Neo N3 Real Usage</p>
         <h1>Day details: {{date}}</h1>
-        <p class="subtitle">Classified transactions with summary.</p>
+        <p class="subtitle">Classified transactions and breakdowns for the selected day.</p>
       </div>
-      <a href="/" class="button">Back to dashboard</a>
+      <div class="hero-actions">
+        <a href="/" class="button">Back to dashboard</a>
+      </div>
     </header>
 
     {{#if stat}}
-    <section class="totals">
-      <div class="card">
-        <p>Swaps</p>
-        <strong>{{stat.swapsCount}}</strong>
-      </div>
-      <div class="card">
-        <p>Normal transfers</p>
-        <strong>{{stat.transfersCount}}</strong>
-      </div>
-      <div class="card">
-        <p>Gas claims</p>
-        <strong>{{stat.gasClaimsCount}}</strong>
-      </div>
-      <div class="card">
-        <p>Real usage total</p>
+    <section class="summary-grid">
+      <div class="card accent" data-animate style="--delay: 0.05s;">
+        <span>Real usage total</span>
         <strong>{{stat.realUsageTotal}}</strong>
+        <small>Swaps + transfers</small>
+      </div>
+      <div class="card" data-animate style="--delay: 0.1s;">
+        <span>Total transactions</span>
+        <strong>{{stat.totalTxCount}}</strong>
+        <small>All scanned blocks</small>
+      </div>
+      <div class="card" data-animate style="--delay: 0.15s;">
+        <span>Active addresses</span>
+        <strong>{{stat.uniqueAddresses}}</strong>
+        <small>Unique senders + receivers</small>
+      </div>
+      <div class="card" data-animate style="--delay: 0.2s;">
+        <span>NEO volume</span>
+        <strong>{{stat.neoVolume}}</strong>
+        <small>Raw units</small>
+      </div>
+      <div class="card" data-animate style="--delay: 0.25s;">
+        <span>GAS volume</span>
+        <strong>{{stat.gasVolume}}</strong>
+        <small>Raw units</small>
+      </div>
+      <div class="card" data-animate style="--delay: 0.3s;">
+        <span>Blocks scanned</span>
+        <strong>{{stat.blockCount}}</strong>
+        <small>Daily total</small>
       </div>
     </section>
     {{else}}
     <p>No stats found for this day.</p>
     {{/if}}
 
-    <section class="table">
+    <section class="list-grid">
+      <div class="list-card" data-animate style="--delay: 0.35s;">
+        <h3>Asset breakdown</h3>
+        <ul>
+          {{#each assetStats}}
+          <li>
+            <div>
+              <div class="mono">{{this.asset}}</div>
+              <small>{{this.transferCount}} transfers</small>
+            </div>
+            <strong>{{this.volumeLabel}}</strong>
+          </li>
+          {{/each}}
+        </ul>
+      </div>
+      <div class="list-card" data-animate style="--delay: 0.4s;">
+        <h3>Top methods</h3>
+        <ul>
+          {{#each methodStats}}
+          <li>
+            <div class="mono">{{this.method}}</div>
+            <strong>{{this.txCount}}</strong>
+          </li>
+          {{/each}}
+        </ul>
+      </div>
+      <div class="list-card" data-animate style="--delay: 0.45s;">
+        <h3>Top contracts</h3>
+        <ul>
+          {{#each contractStats}}
+          <li>
+            <div class="mono">{{this.contract}}</div>
+            <strong>{{this.txCount}}</strong>
+          </li>
+          {{/each}}
+        </ul>
+      </div>
+    </section>
+
+    <section class="table" data-animate style="--delay: 0.5s;">
       <table>
         <thead>
           <tr>
             <th>Timestamp</th>
             <th>Txid</th>
             <th>Type</th>
+            <th>Asset</th>
+            <th>Amount</th>
             <th>From</th>
             <th>To</th>
+            <th>Method</th>
           </tr>
         </thead>
         <tbody>
           {{#each transactions}}
           <tr>
             <td>{{this.timestampLabel}}</td>
-            <td class="mono">{{this.txid}}</td>
+            <td class="mono">{{this.shortTxid}}</td>
             <td>{{this.type}}</td>
+            <td class="mono">{{this.asset}}</td>
+            <td>{{this.amountLabel}}</td>
             <td class="mono">{{this.from}}</td>
             <td class="mono">{{this.to}}</td>
+            <td class="mono">{{this.method}}</td>
           </tr>
           {{/each}}
         </tbody>

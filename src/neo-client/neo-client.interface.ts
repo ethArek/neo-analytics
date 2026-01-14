@@ -23,8 +23,15 @@ export type NeoPagedResponse = {
   transactions: NeoTransaction[];
   nextCursor?: string;
   lastBlockIndex?: number;
+  blockStart?: number;
+  blockEnd?: number;
 };
 
 export interface NeoClient {
   fetchTransactionsForDay(date: string, cursor?: string): Promise<NeoPagedResponse>;
+  fetchTransactionsForRange?(
+    startTime: Date,
+    endTime: Date,
+    cursor?: string
+  ): Promise<NeoPagedResponse>;
 }
