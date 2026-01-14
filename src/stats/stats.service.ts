@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 import { parseDate } from '../ingestion/date-utils';
 
@@ -8,7 +9,7 @@ export type AggregatedAssetStat = {
   txCount: number;
   uniqueSenders: number;
   uniqueReceivers: number;
-  volumeRaw: bigint;
+  volumeRaw: string;
 };
 
 export type AggregatedCount = {
@@ -19,7 +20,7 @@ export type AggregatedCount = {
 export type TopAddress = {
   address: string;
   transferCount: number;
-  volumeRaw: bigint;
+  volumeRaw: string;
 };
 
 export type UniqueAddressStats = {
@@ -77,45 +78,33 @@ export class StatsService {
   }
 
   async getAssetStatsRange(from: string, to: string): Promise<AggregatedAssetStat[]> {
-    const records = await this.prisma.dailyAssetStat.findMany({
+    const grouped = await this.prisma.dailyAssetStat.groupBy({
+      by: ['asset'],
       where: {
         date: {
           gte: parseDate(from),
           lte: parseDate(to),
         },
       },
+      _sum: {
+        transferCount: true,
+        txCount: true,
+        uniqueSenders: true,
+        uniqueReceivers: true,
+        volumeRaw: true,
+      },
     });
-    const assetMap = new Map<string, AggregatedAssetStat>();
 
-    for (const record of records) {
-      const existing = assetMap.get(record.asset);
-      if (!existing) {
-        assetMap.set(record.asset, {
-          asset: record.asset,
-          transferCount: record.transferCount,
-          txCount: record.txCount,
-          uniqueSenders: record.uniqueSenders,
-          uniqueReceivers: record.uniqueReceivers,
-          volumeRaw: record.volumeRaw,
-        });
-        continue;
-      }
+    const aggregated = grouped.map((row) => ({
+      asset: row.asset,
+      transferCount: row._sum.transferCount ?? 0,
+      txCount: row._sum.txCount ?? 0,
+      uniqueSenders: row._sum.uniqueSenders ?? 0,
+      uniqueReceivers: row._sum.uniqueReceivers ?? 0,
+      volumeRaw: this.decimalToString(row._sum.volumeRaw),
+    }));
 
-      existing.transferCount += record.transferCount;
-      existing.txCount += record.txCount;
-      existing.uniqueSenders += record.uniqueSenders;
-      existing.uniqueReceivers += record.uniqueReceivers;
-      existing.volumeRaw += record.volumeRaw;
-    }
-
-    return Array.from(assetMap.values()).sort((a, b) => {
-      if (a.volumeRaw === b.volumeRaw) {
-
-        return 0;
-      }
-
-      return a.volumeRaw > b.volumeRaw ? -1 : 1;
-    });
+    return aggregated.sort((a, b) => this.compareIntegerStrings(b.volumeRaw, a.volumeRaw));
   }
 
   async getMethodStatsRange(from: string, to: string): Promise<AggregatedCount[]> {
@@ -185,7 +174,7 @@ export class StatsService {
       return grouped.map((row) => ({
         address: row.from ?? '',
         transferCount: row._count.from ?? 0,
-        volumeRaw: row._sum.amountRaw ?? 0n,
+        volumeRaw: this.decimalToString(row._sum.amountRaw),
       }));
     }
 
@@ -204,7 +193,7 @@ export class StatsService {
     return grouped.map((row) => ({
       address: row.to ?? '',
       transferCount: row._count.to ?? 0,
-      volumeRaw: row._sum.amountRaw ?? 0n,
+      volumeRaw: this.decimalToString(row._sum.amountRaw),
     }));
   }
 
@@ -262,5 +251,40 @@ export class StatsService {
     const entries = Array.from(map.entries()).map(([key, count]) => ({ key, count }));
 
     return entries.sort((a, b) => b.count - a.count);
+  }
+
+  private decimalToString(value: Prisma.Decimal | null | undefined): string {
+    if (!value) {
+
+      return '0';
+    }
+
+    return value.toFixed(0);
+  }
+
+  private compareIntegerStrings(a: string, b: string): number {
+    if (a === b) {
+
+      return 0;
+    }
+
+    const aNegative = a.startsWith('-');
+    const bNegative = b.startsWith('-');
+    if (aNegative !== bNegative) {
+
+      return aNegative ? -1 : 1;
+    }
+
+    const aDigits = aNegative ? a.slice(1) : a;
+    const bDigits = bNegative ? b.slice(1) : b;
+    if (aDigits.length !== bDigits.length) {
+      const direction = aDigits.length > bDigits.length ? 1 : -1;
+
+      return aNegative ? -direction : direction;
+    }
+
+    const compared = aDigits.localeCompare(bDigits);
+
+    return aNegative ? -compared : compared;
   }
 }

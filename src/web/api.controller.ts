@@ -296,18 +296,18 @@ export class ApiController {
     txCount: number;
     uniqueSenders: number;
     uniqueReceivers: number;
-    volumeRaw: bigint;
+    volumeRaw: string;
   }) {
     return {
       ...stat,
-      volumeRaw: stat.volumeRaw.toString(),
+      volumeRaw: stat.volumeRaw,
     };
   }
 
-  private serializeTopAddress(stat: { address: string; transferCount: number; volumeRaw: bigint }) {
+  private serializeTopAddress(stat: { address: string; transferCount: number; volumeRaw: string }) {
     return {
       ...stat,
-      volumeRaw: stat.volumeRaw.toString(),
+      volumeRaw: stat.volumeRaw,
     };
   }
 

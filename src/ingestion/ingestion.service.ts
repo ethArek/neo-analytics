@@ -88,7 +88,9 @@ export class IngestionService {
       blockRange && blockRange.start <= blockRange.end
         ? ` (blocks ${blockRange.start}-${blockRange.end})`
         : '';
-    this.logger.log(`Ingested ${transactions.length} transactions for ${date}${rangeLabel}.`);
+    this.logger.log(
+      `Ingested ${transactions.length} transactions for ${date}${rangeLabel} (swaps ${summary.dailyStat.swapsCount}, transfers ${summary.dailyStat.transfersCount}, gas claims ${summary.dailyStat.gasClaimsCount}, ignored ${summary.dailyStat.ignoredCount}).`,
+    );
   }
 
   async rebuildDay(date: string): Promise<void> {
@@ -119,7 +121,7 @@ export class IngestionService {
         ? ` (blocks ${blockRange.start}-${blockRange.end})`
         : '';
     this.logger.log(
-      `Ingested ${transactions.length} transactions for ${dateLabel} (${startIso} to ${endIso})${rangeLabel}.`,
+      `Ingested ${transactions.length} transactions for ${dateLabel} (${startIso} to ${endIso})${rangeLabel} (swaps ${summary.dailyStat.swapsCount}, transfers ${summary.dailyStat.transfersCount}, gas claims ${summary.dailyStat.gasClaimsCount}, ignored ${summary.dailyStat.ignoredCount}).`,
     );
   }
 
@@ -163,7 +165,7 @@ export class IngestionService {
         from: normalizedFrom,
         to: normalizedTo,
         asset: primaryAsset,
-        amountRaw: primaryAmountRaw ?? undefined,
+        amountRaw: primaryAmountRaw !== null ? primaryAmountRaw.toString() : undefined,
         transferCount,
         method,
         contract,
@@ -207,7 +209,7 @@ export class IngestionService {
           txid: transaction.txid,
           transferIndex: index,
           asset,
-          amountRaw,
+          amountRaw: amountRaw.toString(),
           from,
           to,
         });
@@ -276,7 +278,7 @@ export class IngestionService {
         txCount: aggregate.txIds.size,
         uniqueSenders: aggregate.senders.size,
         uniqueReceivers: aggregate.receivers.size,
-        volumeRaw: aggregate.volumeRaw,
+        volumeRaw: aggregate.volumeRaw.toString(),
       }),
     );
 

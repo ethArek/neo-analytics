@@ -368,7 +368,11 @@ export class RpcNeoClient implements NeoClient {
   private extractInvocationFromScript(
     script: string
   ): NeoInvocation | undefined {
-    const bytes = Buffer.from(script, "hex");
+    const bytes = this.decodeScriptBytes(script);
+    if (!bytes) {
+
+      return undefined;
+    }
     let offset = 0;
     let lastString: string | undefined;
     let lastContract: string | undefined;
@@ -414,6 +418,28 @@ export class RpcNeoClient implements NeoClient {
     }
 
     return undefined;
+  }
+
+  private decodeScriptBytes(script: string): Buffer | null {
+    const trimmed = script.trim();
+    if (!trimmed) {
+
+      return null;
+    }
+
+    const isHex = /^[0-9a-fA-F]+$/.test(trimmed);
+    if (isHex && trimmed.length % 2 === 0) {
+
+      return Buffer.from(trimmed, "hex");
+    }
+
+    const decoded = Buffer.from(trimmed, "base64");
+    if (decoded.length === 0) {
+
+      return null;
+    }
+
+    return decoded;
   }
 
   private readPushDataLength(

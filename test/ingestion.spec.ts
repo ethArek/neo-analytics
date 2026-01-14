@@ -126,7 +126,19 @@ describe('IngestionService', () => {
               { from: 'a', to: 'b', asset: 'NEO', amount: '1' },
               { from: 'b', to: 'a', asset: 'GAS', amount: '10' },
             ],
-            raw: {},
+            raw: {
+              applicationLog: {
+                executions: [
+                  {
+                    notifications: [
+                      {
+                        eventname: 'Swapped',
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
           },
           {
             txid: 'transfer-1',
@@ -171,10 +183,10 @@ describe('IngestionService', () => {
     const gasAsset = prisma.dailyAssetStatData.find((asset) => asset.asset === 'GAS');
     expect(neoAsset?.transferCount).toBe(1);
     expect(neoAsset?.txCount).toBe(1);
-    expect(neoAsset?.volumeRaw).toBe(1n);
+    expect(neoAsset?.volumeRaw).toBe('1');
     expect(gasAsset?.transferCount).toBe(2);
     expect(gasAsset?.txCount).toBe(2);
-    expect(gasAsset?.volumeRaw).toBe(12n);
+    expect(gasAsset?.volumeRaw).toBe('12');
 
     expect(prisma.dailyMethodStatData).toHaveLength(1);
     expect(prisma.dailyMethodStatData[0].method).toBe('swap');

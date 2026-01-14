@@ -5,6 +5,7 @@ export enum ClassifiedType {
   NORMAL_TRANSFER = 'NORMAL_TRANSFER',
   GAS_CLAIM = 'GAS_CLAIM',
   IGNORED = 'IGNORED',
+  OTHER = 'OTHER',
 }
 
 export type ClassifierConfig = {
@@ -20,28 +21,79 @@ export type ClassifiedResult = {
 
 const normalize = (value?: string) => value?.toLowerCase() ?? '';
 
-export const defaultSwapMethods = ['swap', 'swaptoken', 'swapTokens', 'swapExactTokens'];
+export const defaultSwapMethods = [
+  'swap',
+  'swaptoken',
+  'swaptokens',
+  'swapexacttokens',
+  'swaptokensforexacttokens',
+  'swapexacttokensfortokens',
+];
+
+const isRecord = (value: unknown): value is Record<string, unknown> => {
+  return typeof value === 'object' && value !== null;
+};
+
+const getDexNotificationName = (raw: Record<string, unknown>): string | null => {
+  const applicationLog = raw.applicationLog;
+  if (!isRecord(applicationLog)) {
+
+    return null;
+  }
+
+  const executions = applicationLog.executions;
+  if (!Array.isArray(executions)) {
+
+    return null;
+  }
+
+  for (const execution of executions) {
+    if (!isRecord(execution)) {
+      continue;
+    }
+
+    const notifications = execution.notifications;
+    if (!Array.isArray(notifications)) {
+      continue;
+    }
+
+    for (const notification of notifications) {
+      if (!isRecord(notification)) {
+        continue;
+      }
+
+      const eventName = notification.eventname;
+      if (typeof eventName !== 'string') {
+        continue;
+      }
+
+      const normalized = normalize(eventName);
+      if (normalized === 'swapped' || normalized === 'orderupdated') {
+
+        return eventName;
+      }
+    }
+  }
+
+  return null;
+};
 
 export const classifyTransaction = (
   tx: NeoTransaction,
   config: ClassifierConfig,
 ): ClassifiedResult => {
-  const invocation = tx.invocation;
   const transfers = tx.transfers ?? [];
+  void config;
 
-  if (invocation) {
-    const method = normalize(invocation.method);
-    const isSwapMethod = config.swapMethodAllowlist.map(normalize).includes(method);
-
-    // Detect swap based on transaction data:
-    // - Has a swap-like method invocation
-    // - Has at least 2 transfers (representing the token exchange)
-    if (isSwapMethod && transfers.length >= 2) {
+  const raw = tx.raw;
+  if (isRecord(raw)) {
+    const dexNotification = getDexNotificationName(raw);
+    if (dexNotification) {
       return {
         type: ClassifiedType.SWAP,
         from: transfers[0]?.from,
         to: transfers[0]?.to,
-        reason: 'Detected swap: multiple transfers with swap method invocation.',
+        reason: `Detected swap: dex notification (${dexNotification}).`,
       };
     }
   }
@@ -50,7 +102,7 @@ export const classifyTransaction = (
   // - GAS transfer with no 'from' address (or undefined/null)
   // - This pattern indicates GAS being distributed from the system
   const gasClaimTransfer = transfers.find(
-    (transfer) => transfer.asset === 'GAS' && (!transfer.from || transfer.from.trim() === '')
+    (transfer) => transfer.asset === 'GAS' && (!transfer.from || transfer.from.trim() === ''),
   );
   if (gasClaimTransfer && gasClaimTransfer.to) {
     return {
@@ -61,11 +113,16 @@ export const classifyTransaction = (
     };
   }
 
-  const primaryTransfer = transfers.find((transfer) => transfer.asset === 'NEO' || transfer.asset === 'GAS');
+  const primaryTransfer = transfers.find((transfer) => transfer.asset === 'NEO' || transfer.asset === 'GAS')
+    ?? transfers[0];
   if (primaryTransfer) {
     const from = primaryTransfer.from;
     const to = primaryTransfer.to;
-    const amount = primaryTransfer.amount ? Number(primaryTransfer.amount) : undefined;
+    const amountText = primaryTransfer.amount?.trim();
+    const amount =
+      amountText && amountText !== '' && /^-?\d+(\.\d+)?$/.test(amountText)
+        ? Number(amountText)
+        : undefined;
 
     if (from && to && normalize(from) === normalize(to)) {
       return {
@@ -89,12 +146,12 @@ export const classifyTransaction = (
       type: ClassifiedType.NORMAL_TRANSFER,
       from,
       to,
-      reason: 'Native transfer matched.',
+      reason: 'NEP-17 transfer matched.',
     };
   }
 
   return {
-    type: ClassifiedType.IGNORED,
+    type: ClassifiedType.OTHER,
     reason: 'No matching swap, gas claim, or transfer.',
   };
 };

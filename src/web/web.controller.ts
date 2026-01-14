@@ -94,7 +94,7 @@ export class WebController {
     const formattedTransactions = transactions.map((tx) => ({
       ...tx,
       timestampLabel: new Date(tx.timestamp).toISOString(),
-      amountLabel: this.formatAmount(tx.asset, tx.amountRaw ?? 0n),
+      amountLabel: this.formatAmount(tx.asset, tx.amountRaw),
       shortTxid: this.shortenAddress(tx.txid),
     }));
 
@@ -224,17 +224,70 @@ export class WebController {
     return `${value.slice(0, 6)}...${value.slice(-4)}`;
   }
 
-  private formatAmount(asset: string | null | undefined, value: bigint) {
+  private formatAmount(asset: string | null | undefined, value: unknown) {
+    const raw = this.toIntegerString(value);
+
     if (!asset) {
 
-      return formatUnits(value, 0);
+      return raw;
     }
 
     if (asset === 'GAS') {
 
-      return formatUnits(value, 8);
+      return this.formatUnitsSafe(raw, 8);
     }
 
-    return formatUnits(value, 0);
+    if (asset === 'NEO') {
+
+      return this.formatUnitsSafe(raw, 0);
+    }
+
+    return raw;
+  }
+
+  private formatUnitsSafe(value: string, decimals: number): string {
+    try {
+
+      return formatUnits(BigInt(value), decimals);
+    } catch (error) {
+
+      return value;
+    }
+  }
+
+  private toIntegerString(value: unknown): string {
+    if (value === undefined || value === null) {
+
+      return '0';
+    }
+
+    if (typeof value === 'bigint') {
+
+      return value.toString();
+    }
+
+    if (typeof value === 'number') {
+      if (!Number.isFinite(value)) {
+
+        return '0';
+      }
+
+      return Math.trunc(value).toString();
+    }
+
+    if (typeof value === 'string') {
+
+      return value;
+    }
+
+    if (typeof value === 'object' && 'toFixed' in value) {
+      const candidate = (value as { toFixed?: unknown }).toFixed;
+      if (typeof candidate === 'function') {
+
+        return candidate.call(value, 0);
+      }
+    }
+
+    return '0';
   }
 }

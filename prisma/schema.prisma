@@ -12,6 +12,7 @@ enum TxType {
   NORMAL_TRANSFER
   GAS_CLAIM
   IGNORED
+  OTHER
 }
 
 model DailyStat {
@@ -42,7 +43,7 @@ model DailyTx {
   from      String?
   to        String?
   asset     String?
-  amountRaw BigInt?
+  amountRaw Decimal? @db.Decimal(100, 0)
   transferCount Int @default(0)
   method    String?
   contract  String?
@@ -60,7 +61,7 @@ model DailyTransfer {
   txid          String
   transferIndex Int
   asset         String
-  amountRaw     BigInt
+  amountRaw     Decimal @db.Decimal(100, 0)
   from          String?
   to            String?
   createdAt     DateTime @default(now())
@@ -80,7 +81,7 @@ model DailyAssetStat {
   txCount         Int      @default(0)
   uniqueSenders   Int      @default(0)
   uniqueReceivers Int      @default(0)
-  volumeRaw       BigInt   @default(0)
+  volumeRaw       Decimal  @default(0) @db.Decimal(100, 0)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

@@ -1,0 +1,9 @@
+-- AlterTable
+ALTER TABLE "DailyAssetStat" ALTER COLUMN "volumeRaw" SET DEFAULT 0,
+ALTER COLUMN "volumeRaw" SET DATA TYPE DECIMAL(100,0);
+
+-- AlterTable
+ALTER TABLE "DailyTransfer" ALTER COLUMN "amountRaw" SET DATA TYPE DECIMAL(100,0);
+
+-- AlterTable
+ALTER TABLE "DailyTx" ALTER COLUMN "amountRaw" SET DATA TYPE DECIMAL(100,0);

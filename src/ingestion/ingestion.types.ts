@@ -7,7 +7,7 @@ export type DailyTxRecord = {
   from?: string;
   to?: string;
   asset?: string;
-  amountRaw?: bigint;
+  amountRaw?: string;
   transferCount: number;
   method?: string;
   contract?: string;
@@ -21,7 +21,7 @@ export type DailyTransferRecord = {
   txid: string;
   transferIndex: number;
   asset: string;
-  amountRaw: bigint;
+  amountRaw: string;
   from?: string;
   to?: string;
 };
@@ -33,7 +33,7 @@ export type DailyAssetStatRecord = {
   txCount: number;
   uniqueSenders: number;
   uniqueReceivers: number;
-  volumeRaw: bigint;
+  volumeRaw: string;
 };
 
 export type DailyMethodStatRecord = {
