@@ -103,8 +103,8 @@ export class StatsService {
 
       existing.transferCount += record.transferCount;
       existing.txCount += record.txCount;
-      existing.uniqueSenders += record.uniqueSenders;
-      existing.uniqueReceivers += record.uniqueReceivers;
+      existing.uniqueSenders = Math.max(existing.uniqueSenders, record.uniqueSenders);
+      existing.uniqueReceivers = Math.max(existing.uniqueReceivers, record.uniqueReceivers);
       existing.volumeRaw += record.volumeRaw;
     }
 
