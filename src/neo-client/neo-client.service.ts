@@ -86,7 +86,6 @@ export class RpcNeoClient implements NeoClient {
     cursor?: string
   ): Promise<NeoPagedResponse> {
     const range = await this.getBlockRangeForDate(date);
-    console.log(range);
     if (!range) {
 
       return { transactions: [] };

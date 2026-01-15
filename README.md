@@ -1,4 +1,4 @@
-# Neo N3 Real Usage
+# Neo Analytics
 
 A NestJS + Handlebars dashboard that tracks Neo N3 daily activity and classifies it into swaps, normal transfers, and gas claims.
 
@@ -10,7 +10,7 @@ A NestJS + Handlebars dashboard that tracks Neo N3 daily activity and classifies
 ## Environment variables
 
 ```bash
-DATABASE_URL="postgresql://user:password@localhost:5432/neo_usage"
+NEO_DATABASE_URL="postgresql://user:password@localhost:5432/neo_usage"
 NEO_NETWORK=MainNet
 RPC_ENDPOINT_1="https://mainnet1.neo.coz.io"
 RPC_ENDPOINT_2="https://mainnet2.neo.coz.io"
@@ -57,6 +57,7 @@ The RPC implementation uses JSON-RPC calls to scan blocks by date and extract NE
 notifications for transactions (`src/neo-client/neo-client.service.ts`).
 
 It relies on:
+
 - `getblockcount`
 - `getblock`
 - `getapplicationlog`

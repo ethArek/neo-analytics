@@ -1,27 +1,27 @@
 import { ConfigService } from '@nestjs/config';
 import { IngestionService } from '../src/ingestion/ingestion.service';
 import {
-  DailyAssetStatRecord,
+  DailyAssetStatCreateRecord,
   DailyContractStatRecord,
   DailyMethodStatRecord,
-  DailyStatRecord,
-  DailyTransferRecord,
-  DailyTxRecord,
+  DailyStatUpsertRecord,
+  DailyTransferCreateRecord,
+  DailyTxCreateRecord,
   IngestionPrismaClient,
 } from '../src/ingestion/ingestion.types';
 import { NeoClient } from '../src/neo-client/neo-client.interface';
 
 class FakePrismaService implements IngestionPrismaClient {
-  dailyTxData: DailyTxRecord[] = [];
-  dailyTransferData: DailyTransferRecord[] = [];
-  dailyAssetStatData: DailyAssetStatRecord[] = [];
+  dailyTxData: DailyTxCreateRecord[] = [];
+  dailyTransferData: DailyTransferCreateRecord[] = [];
+  dailyAssetStatData: DailyAssetStatCreateRecord[] = [];
   dailyMethodStatData: DailyMethodStatRecord[] = [];
   dailyContractStatData: DailyContractStatRecord[] = [];
-  dailyStatData: Record<string, DailyStatRecord> = {};
+  dailyStatData: Record<string, DailyStatUpsertRecord> = {};
   ingestionCursorData: Record<string, { lastProcessedBlock?: number; lastProcessedTimestamp?: Date }> = {};
 
   dailyTx = {
-    createMany: async ({ data }: { data: DailyTxRecord[] }) => {
+    createMany: async ({ data }: { data: DailyTxCreateRecord[]; skipDuplicates?: boolean }) => {
       this.dailyTxData = data;
     },
     deleteMany: async ({ where }: { where: { date: Date } }) => {
@@ -30,7 +30,7 @@ class FakePrismaService implements IngestionPrismaClient {
   };
 
   dailyTransfer = {
-    createMany: async ({ data }: { data: DailyTransferRecord[] }) => {
+    createMany: async ({ data }: { data: DailyTransferCreateRecord[]; skipDuplicates?: boolean }) => {
       this.dailyTransferData = data;
     },
     deleteMany: async ({ where }: { where: { date: Date } }) => {
@@ -41,7 +41,7 @@ class FakePrismaService implements IngestionPrismaClient {
   };
 
   dailyAssetStat = {
-    createMany: async ({ data }: { data: DailyAssetStatRecord[] }) => {
+    createMany: async ({ data }: { data: DailyAssetStatCreateRecord[] }) => {
       this.dailyAssetStatData = data;
     },
     deleteMany: async ({ where }: { where: { date: Date } }) => {
@@ -80,8 +80,8 @@ class FakePrismaService implements IngestionPrismaClient {
       create,
     }: {
       where: { date: Date };
-      update: DailyStatRecord;
-      create: DailyStatRecord;
+      update: DailyStatUpsertRecord;
+      create: DailyStatUpsertRecord;
     }) => {
       const key = where.date.toISOString();
       this.dailyStatData[key] = { ...create, ...update };
@@ -163,18 +163,18 @@ describe('IngestionService', () => {
     expect(stat.uniqueSenders).toBe(2);
     expect(stat.uniqueReceivers).toBe(2);
     expect(stat.uniqueAddresses).toBe(2);
-    expect(stat.neoVolumeRaw).toBe(1n);
-    expect(stat.gasVolumeRaw).toBe(12n);
+    expect(BigInt(stat.neoVolumeRaw)).toBe(1n);
+    expect(BigInt(stat.gasVolumeRaw)).toBe(12n);
     expect(stat.blockCount).toBe(2);
 
     const neoAsset = prisma.dailyAssetStatData.find((asset) => asset.asset === 'NEO');
     const gasAsset = prisma.dailyAssetStatData.find((asset) => asset.asset === 'GAS');
     expect(neoAsset?.transferCount).toBe(1);
     expect(neoAsset?.txCount).toBe(1);
-    expect(neoAsset?.volumeRaw).toBe(1n);
+    expect(neoAsset ? BigInt(neoAsset.volumeRaw) : null).toBe(1n);
     expect(gasAsset?.transferCount).toBe(2);
     expect(gasAsset?.txCount).toBe(2);
-    expect(gasAsset?.volumeRaw).toBe(12n);
+    expect(gasAsset ? BigInt(gasAsset.volumeRaw) : null).toBe(12n);
 
     expect(prisma.dailyMethodStatData).toHaveLength(1);
     expect(prisma.dailyMethodStatData[0].method).toBe('swap');
@@ -183,5 +183,42 @@ describe('IngestionService', () => {
     expect(prisma.dailyContractStatData).toHaveLength(1);
     expect(prisma.dailyContractStatData[0].contract).toBe('0xanycontract');
     expect(prisma.dailyContractStatData[0].txCount).toBe(1);
+  });
+
+  it('persists values exceeding int64 safely', async () => {
+    const hugeAmount = '1008014113209251463173';
+    const neoClient: NeoClient = {
+      fetchTransactionsForDay: async () => ({
+        transactions: [
+          {
+            txid: 'huge-neo-transfer',
+            timestamp: new Date().toISOString(),
+            blockIndex: 42,
+            transfers: [{ from: 'a', to: 'b', asset: 'NEO', amount: hugeAmount }],
+            raw: { amountRaw: BigInt(hugeAmount) },
+          },
+        ],
+      }),
+    };
+
+    const prisma = new FakePrismaService();
+    const configService = new ConfigService({
+      app: {
+        neoNetwork: 'MainNet',
+      },
+    });
+
+    const service = new IngestionService(neoClient, prisma, configService);
+    await service.ingestDay('2024-05-02');
+
+    expect(prisma.dailyTxData).toHaveLength(1);
+    expect(prisma.dailyTxData[0].amountRaw).toBe(hugeAmount);
+    expect(prisma.dailyTxData[0].rawJson).toEqual({ amountRaw: hugeAmount });
+    expect(prisma.dailyTransferData).toHaveLength(1);
+    expect(prisma.dailyTransferData[0].amountRaw).toBe(hugeAmount);
+
+    const stat = prisma.dailyStatData[new Date(Date.UTC(2024, 4, 2)).toISOString()];
+    expect(stat.neoVolumeRaw).toBe(hugeAmount);
+    expect(stat.gasVolumeRaw).toBe('0');
   });
 });
