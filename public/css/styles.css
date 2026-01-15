@@ -53,15 +53,6 @@ body::before {
   margin-bottom: 32px;
 }
 
-.eyebrow {
-  font-size: 0.85rem;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--accent-2);
-  font-weight: 600;
-  margin: 0 0 12px;
-}
-
 h1,
 h2,
 h3 {
@@ -71,7 +62,7 @@ h3 {
 }
 
 h1 {
-  font-size: clamp(2rem, 3vw, 3rem);
+  font-size: clamp(2.4rem, 3.4vw, 3.4rem);
   line-height: 1.1;
 }
 
@@ -90,11 +81,27 @@ h3 {
   max-width: 520px;
 }
 
+.hero-meta {
+  color: var(--muted);
+  margin: 10px 0 0;
+  max-width: 560px;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
 .hero-actions {
   display: flex;
   flex-direction: column;
   gap: 12px;
   align-items: flex-end;
+}
+
+.hero-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-end;
 }
 
 .range-form {
@@ -142,13 +149,24 @@ h3 {
   box-shadow: 0 12px 24px rgba(249, 115, 22, 0.25);
 }
 
+.button.secondary {
+  background: rgba(31, 27, 22, 0.06);
+  color: var(--ink);
+  box-shadow: none;
+  border: 1px solid var(--stroke);
+}
+
+.button.secondary:hover {
+  transform: translateY(-1px);
+}
+
 .button:hover {
   transform: translateY(-1px);
 }
 
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
   margin-bottom: 32px;
 }
@@ -204,6 +222,8 @@ h3 {
   padding: 16px 18px 22px;
   box-shadow: var(--shadow);
   min-height: 260px;
+  display: flex;
+  flex-direction: column;
 }
 
 .chart-card.wide {
@@ -214,12 +234,68 @@ h3 {
   grid-column: span 2;
 }
 
+.chart-card.full {
+  grid-column: span 6;
+}
+
 .chart-title {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
   margin-bottom: 12px;
   color: var(--muted);
+}
+
+.title-with-tip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tooltip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 1px solid var(--stroke);
+  background: rgba(31, 27, 22, 0.04);
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: help;
+  user-select: none;
+}
+
+.tooltip::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 10px);
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 260px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(31, 27, 22, 0.92);
+  color: #fffdfa;
+  font-size: 0.82rem;
+  font-weight: 500;
+  line-height: 1.35;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.tooltip:hover::after,
+.tooltip:focus::after,
+.tooltip:focus-visible::after {
+  opacity: 1;
 }
 
 .chart-title span {
@@ -228,9 +304,24 @@ h3 {
   letter-spacing: 0.08em;
 }
 
-.chart-canvas {
+.chart-area {
+  position: relative;
   width: 100%;
   height: 220px;
+}
+
+.chart-card.wide .chart-area {
+  height: 260px;
+}
+
+.chart-card.tall .chart-area {
+  height: 240px;
+}
+
+.chart-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 .list-grid {
@@ -317,6 +408,14 @@ h3 {
   border-bottom: none;
 }
 
+.table tbody tr:nth-child(even) td {
+  background: rgba(31, 27, 22, 0.015);
+}
+
+.table tbody tr:hover td {
+  background: rgba(31, 27, 22, 0.03);
+}
+
 .mono {
   font-family: "SFMono-Regular", "Consolas", "Liberation Mono", monospace;
   font-size: 0.85rem;
@@ -351,6 +450,24 @@ h3 {
   }
 }
 
+a:focus-visible,
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid rgba(14, 165, 164, 0.55);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-animate] {
+    animation: none;
+    opacity: 1;
+  }
+
+  .button {
+    transition: none;
+  }
+}
+
 @media (max-width: 900px) {
   .hero {
     flex-direction: column;
@@ -361,13 +478,24 @@ h3 {
     align-items: flex-start;
   }
 
+  .hero-links {
+    justify-content: flex-start;
+  }
+
   .chart-grid {
     grid-template-columns: repeat(1, 1fr);
   }
 
   .chart-card,
   .chart-card.wide,
-  .chart-card.tall {
+  .chart-card.tall,
+  .chart-card.full {
     grid-column: span 1;
+  }
+}
+
+@media (max-width: 680px) {
+  .summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
