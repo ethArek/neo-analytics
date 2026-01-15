@@ -11,7 +11,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   constructor(private readonly configService: ConfigService) {
     const connectionString = configService.get<string>('app.databaseUrl');
     if (!connectionString) {
-      throw new Error('NEO_DATABASE_URL is not configured');
+      throw new Error('Database URL is not configured (app.databaseUrl)');
     }
 
     const pool = new Pool({ connectionString });
