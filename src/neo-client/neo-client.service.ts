@@ -162,7 +162,6 @@ export class RpcNeoClient implements NeoClient {
             blockIndex,
             blockTime,
             tx,
-            applicationLog,
           },
         });
       }
