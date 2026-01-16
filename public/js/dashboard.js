@@ -16,7 +16,7 @@
   const withAlpha = (rgbValue, alpha) => `rgba(${rgbValue}, ${alpha})`;
 
   Chart.defaults.font.family = '"IBM Plex Sans", "Segoe UI", sans-serif';
-  Chart.defaults.color = getCssVar('--ink', '#0f2a1c');
+  Chart.defaults.color = getCssVar('--ink', '#0a1f14');
   Chart.defaults.borderColor = getCssVar('--chart-border', 'rgba(15, 42, 28, 0.12)');
 
   const getContext = (id) => {
@@ -28,7 +28,7 @@
     return canvas.getContext('2d');
   };
 
-  const accent = getCssVar('--accent', '#22c55e');
+  const accent = getCssVar('--accent', '#16a34a');
 
   const swapColor = '#f97316';
   const swapRgb = '249, 115, 22';
