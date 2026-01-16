@@ -38,7 +38,7 @@ export class WebController {
       return {
         stats: labeledStats,
         totals: this.formatTotals(totals),
-        chartData: JSON.stringify(this.buildChartData(labeledStats, [], [], [])),
+        chartData: JSON.stringify(this.buildChartData(labeledStats, [])),
         rangeLabel: 'No data available',
         rangeFrom: '',
         rangeTo: '',
@@ -49,21 +49,18 @@ export class WebController {
 
     const rangeFrom = formatDate(range.from);
     const rangeTo = formatDate(range.to);
-    const [assetStats, methodStats, contractStats, topSenders, topReceivers, addressTotals] =
-      await Promise.all([
-        this.statsService.getAssetStatsRange(rangeFrom, rangeTo),
-        this.statsService.getMethodStatsRange(rangeFrom, rangeTo),
-        this.statsService.getContractStatsRange(rangeFrom, rangeTo),
-        this.statsService.getTopAddresses(rangeFrom, rangeTo, 'from', 6),
-        this.statsService.getTopAddresses(rangeFrom, rangeTo, 'to', 6),
-        this.statsService.getUniqueAddressStatsRange(rangeFrom, rangeTo),
-      ]);
+    const [assetStats, topSenders, topReceivers, addressTotals] = await Promise.all([
+      this.statsService.getAssetStatsRange(rangeFrom, rangeTo),
+      this.statsService.getTopAddresses(rangeFrom, rangeTo, 'from', 6),
+      this.statsService.getTopAddresses(rangeFrom, rangeTo, 'to', 6),
+      this.statsService.getUniqueAddressStatsRange(rangeFrom, rangeTo),
+    ]);
 
     totals.uniqueSenders = addressTotals.uniqueSenders;
     totals.uniqueReceivers = addressTotals.uniqueReceivers;
     totals.uniqueAddresses = addressTotals.uniqueAddresses;
 
-    const chartData = this.buildChartData(labeledStats, assetStats, methodStats, contractStats);
+    const chartData = this.buildChartData(labeledStats, assetStats);
 
     return {
       stats: labeledStats,
@@ -82,6 +79,41 @@ export class WebController {
         shortAddress: this.shortenAddress(entry.address),
         transferCount: formatNumber(entry.transferCount),
       })),
+    };
+  }
+
+  @Get('/days')
+  @Render('days')
+  async days(@Query('from') from?: string, @Query('to') to?: string) {
+    const { stats, range } = await this.statsService.getRangeOrLatest(from, to, 90);
+    const labeledStats = stats.map((stat) => ({
+      ...stat,
+      dateLabel: formatDate(stat.date),
+      totalTxCountLabel: formatNumber(stat.totalTxCount),
+      swapsCountLabel: formatNumber(stat.swapsCount),
+      transfersCountLabel: formatNumber(stat.transfersCount),
+      gasClaimsCountLabel: formatNumber(stat.gasClaimsCount),
+      realUsageTotalLabel: formatNumber(stat.realUsageTotal),
+    }));
+
+    if (!range) {
+
+      return {
+        stats: labeledStats,
+        rangeLabel: 'No data available',
+        rangeFrom: '',
+        rangeTo: '',
+      };
+    }
+
+    const rangeFrom = formatDate(range.from);
+    const rangeTo = formatDate(range.to);
+
+    return {
+      stats: labeledStats,
+      rangeLabel: `${rangeFrom} to ${rangeTo}`,
+      rangeFrom,
+      rangeTo,
     };
   }
 
@@ -175,8 +207,6 @@ export class WebController {
   private buildChartData(
     stats: Array<Awaited<ReturnType<StatsService['getLatestStats']>>[number] & { dateLabel: string }>,
     assetStats: Awaited<ReturnType<StatsService['getAssetStatsRange']>>,
-    methodStats: Awaited<ReturnType<StatsService['getMethodStatsRange']>>,
-    contractStats: Awaited<ReturnType<StatsService['getContractStatsRange']>>,
   ) {
     const labels = stats.map((stat) => stat.dateLabel);
     const assetsSorted = [...assetStats].sort((a, b) => b.transferCount - a.transferCount);
@@ -197,6 +227,7 @@ export class WebController {
         transfers: stats.map((stat) => stat.transfersCount),
         gasClaims: stats.map((stat) => stat.gasClaimsCount),
         realUsage: stats.map((stat) => stat.realUsageTotal),
+        totalTxs: stats.map((stat) => stat.totalTxCount),
         activeAddresses: stats.map((stat) => stat.uniqueAddresses),
         neoVolume: stats.map((stat) => toNumber(stat.neoVolumeRaw, 0)),
         gasVolume: stats.map((stat) => toNumber(stat.gasVolumeRaw, 8)),
@@ -205,8 +236,6 @@ export class WebController {
         labels: assetLabels,
         values: assetValues,
       },
-      methods: methodStats.slice(0, 8),
-      contracts: contractStats.slice(0, 8),
     };
   }
 

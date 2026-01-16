@@ -1,4 +1,5 @@
 import { ClassifiedType } from '../classifier/classifier';
+import { Prisma } from '@prisma/client';
 
 export type DailyTxRecord = {
   date: Date;
@@ -16,6 +17,11 @@ export type DailyTxRecord = {
   rawJson: Record<string, unknown>;
 };
 
+export type DailyTxCreateRecord = Omit<DailyTxRecord, 'amountRaw' | 'rawJson'> & {
+  amountRaw?: string;
+  rawJson: Prisma.InputJsonValue;
+};
+
 export type DailyTransferRecord = {
   date: Date;
   txid: string;
@@ -26,6 +32,10 @@ export type DailyTransferRecord = {
   to?: string;
 };
 
+export type DailyTransferCreateRecord = Omit<DailyTransferRecord, 'amountRaw'> & {
+  amountRaw: string;
+};
+
 export type DailyAssetStatRecord = {
   date: Date;
   asset: string;
@@ -34,6 +44,10 @@ export type DailyAssetStatRecord = {
   uniqueSenders: number;
   uniqueReceivers: number;
   volumeRaw: bigint;
+};
+
+export type DailyAssetStatCreateRecord = Omit<DailyAssetStatRecord, 'volumeRaw'> & {
+  volumeRaw: string;
 };
 
 export type DailyMethodStatRecord = {
@@ -65,17 +79,22 @@ export type DailyStatRecord = {
   blockCount: number;
 };
 
+export type DailyStatUpsertRecord = Omit<DailyStatRecord, 'neoVolumeRaw' | 'gasVolumeRaw'> & {
+  neoVolumeRaw: string;
+  gasVolumeRaw: string;
+};
+
 export type IngestionPrismaClient = {
   dailyTx: {
-    createMany: (args: { data: DailyTxRecord[]; skipDuplicates?: boolean }) => Promise<unknown>;
+    createMany: (args: { data: DailyTxCreateRecord[]; skipDuplicates?: boolean }) => Promise<unknown>;
     deleteMany: (args: { where: { date: Date } }) => Promise<unknown>;
   };
   dailyTransfer: {
-    createMany: (args: { data: DailyTransferRecord[]; skipDuplicates?: boolean }) => Promise<unknown>;
+    createMany: (args: { data: DailyTransferCreateRecord[]; skipDuplicates?: boolean }) => Promise<unknown>;
     deleteMany: (args: { where: { date: Date } }) => Promise<unknown>;
   };
   dailyAssetStat: {
-    createMany: (args: { data: DailyAssetStatRecord[] }) => Promise<unknown>;
+    createMany: (args: { data: DailyAssetStatCreateRecord[] }) => Promise<unknown>;
     deleteMany: (args: { where: { date: Date } }) => Promise<unknown>;
   };
   dailyMethodStat: {
@@ -89,8 +108,8 @@ export type IngestionPrismaClient = {
   dailyStat: {
     upsert: (args: {
       where: { date: Date };
-      update: DailyStatRecord;
-      create: DailyStatRecord;
+      update: DailyStatUpsertRecord;
+      create: DailyStatUpsertRecord;
     }) => Promise<unknown>;
     deleteMany: (args: { where: { date: Date } }) => Promise<unknown>;
   };

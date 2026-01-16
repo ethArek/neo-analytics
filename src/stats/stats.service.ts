@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
+import { decimalToBigInt } from '../common/prisma-decimal';
 import { parseDate } from '../ingestion/date-utils';
 
 export type AggregatedAssetStat = {
@@ -28,8 +29,24 @@ export type UniqueAddressStats = {
   uniqueAddresses: number;
 };
 
+type DailyStatRow = Awaited<ReturnType<PrismaService['dailyStat']['findMany']>>[number];
+export type DailyStatWithBigInt = Omit<DailyStatRow, 'neoVolumeRaw' | 'gasVolumeRaw'> & {
+  neoVolumeRaw: bigint;
+  gasVolumeRaw: bigint;
+};
+
+type DailyTxRow = Awaited<ReturnType<PrismaService['dailyTx']['findMany']>>[number];
+export type DailyTxWithBigInt = Omit<DailyTxRow, 'amountRaw'> & {
+  amountRaw: bigint | null;
+};
+
+type DailyAssetStatRow = Awaited<ReturnType<PrismaService['dailyAssetStat']['findMany']>>[number];
+export type DailyAssetStatWithBigInt = Omit<DailyAssetStatRow, 'volumeRaw'> & {
+  volumeRaw: bigint;
+};
+
 export type StatsRange = {
-  stats: Awaited<ReturnType<PrismaService['dailyStat']['findMany']>>;
+  stats: DailyStatWithBigInt[];
   range?: { from: Date; to: Date };
 };
 
@@ -37,15 +54,17 @@ export type StatsRange = {
 export class StatsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getLatestStats(limit = 30) {
-    return this.prisma.dailyStat.findMany({
+  async getLatestStats(limit = 30): Promise<DailyStatWithBigInt[]> {
+    const stats = await this.prisma.dailyStat.findMany({
       orderBy: { date: 'desc' },
       take: limit,
     });
+
+    return stats.map((stat) => this.mapDailyStat(stat));
   }
 
-  async getStatsRange(from: string, to: string) {
-    return this.prisma.dailyStat.findMany({
+  async getStatsRange(from: string, to: string): Promise<DailyStatWithBigInt[]> {
+    const stats = await this.prisma.dailyStat.findMany({
       where: {
         date: {
           gte: parseDate(from),
@@ -54,22 +73,28 @@ export class StatsService {
       },
       orderBy: { date: 'asc' },
     });
+
+    return stats.map((stat) => this.mapDailyStat(stat));
   }
 
-  async getRangeOrLatest(from?: string, to?: string, limit = 30): Promise<StatsRange> {
+  async getRangeOrLatest(
+    from?: string,
+    to?: string,
+    limit = 30
+  ): Promise<StatsRange> {
     if (from && to) {
       const stats = await this.getStatsRange(from, to);
-
       return { stats, range: { from: parseDate(from), to: parseDate(to) } };
     }
 
     const latest = await this.getLatestStats(limit);
-    const ordered = [...latest].sort((a, b) => a.date.getTime() - b.date.getTime());
+    const ordered = [...latest].sort(
+      (a, b) => a.date.getTime() - b.date.getTime()
+    );
     const rangeFrom = ordered[0]?.date;
     const rangeTo = ordered[ordered.length - 1]?.date;
 
     if (!rangeFrom || !rangeTo) {
-
       return { stats: ordered };
     }
 
@@ -77,38 +102,57 @@ export class StatsService {
   }
 
   async getAssetStatsRange(from: string, to: string): Promise<AggregatedAssetStat[]> {
-    const records = await this.prisma.dailyAssetStat.findMany({
-      where: {
-        date: {
-          gte: parseDate(from),
-          lte: parseDate(to),
+    const dateRange = {
+      gte: parseDate(from),
+      lte: parseDate(to),
+    };
+    const [grouped, uniqueSenders, uniqueReceivers] = await Promise.all([
+      this.prisma.dailyAssetStat.groupBy({
+        by: ["asset"],
+        where: { date: dateRange },
+        _sum: {
+          transferCount: true,
+          txCount: true,
+          volumeRaw: true,
         },
-      },
-    });
-    const assetMap = new Map<string, AggregatedAssetStat>();
-
-    for (const record of records) {
-      const existing = assetMap.get(record.asset);
-      if (!existing) {
-        assetMap.set(record.asset, {
-          asset: record.asset,
-          transferCount: record.transferCount,
-          txCount: record.txCount,
-          uniqueSenders: record.uniqueSenders,
-          uniqueReceivers: record.uniqueReceivers,
-          volumeRaw: record.volumeRaw,
-        });
-        continue;
-      }
-
-      existing.transferCount += record.transferCount;
-      existing.txCount += record.txCount;
-      existing.uniqueSenders = Math.max(existing.uniqueSenders, record.uniqueSenders);
-      existing.uniqueReceivers = Math.max(existing.uniqueReceivers, record.uniqueReceivers);
-      existing.volumeRaw += record.volumeRaw;
+      }),
+      this.prisma.dailyTransfer.groupBy({
+        by: ["asset", "from"],
+        where: {
+          date: dateRange,
+          from: { not: null, notIn: [""] },
+        },
+      }),
+      this.prisma.dailyTransfer.groupBy({
+        by: ["asset", "to"],
+        where: {
+          date: dateRange,
+          to: { not: null, notIn: [""] },
+        },
+      }),
+    ]);
+    const senderCountByAsset = new Map<string, number>();
+    for (const row of uniqueSenders) {
+      const current = senderCountByAsset.get(row.asset) ?? 0;
+      senderCountByAsset.set(row.asset, current + 1);
     }
 
-    return Array.from(assetMap.values()).sort((a, b) => {
+    const receiverCountByAsset = new Map<string, number>();
+    for (const row of uniqueReceivers) {
+      const current = receiverCountByAsset.get(row.asset) ?? 0;
+      receiverCountByAsset.set(row.asset, current + 1);
+    }
+
+    const aggregated = grouped.map((row) => ({
+      asset: row.asset,
+      transferCount: row._sum.transferCount ?? 0,
+      txCount: row._sum.txCount ?? 0,
+      uniqueSenders: senderCountByAsset.get(row.asset) ?? 0,
+      uniqueReceivers: receiverCountByAsset.get(row.asset) ?? 0,
+      volumeRaw: decimalToBigInt(row._sum.volumeRaw),
+    }));
+
+    return aggregated.sort((a, b) => {
       if (a.volumeRaw === b.volumeRaw) {
 
         return 0;
@@ -118,7 +162,10 @@ export class StatsService {
     });
   }
 
-  async getMethodStatsRange(from: string, to: string): Promise<AggregatedCount[]> {
+  async getMethodStatsRange(
+    from: string,
+    to: string
+  ): Promise<AggregatedCount[]> {
     const records = await this.prisma.dailyMethodStat.findMany({
       where: {
         date: {
@@ -138,7 +185,10 @@ export class StatsService {
     return this.sortCounts(methodMap);
   }
 
-  async getContractStatsRange(from: string, to: string): Promise<AggregatedCount[]> {
+  async getContractStatsRange(
+    from: string,
+    to: string
+  ): Promise<AggregatedCount[]> {
     const records = await this.prisma.dailyContractStat.findMany({
       where: {
         date: {
@@ -162,7 +212,7 @@ export class StatsService {
     from: string,
     to: string,
     direction: 'from' | 'to',
-    limit = 8,
+    limit = 8
   ): Promise<TopAddress[]> {
     const dateRange = {
       gte: parseDate(from),
@@ -185,7 +235,7 @@ export class StatsService {
       return grouped.map((row) => ({
         address: row.from ?? '',
         transferCount: row._count.from ?? 0,
-        volumeRaw: row._sum.amountRaw ?? 0n,
+        volumeRaw: decimalToBigInt(row._sum.amountRaw),
       }));
     }
 
@@ -204,30 +254,33 @@ export class StatsService {
     return grouped.map((row) => ({
       address: row.to ?? '',
       transferCount: row._count.to ?? 0,
-      volumeRaw: row._sum.amountRaw ?? 0n,
+      volumeRaw: decimalToBigInt(row._sum.amountRaw),
     }));
   }
 
-  async getUniqueAddressStatsRange(from: string, to: string): Promise<UniqueAddressStats> {
+  async getUniqueAddressStatsRange(
+    from: string,
+    to: string
+  ): Promise<UniqueAddressStats> {
     const [senders, receivers] = await Promise.all([
       this.prisma.dailyTransfer.groupBy({
-        by: ['from'],
+        by: ["from"],
         where: {
           date: {
             gte: parseDate(from),
             lte: parseDate(to),
           },
-          from: { not: null, notIn: [''] },
+          from: { not: null, notIn: [""] },
         },
       }),
       this.prisma.dailyTransfer.groupBy({
-        by: ['to'],
+        by: ["to"],
         where: {
           date: {
             gte: parseDate(from),
             lte: parseDate(to),
           },
-          to: { not: null, notIn: [''] },
+          to: { not: null, notIn: [""] },
         },
       }),
     ]);
@@ -244,23 +297,51 @@ export class StatsService {
 
   async getDayDetails(date: string) {
     const day = parseDate(date);
-    const [stat, transactions, assetStats, methodStats, contractStats] = await Promise.all([
-      this.prisma.dailyStat.findUnique({ where: { date: day } }),
-      this.prisma.dailyTx.findMany({
-        where: { date: day },
-        orderBy: { timestamp: 'asc' },
-      }),
-      this.prisma.dailyAssetStat.findMany({ where: { date: day } }),
-      this.prisma.dailyMethodStat.findMany({ where: { date: day } }),
-      this.prisma.dailyContractStat.findMany({ where: { date: day } }),
-    ]);
+    const [stat, transactions, assetStats, methodStats, contractStats] =
+      await Promise.all([
+        this.prisma.dailyStat.findUnique({ where: { date: day } }),
+        this.prisma.dailyTx.findMany({
+          where: { date: day },
+          orderBy: { timestamp: 'asc' },
+        }),
+        this.prisma.dailyAssetStat.findMany({ where: { date: day } }),
+        this.prisma.dailyMethodStat.findMany({ where: { date: day } }),
+        this.prisma.dailyContractStat.findMany({ where: { date: day } }),
+      ]);
 
-    return { stat, transactions, assetStats, methodStats, contractStats };
+    const normalizedStat = stat ? this.mapDailyStat(stat) : null;
+    const normalizedTransactions: DailyTxWithBigInt[] = transactions.map((transaction) => ({
+      ...transaction,
+      amountRaw: transaction.amountRaw === null ? null : decimalToBigInt(transaction.amountRaw),
+    }));
+    const normalizedAssetStats: DailyAssetStatWithBigInt[] = assetStats.map((assetStat) => ({
+      ...assetStat,
+      volumeRaw: decimalToBigInt(assetStat.volumeRaw),
+    }));
+
+    return {
+      stat: normalizedStat,
+      transactions: normalizedTransactions,
+      assetStats: normalizedAssetStats,
+      methodStats,
+      contractStats,
+    };
   }
 
   private sortCounts(map: Map<string, number>): AggregatedCount[] {
-    const entries = Array.from(map.entries()).map(([key, count]) => ({ key, count }));
+    const entries = Array.from(map.entries()).map(([key, count]) => ({
+      key,
+      count,
+    }));
 
     return entries.sort((a, b) => b.count - a.count);
+  }
+
+  private mapDailyStat(stat: DailyStatRow): DailyStatWithBigInt {
+    return {
+      ...stat,
+      neoVolumeRaw: decimalToBigInt(stat.neoVolumeRaw),
+      gasVolumeRaw: decimalToBigInt(stat.gasVolumeRaw),
+    };
   }
 }

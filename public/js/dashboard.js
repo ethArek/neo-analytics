@@ -29,18 +29,63 @@
     return colors;
   };
 
-  const { labels, series, assets, methods, contracts } = data;
+  const toNumberSafe = (value) => {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+
+      return value;
+    }
+
+    if (typeof value === 'bigint') {
+
+      return Number(value);
+    }
+
+    if (typeof value === 'string') {
+      const parsed = Number(value.replace(/,/g, ''));
+      if (Number.isFinite(parsed)) {
+
+        return parsed;
+      }
+    }
+
+    return 0;
+  };
+
+  const normalizeSeries = (value, labelsCount, fallback) => {
+    if (Array.isArray(value)) {
+
+      return value.map((entry) => toNumberSafe(entry));
+    }
+
+    if (typeof fallback === 'function') {
+
+      return normalizeSeries(fallback(), labelsCount);
+    }
+
+    return Array.from({ length: labelsCount }, () => 0);
+  };
+
+  const createChart = (ctx, config) => {
+    const existing = Chart.getChart(ctx.canvas);
+    if (existing) {
+      existing.destroy();
+    }
+
+    return new Chart(ctx, config);
+  };
+
+  const { labels, series, assets } = data;
 
   const realUsageCtx = getContext('chart-real-usage');
   if (realUsageCtx) {
-    new Chart(realUsageCtx, {
+    createChart(realUsageCtx, {
       type: 'line',
       data: {
         labels,
         datasets: [
           {
             label: 'Real usage',
-            data: series.realUsage,
+            data: normalizeSeries(series.realUsage, labels.length),
             borderColor: '#f97316',
             backgroundColor: 'rgba(249, 115, 22, 0.2)',
             fill: true,
@@ -64,24 +109,24 @@
 
   const typeCtx = getContext('chart-types');
   if (typeCtx) {
-    new Chart(typeCtx, {
+    createChart(typeCtx, {
       type: 'bar',
       data: {
         labels,
         datasets: [
           {
             label: 'Swaps',
-            data: series.swaps,
+            data: normalizeSeries(series.swaps, labels.length),
             backgroundColor: 'rgba(249, 115, 22, 0.7)',
           },
           {
             label: 'Transfers',
-            data: series.transfers,
+            data: normalizeSeries(series.transfers, labels.length),
             backgroundColor: 'rgba(14, 165, 164, 0.7)',
           },
           {
             label: 'Gas claims',
-            data: series.gasClaims,
+            data: normalizeSeries(series.gasClaims, labels.length),
             backgroundColor: 'rgba(245, 158, 11, 0.7)',
           },
         ],
@@ -101,14 +146,14 @@
 
   const addressCtx = getContext('chart-addresses');
   if (addressCtx) {
-    new Chart(addressCtx, {
+    createChart(addressCtx, {
       type: 'line',
       data: {
         labels,
         datasets: [
           {
             label: 'Active addresses',
-            data: series.activeAddresses,
+            data: normalizeSeries(series.activeAddresses, labels.length),
             borderColor: '#0ea5a4',
             backgroundColor: 'rgba(14, 165, 164, 0.2)',
             fill: true,
@@ -130,9 +175,79 @@
     });
   }
 
+  const totalTxCtx = getContext('chart-total-txs');
+  if (totalTxCtx) {
+    const fallbackTotalTxs = () =>
+      labels.map((_, index) => {
+        const realUsage = toNumberSafe(series.realUsage?.[index]);
+        const gasClaims = toNumberSafe(series.gasClaims?.[index]);
+
+        return realUsage + gasClaims;
+      });
+
+    createChart(totalTxCtx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'Total transactions',
+            data: normalizeSeries(series.totalTxs, labels.length, fallbackTotalTxs),
+            borderColor: '#2563eb',
+            backgroundColor: 'rgba(37, 99, 235, 0.18)',
+            fill: true,
+            tension: 0.35,
+            borderWidth: 2,
+            pointRadius: 0,
+          },
+        ],
+      },
+      options: {
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+        },
+        scales: {
+          y: { beginAtZero: true },
+        },
+      },
+    });
+  }
+
+  const swapsCtx = getContext('chart-swaps');
+  if (swapsCtx) {
+    createChart(swapsCtx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'Swaps',
+            data: normalizeSeries(series.swaps, labels.length),
+            borderColor: '#f59e0b',
+            backgroundColor: 'rgba(245, 158, 11, 0.18)',
+            fill: true,
+            tension: 0.35,
+            borderWidth: 2,
+            pointRadius: 0,
+          },
+        ],
+      },
+      options: {
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+        },
+        scales: {
+          y: { beginAtZero: true },
+        },
+      },
+    });
+  }
+
   const assetCtx = getContext('chart-assets');
   if (assetCtx) {
-    new Chart(assetCtx, {
+    createChart(assetCtx, {
       type: 'doughnut',
       data: {
         labels: assets.labels,
@@ -150,62 +265,6 @@
           legend: { position: 'bottom' },
         },
         cutout: '65%',
-      },
-    });
-  }
-
-  const methodCtx = getContext('chart-methods');
-  if (methodCtx) {
-    new Chart(methodCtx, {
-      type: 'bar',
-      data: {
-        labels: methods.map((entry) => entry.key),
-        datasets: [
-          {
-            label: 'Invocations',
-            data: methods.map((entry) => entry.count),
-            backgroundColor: 'rgba(14, 165, 164, 0.7)',
-            borderRadius: 8,
-          },
-        ],
-      },
-      options: {
-        maintainAspectRatio: false,
-        indexAxis: 'y',
-        plugins: {
-          legend: { display: false },
-        },
-        scales: {
-          x: { beginAtZero: true },
-        },
-      },
-    });
-  }
-
-  const contractCtx = getContext('chart-contracts');
-  if (contractCtx) {
-    new Chart(contractCtx, {
-      type: 'bar',
-      data: {
-        labels: contracts.map((entry) => entry.key),
-        datasets: [
-          {
-            label: 'Invocations',
-            data: contracts.map((entry) => entry.count),
-            backgroundColor: 'rgba(249, 115, 22, 0.7)',
-            borderRadius: 8,
-          },
-        ],
-      },
-      options: {
-        maintainAspectRatio: false,
-        indexAxis: 'y',
-        plugins: {
-          legend: { display: false },
-        },
-        scales: {
-          x: { beginAtZero: true },
-        },
       },
     });
   }

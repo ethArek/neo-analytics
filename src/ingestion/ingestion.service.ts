@@ -4,14 +4,19 @@ import { ClassifiedType, classifyTransaction, defaultSwapMethods } from '../clas
 import { PrismaService } from '../common/prisma.service';
 import { NeoClient, NeoTransaction, NeoTransfer } from '../neo-client/neo-client.interface';
 import { NEO_CLIENT } from '../neo-client/neo-client.provider';
+import { Prisma } from '@prisma/client';
 import { formatDate, parseDate } from './date-utils';
 import {
   DailyAssetStatRecord,
+  DailyAssetStatCreateRecord,
   DailyContractStatRecord,
   DailyMethodStatRecord,
   DailyStatRecord,
+  DailyStatUpsertRecord,
   DailyTransferRecord,
+  DailyTransferCreateRecord,
   DailyTxRecord,
+  DailyTxCreateRecord,
   IngestionPrismaClient,
 } from './ingestion.types';
 
@@ -324,6 +329,25 @@ export class IngestionService {
   }
 
   private async saveDailySummary(day: Date, summary: DailySummary): Promise<void> {
+    const dailyTxData: DailyTxCreateRecord[] = summary.dailyTx.map((record) => ({
+      ...record,
+      amountRaw: record.amountRaw?.toString(),
+      rawJson: this.toJsonValue(record.rawJson),
+    }));
+    const dailyTransfersData: DailyTransferCreateRecord[] = summary.dailyTransfers.map((transfer) => ({
+      ...transfer,
+      amountRaw: transfer.amountRaw.toString(),
+    }));
+    const dailyAssetStatsData: DailyAssetStatCreateRecord[] = summary.dailyAssetStats.map((stat) => ({
+      ...stat,
+      volumeRaw: stat.volumeRaw.toString(),
+    }));
+    const dailyStatData: DailyStatUpsertRecord = {
+      ...summary.dailyStat,
+      neoVolumeRaw: summary.dailyStat.neoVolumeRaw.toString(),
+      gasVolumeRaw: summary.dailyStat.gasVolumeRaw.toString(),
+    };
+
     await this.prisma.$transaction(async (tx) => {
       await tx.dailyTx.deleteMany({ where: { date: day } });
       await tx.dailyTransfer.deleteMany({ where: { date: day } });
@@ -332,16 +356,16 @@ export class IngestionService {
       await tx.dailyContractStat.deleteMany({ where: { date: day } });
       await tx.dailyStat.deleteMany({ where: { date: day } });
 
-      if (summary.dailyTx.length > 0) {
-        await tx.dailyTx.createMany({ data: summary.dailyTx, skipDuplicates: true });
+      if (dailyTxData.length > 0) {
+        await tx.dailyTx.createMany({ data: dailyTxData, skipDuplicates: true });
       }
 
-      if (summary.dailyTransfers.length > 0) {
-        await tx.dailyTransfer.createMany({ data: summary.dailyTransfers, skipDuplicates: true });
+      if (dailyTransfersData.length > 0) {
+        await tx.dailyTransfer.createMany({ data: dailyTransfersData, skipDuplicates: true });
       }
 
-      if (summary.dailyAssetStats.length > 0) {
-        await tx.dailyAssetStat.createMany({ data: summary.dailyAssetStats });
+      if (dailyAssetStatsData.length > 0) {
+        await tx.dailyAssetStat.createMany({ data: dailyAssetStatsData });
       }
 
       if (summary.dailyMethodStats.length > 0) {
@@ -354,8 +378,8 @@ export class IngestionService {
 
       await tx.dailyStat.upsert({
         where: { date: day },
-        update: summary.dailyStat,
-        create: summary.dailyStat,
+        update: dailyStatData,
+        create: dailyStatData,
       });
     });
   }
@@ -520,6 +544,98 @@ export class IngestionService {
 
       return null;
     }
+  }
+
+  private toJsonValue(value: unknown): Prisma.InputJsonValue {
+    const serialized = this.serializeJsonValue(value, new WeakSet());
+    if (serialized === null) {
+      return {};
+    }
+
+    return serialized;
+  }
+
+  private serializeJsonValue(value: unknown, seen: WeakSet<object>): Prisma.InputJsonValue | null {
+    if (value === null || value === undefined) {
+      return null;
+    }
+
+    if (typeof value === 'string' || typeof value === 'boolean') {
+      return value;
+    }
+
+    if (typeof value === 'number') {
+      if (!Number.isFinite(value)) {
+        return null;
+      }
+
+      return value;
+    }
+
+    if (typeof value === 'bigint') {
+      return value.toString();
+    }
+
+    if (value instanceof Date) {
+      return value.toISOString();
+    }
+
+    if (Buffer.isBuffer(value)) {
+      return `0x${value.toString('hex')}`;
+    }
+
+    if (value instanceof Uint8Array) {
+      return `0x${Buffer.from(value).toString('hex')}`;
+    }
+
+    if (Array.isArray(value)) {
+      const result: Array<Prisma.InputJsonValue | null> = [];
+      for (const entry of value) {
+        result.push(this.serializeJsonValue(entry, seen));
+      }
+
+      return result;
+    }
+
+    if (value instanceof Map) {
+      const result: Array<Prisma.InputJsonValue | null> = [];
+      for (const [key, mapValue] of value.entries()) {
+        result.push([String(key), this.serializeJsonValue(mapValue, seen)]);
+      }
+
+      return result;
+    }
+
+    if (value instanceof Set) {
+      const result: Array<Prisma.InputJsonValue | null> = [];
+      for (const entry of value.values()) {
+        result.push(this.serializeJsonValue(entry, seen));
+      }
+
+      return result;
+    }
+
+    if (typeof value !== 'object') {
+      return String(value);
+    }
+
+    if (seen.has(value)) {
+      return '[Circular]';
+    }
+
+    seen.add(value);
+    const recordValue = value as Record<string, unknown>;
+    const result: Record<string, Prisma.InputJsonValue | null> = {};
+    for (const [key, entry] of Object.entries(recordValue)) {
+      if (entry === undefined) {
+        continue;
+      }
+
+      result[key] = this.serializeJsonValue(entry, seen);
+    }
+    seen.delete(value);
+
+    return result;
   }
 
   private resolveBlockCount(
