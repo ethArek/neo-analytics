@@ -1,184 +1,226 @@
-<!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Neo Analytics</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link
-    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap"
-    rel="stylesheet"
-  />
-  <link rel="stylesheet" href="/css/styles.css" />
-</head>
-<body>
-  <main class="container">
-    <header class="hero" data-animate style="--delay: 0s;">
-      <div>
-        <h1>Neo Analytics</h1>
-        <p class="subtitle">Analytics for the Neo N3 blockchain.</p>
-        <p class="hero-meta">
-          Range: {{rangeLabel}}.
-        </p>
-      </div>
-      <div class="hero-actions">
-        <form class="range-form" method="get">
-          <label>
-            From
-            <input type="date" name="from" value="{{rangeFrom}}" />
-          </label>
-          <label>
-            To
-            <input type="date" name="to" value="{{rangeTo}}" />
-          </label>
-          <button class="button" type="submit">Apply</button>
-        </form>
-        <div class="hero-links">
-          <a class="button secondary" href="/days?from={{rangeFrom}}&to={{rangeTo}}">Daily table</a>
-          <span class="pill">{{rangeLabel}}</span>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Neo Analytics</title>
+    <script>
+      (function() { const savedTheme = localStorage.getItem('neo-theme'); if
+      (savedTheme === 'dark' || (!savedTheme &&
+      window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.setAttribute('data-theme', 'dark'); } })();
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <header class="hero" data-animate style="--delay: 0s;">
+        <div>
+          <h1>Neo Analytics</h1>
+          <p class="subtitle">Analytics for the Neo N3 blockchain.</p>
+          <p class="hero-meta">
+            Range:
+            {{rangeLabel}}.
+          </p>
         </div>
-      </div>
-    </header>
-
-    <section class="summary-grid">
-      <div class="card accent" data-animate style="--delay: 0.05s;">
-        <span>Real usage total</span>
-        <strong>{{totals.realUsage}}</strong>
-        <small>Swaps + transfers</small>
-      </div>
-      <div class="card" data-animate style="--delay: 0.1s;">
-        <span>Total transactions</span>
-        <strong>{{totals.totalTxs}}</strong>
-        <small>All scanned blocks</small>
-      </div>
-      <div class="card" data-animate style="--delay: 0.15s;">
-        <span>Active addresses</span>
-        <strong>{{totals.activeAddresses}}</strong>
-        <small>Unique senders + receivers</small>
-      </div>
-      <div class="card" data-animate style="--delay: 0.2s;">
-        <span>NEO volume</span>
-        <strong>{{totals.neoVolume}}</strong>
-        <small>Raw units</small>
-      </div>
-      <div class="card" data-animate style="--delay: 0.25s;">
-        <span>GAS volume</span>
-        <strong>{{totals.gasVolume}}</strong>
-        <small>Raw units</small>
-      </div>
-      <div class="card" data-animate style="--delay: 0.3s;">
-        <span>Blocks scanned</span>
-        <strong>{{totals.blocks}}</strong>
-        <small>Daily totals</small>
-      </div>
-    </section>
-
-    <section class="chart-grid">
-      <div class="chart-card wide" data-animate style="--delay: 0.05s;">
-        <div class="chart-title">
-          <h3 class="title-with-tip">
-            Real usage trend
-            <span
-              class="tooltip"
-              tabindex="0"
-              role="note"
-              aria-label="Real usage excludes self-transfers and gas claims."
-              data-tooltip="Real usage excludes self-transfers and gas claims."
+        <div class="hero-actions">
+          <form class="range-form" method="get">
+            <label>
+              From
+              <input type="date" name="from" value="{{rangeFrom}}" />
+            </label>
+            <label>
+              To
+              <input type="date" name="to" value="{{rangeTo}}" />
+            </label>
+            <button class="button" type="submit">Apply</button>
+          </form>
+          <div class="hero-links">
+            <a
+              class="button secondary"
+              href="/days?from={{rangeFrom}}&to={{rangeTo}}"
+            >Daily table</a>
+            <span class="pill">{{rangeLabel}}</span>
+            <button
+              class="theme-toggle"
+              id="theme-toggle"
+              type="button"
+              aria-label="Toggle dark mode"
+              title="Toggle dark mode"
             >
-              ?
-            </span>
-          </h3>
-          <span>Swaps + transfers</span>
+              <svg
+                class="sun-icon"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
+                <path
+                  d="M12 2.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75zM7.5 12a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM18.894 6.166a.75.75 0 00-1.06-1.06l-1.591 1.59a.75.75 0 101.06 1.061l1.591-1.59zM21.75 12a.75.75 0 01-.75.75h-2.25a.75.75 0 010-1.5H21a.75.75 0 01.75.75zM17.834 18.894a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 10-1.061 1.06l1.59 1.591zM12 18a.75.75 0 01.75.75V21a.75.75 0 01-1.5 0v-2.25A.75.75 0 0112 18zM7.758 17.303a.75.75 0 00-1.061-1.06l-1.591 1.59a.75.75 0 001.06 1.061l1.591-1.59zM6 12a.75.75 0 01-.75.75H3a.75.75 0 010-1.5h2.25A.75.75 0 016 12zM6.697 7.757a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 00-1.061 1.06l1.59 1.591z"
+                />
+              </svg>
+              <svg
+                class="moon-icon"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M9.528 1.718a.75.75 0 01.162.819A8.97 8.97 0 009 6a9 9 0 009 9 8.97 8.97 0 003.463-.69.75.75 0 01.981.98 10.503 10.503 0 01-9.694 6.46c-5.799 0-10.5-4.701-10.5-10.5 0-4.368 2.667-8.112 6.46-9.694a.75.75 0 01.818.162z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+            </button>
+          </div>
         </div>
-        <div class="chart-area">
-          <canvas id="chart-real-usage" class="chart-canvas"></canvas>
-        </div>
-      </div>
-      <div class="chart-card tall" data-animate style="--delay: 0.1s;">
-        <div class="chart-title">
-          <h3>Mix by type</h3>
-          <span>Daily</span>
-        </div>
-        <div class="chart-area">
-          <canvas id="chart-types" class="chart-canvas"></canvas>
-        </div>
-      </div>
-      <div class="chart-card" data-animate style="--delay: 0.12s;">
-        <div class="chart-title">
-          <h3>Total transactions</h3>
-          <span>Per day</span>
-        </div>
-        <div class="chart-area">
-          <canvas id="chart-total-txs" class="chart-canvas"></canvas>
-        </div>
-      </div>
-      <div class="chart-card" data-animate style="--delay: 0.14s;">
-        <div class="chart-title">
-          <h3>Swaps</h3>
-          <span>Per day</span>
-        </div>
-        <div class="chart-area">
-          <canvas id="chart-swaps" class="chart-canvas"></canvas>
-        </div>
-      </div>
-      <div class="chart-card" data-animate style="--delay: 0.15s;">
-        <div class="chart-title">
-          <h3>Active addresses</h3>
-          <span>Unique</span>
-        </div>
-        <div class="chart-area">
-          <canvas id="chart-addresses" class="chart-canvas"></canvas>
-        </div>
-      </div>
-      <div class="chart-card" data-animate style="--delay: 0.2s;">
-        <div class="chart-title">
-          <h3>Transfer activity by asset</h3>
-          <span>Top assets</span>
-        </div>
-        <div class="chart-area">
-          <canvas id="chart-assets" class="chart-canvas"></canvas>
-        </div>
-      </div>
-    </section>
+      </header>
 
-    <section class="list-grid">
-      <div class="list-card" data-animate style="--delay: 0.35s;">
-        <h3>Top senders</h3>
-        <ul>
-          {{#each topSenders}}
-          <li>
-            <div>
-              <div class="mono">{{this.shortAddress}}</div>
-              <small>{{this.address}}</small>
-            </div>
-            <strong>{{this.transferCount}}</strong>
-          </li>
-          {{/each}}
-        </ul>
-      </div>
-      <div class="list-card" data-animate style="--delay: 0.4s;">
-        <h3>Top receivers</h3>
-        <ul>
-          {{#each topReceivers}}
-          <li>
-            <div>
-              <div class="mono">{{this.shortAddress}}</div>
-              <small>{{this.address}}</small>
-            </div>
-            <strong>{{this.transferCount}}</strong>
-          </li>
-          {{/each}}
-        </ul>
-      </div>
-    </section>
+      <section class="summary-grid">
+        <div class="card accent" data-animate style="--delay: 0.05s;">
+          <span>Real usage total</span>
+          <strong>{{totals.realUsage}}</strong>
+          <small>Swaps + transfers</small>
+        </div>
+        <div class="card" data-animate style="--delay: 0.1s;">
+          <span>Total transactions</span>
+          <strong>{{totals.totalTxs}}</strong>
+          <small>All scanned blocks</small>
+        </div>
+        <div class="card" data-animate style="--delay: 0.15s;">
+          <span>Active addresses</span>
+          <strong>{{totals.activeAddresses}}</strong>
+          <small>Unique senders + receivers</small>
+        </div>
+        <div class="card" data-animate style="--delay: 0.2s;">
+          <span>NEO volume</span>
+          <strong>{{totals.neoVolume}}</strong>
+          <small>Raw units</small>
+        </div>
+        <div class="card" data-animate style="--delay: 0.25s;">
+          <span>GAS volume</span>
+          <strong>{{totals.gasVolume}}</strong>
+          <small>Raw units</small>
+        </div>
+        <div class="card" data-animate style="--delay: 0.3s;">
+          <span>Blocks scanned</span>
+          <strong>{{totals.blocks}}</strong>
+          <small>Daily totals</small>
+        </div>
+      </section>
 
-  </main>
+      <section class="chart-grid">
+        <div class="chart-card wide" data-animate style="--delay: 0.05s;">
+          <div class="chart-title">
+            <h3 class="title-with-tip">
+              Real usage trend
+              <span
+                class="tooltip"
+                tabindex="0"
+                role="note"
+                aria-label="Real usage excludes self-transfers and gas claims."
+                data-tooltip="Real usage excludes self-transfers and gas claims."
+              >
+                ?
+              </span>
+            </h3>
+            <span>Swaps + transfers</span>
+          </div>
+          <div class="chart-area">
+            <canvas id="chart-real-usage" class="chart-canvas"></canvas>
+          </div>
+        </div>
+        <div class="chart-card tall" data-animate style="--delay: 0.1s;">
+          <div class="chart-title">
+            <h3>Mix by type</h3>
+            <span>Daily</span>
+          </div>
+          <div class="chart-area">
+            <canvas id="chart-types" class="chart-canvas"></canvas>
+          </div>
+        </div>
+        <div class="chart-card" data-animate style="--delay: 0.12s;">
+          <div class="chart-title">
+            <h3>Total transactions</h3>
+            <span>Per day</span>
+          </div>
+          <div class="chart-area">
+            <canvas id="chart-total-txs" class="chart-canvas"></canvas>
+          </div>
+        </div>
+        <div class="chart-card" data-animate style="--delay: 0.14s;">
+          <div class="chart-title">
+            <h3>Swaps</h3>
+            <span>Per day</span>
+          </div>
+          <div class="chart-area">
+            <canvas id="chart-swaps" class="chart-canvas"></canvas>
+          </div>
+        </div>
+        <div class="chart-card" data-animate style="--delay: 0.15s;">
+          <div class="chart-title">
+            <h3>Active addresses</h3>
+            <span>Unique</span>
+          </div>
+          <div class="chart-area">
+            <canvas id="chart-addresses" class="chart-canvas"></canvas>
+          </div>
+        </div>
+        <div class="chart-card" data-animate style="--delay: 0.2s;">
+          <div class="chart-title">
+            <h3>Transfer activity by asset</h3>
+            <span>Top assets</span>
+          </div>
+          <div class="chart-area">
+            <canvas id="chart-assets" class="chart-canvas"></canvas>
+          </div>
+        </div>
+      </section>
 
-  <script>
-    window.__DASHBOARD__ = {{{chartData}}};
-  </script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <script src="/js/dashboard.js"></script>
-</body>
+      <section class="list-grid">
+        <div class="list-card" data-animate style="--delay: 0.35s;">
+          <h3>Top senders</h3>
+          <ul>
+            {{#each topSenders}}
+              <li>
+                <div>
+                  <div class="mono">{{this.shortAddress}}</div>
+                  <small>{{this.address}}</small>
+                </div>
+                <strong>{{this.transferCount}}</strong>
+              </li>
+            {{/each}}
+          </ul>
+        </div>
+        <div class="list-card" data-animate style="--delay: 0.4s;">
+          <h3>Top receivers</h3>
+          <ul>
+            {{#each topReceivers}}
+              <li>
+                <div>
+                  <div class="mono">{{this.shortAddress}}</div>
+                  <small>{{this.address}}</small>
+                </div>
+                <strong>{{this.transferCount}}</strong>
+              </li>
+            {{/each}}
+          </ul>
+        </div>
+      </section>
+
+    </main>
+
+    <script>
+      window.__DASHBOARD__ =
+      {{{chartData}}};
+    </script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"
+    ></script>
+    <script src="/js/dashboard.js"></script>
+  </body>
 </html>
