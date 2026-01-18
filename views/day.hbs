@@ -10,6 +10,7 @@
     href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap"
     rel="stylesheet"
   />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="/css/styles.css" />
 </head>
 <body>
@@ -28,14 +29,14 @@
     {{#if stat}}
     <section class="summary-grid">
       <div class="card accent" data-animate style="--delay: 0.05s;">
-        <span>Real usage total</span>
-        <strong>{{stat.realUsageTotal}}</strong>
-        <small>Swaps + transfers</small>
-      </div>
-      <div class="card" data-animate style="--delay: 0.1s;">
         <span>Total transactions</span>
         <strong>{{stat.totalTxCount}}</strong>
         <small>All scanned blocks</small>
+      </div>
+      <div class="card" data-animate style="--delay: 0.1s;">
+        <span>Total transactions excluding Gas Claims</span>
+        <strong>{{stat.realUsageTotal}}</strong>
+        <small>Swaps + transfers</small>
       </div>
       <div class="card" data-animate style="--delay: 0.15s;">
         <span>Active addresses</span>
@@ -45,12 +46,10 @@
       <div class="card" data-animate style="--delay: 0.2s;">
         <span>NEO volume</span>
         <strong>{{stat.neoVolume}}</strong>
-        <small>Raw units</small>
       </div>
       <div class="card" data-animate style="--delay: 0.25s;">
         <span>GAS volume</span>
         <strong>{{stat.gasVolume}}</strong>
-        <small>Raw units</small>
       </div>
       <div class="card" data-animate style="--delay: 0.3s;">
         <span>Blocks scanned</span>
