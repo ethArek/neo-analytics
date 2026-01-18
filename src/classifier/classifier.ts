@@ -23,12 +23,10 @@ const normalize = (value?: string) => value?.trim().toLowerCase() ?? '';
 const normalizeHash = (value?: string): string => {
   const normalized = normalize(value);
   if (!normalized) {
-
     return '';
   }
 
   if (normalized.startsWith('0x')) {
-
     return normalized;
   }
 
@@ -64,13 +62,11 @@ const isAllowlistedSwapContract = (contract?: string): boolean => {
 const getSwapContractNotification = (raw: Record<string, unknown>): string | null => {
   const applicationLog = raw.applicationLog;
   if (!isRecord(applicationLog)) {
-
     return null;
   }
 
   const executions = applicationLog.executions;
   if (!Array.isArray(executions)) {
-
     return null;
   }
 
@@ -95,7 +91,6 @@ const getSwapContractNotification = (raw: Record<string, unknown>): string | nul
       }
 
       if (isAllowlistedSwapContract(contract)) {
-
         return contract;
       }
     }
@@ -107,13 +102,11 @@ const getSwapContractNotification = (raw: Record<string, unknown>): string | nul
 const getDexNotificationName = (raw: Record<string, unknown>): string | null => {
   const applicationLog = raw.applicationLog;
   if (!isRecord(applicationLog)) {
-
     return null;
   }
 
   const executions = applicationLog.executions;
   if (!Array.isArray(executions)) {
-
     return null;
   }
 
@@ -139,7 +132,6 @@ const getDexNotificationName = (raw: Record<string, unknown>): string | null => 
 
       const normalized = normalize(eventName);
       if (normalized === 'swapped' || normalized === 'orderupdated' || normalized === 'orderupserted') {
-
         return eventName;
       }
     }
@@ -157,7 +149,6 @@ export const classifyTransaction = (
   const raw = tx.raw;
 
   if (isAllowlistedSwapContract(invocation?.contract)) {
-
     return {
       type: ClassifiedType.SWAP,
       from: transfers[0]?.from,
@@ -172,7 +163,6 @@ export const classifyTransaction = (
     const isSwapMethod = allowlist.has(method);
 
     if (isSwapMethod && transfers.length >= 2) {
-
       return {
         type: ClassifiedType.SWAP,
         from: transfers[0]?.from,
@@ -185,7 +175,6 @@ export const classifyTransaction = (
   if (isRecord(raw)) {
     const swapContract = getSwapContractNotification(raw);
     if (swapContract) {
-
       return {
         type: ClassifiedType.SWAP,
         from: transfers[0]?.from,
@@ -196,7 +185,6 @@ export const classifyTransaction = (
 
     const dexNotification = getDexNotificationName(raw);
     if (dexNotification) {
-
       return {
         type: ClassifiedType.SWAP,
         from: transfers[0]?.from,
@@ -213,7 +201,6 @@ export const classifyTransaction = (
     (transfer) => transfer.asset === 'GAS' && (!transfer.from || transfer.from.trim() === ''),
   );
   if (gasClaimTransfer && gasClaimTransfer.to) {
-
     return {
       type: ClassifiedType.GAS_CLAIM,
       from: gasClaimTransfer.from,
@@ -229,7 +216,6 @@ export const classifyTransaction = (
     const amount = primaryTransfer.amount ? Number(primaryTransfer.amount) : undefined;
 
     if (from && to && normalize(from) === normalize(to)) {
-
       return {
         type: ClassifiedType.IGNORED,
         from,
@@ -239,7 +225,6 @@ export const classifyTransaction = (
     }
 
     if (amount !== undefined && amount <= 0) {
-
       return {
         type: ClassifiedType.IGNORED,
         from,
