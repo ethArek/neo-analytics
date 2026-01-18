@@ -22,7 +22,7 @@ class FakePrismaService implements IngestionPrismaClient {
 
   dailyTx = {
     createMany: async ({ data }: { data: DailyTxCreateRecord[]; skipDuplicates?: boolean }) => {
-      this.dailyTxData = data;
+      this.dailyTxData.push(...data);
     },
     deleteMany: async ({ where }: { where: { date: Date } }) => {
       this.dailyTxData = this.dailyTxData.filter((tx) => tx.date.getTime() !== where.date.getTime());
@@ -31,7 +31,7 @@ class FakePrismaService implements IngestionPrismaClient {
 
   dailyTransfer = {
     createMany: async ({ data }: { data: DailyTransferCreateRecord[]; skipDuplicates?: boolean }) => {
-      this.dailyTransferData = data;
+      this.dailyTransferData.push(...data);
     },
     deleteMany: async ({ where }: { where: { date: Date } }) => {
       this.dailyTransferData = this.dailyTransferData.filter(
