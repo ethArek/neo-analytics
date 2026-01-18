@@ -10,6 +10,7 @@
     href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap"
     rel="stylesheet"
   />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="/css/styles.css" />
 </head>
 <body>
@@ -19,7 +20,8 @@
         <h1>Neo Analytics</h1>
         <p class="subtitle">Analytics for the Neo N3 blockchain.</p>
         <p class="hero-meta">
-          Range: {{rangeLabel}}.
+          <span class="range-caption">Range</span>
+          <span class="range-pill">{{rangeLabel}}</span>
         </p>
       </div>
       <div class="hero-actions">
@@ -43,14 +45,14 @@
 
     <section class="summary-grid">
       <div class="card accent" data-animate style="--delay: 0.05s;">
-        <span>Real usage total</span>
-        <strong>{{totals.realUsage}}</strong>
-        <small>Swaps + transfers</small>
-      </div>
-      <div class="card" data-animate style="--delay: 0.1s;">
         <span>Total transactions</span>
         <strong>{{totals.totalTxs}}</strong>
         <small>All scanned blocks</small>
+      </div>
+      <div class="card" data-animate style="--delay: 0.1s;">
+        <span>Total transactions excluding Gas Claims</span>
+        <strong>{{totals.realUsage}}</strong>
+        <small>Swaps + transfers</small>
       </div>
       <div class="card" data-animate style="--delay: 0.15s;">
         <span>Active addresses</span>
@@ -60,17 +62,15 @@
       <div class="card" data-animate style="--delay: 0.2s;">
         <span>NEO volume</span>
         <strong>{{totals.neoVolume}}</strong>
-        <small>Raw units</small>
       </div>
       <div class="card" data-animate style="--delay: 0.25s;">
         <span>GAS volume</span>
         <strong>{{totals.gasVolume}}</strong>
-        <small>Raw units</small>
       </div>
       <div class="card" data-animate style="--delay: 0.3s;">
         <span>Blocks scanned</span>
         <strong>{{totals.blocks}}</strong>
-        <small>Daily totals</small>
+        <small>Latest day in range</small>
       </div>
     </section>
 
@@ -78,21 +78,21 @@
       <div class="chart-card wide" data-animate style="--delay: 0.05s;">
         <div class="chart-title">
           <h3 class="title-with-tip">
-            Real usage trend
+            Total transactions
             <span
               class="tooltip"
               tabindex="0"
               role="note"
-              aria-label="Real usage excludes self-transfers and gas claims."
-              data-tooltip="Real usage excludes self-transfers and gas claims."
+              aria-label="All scanned blocks."
+              data-tooltip="All scanned blocks."
             >
               ?
             </span>
           </h3>
-          <span>Swaps + transfers</span>
+          <span>Per day</span>
         </div>
         <div class="chart-area">
-          <canvas id="chart-real-usage" class="chart-canvas"></canvas>
+          <canvas id="chart-total-txs" class="chart-canvas"></canvas>
         </div>
       </div>
       <div class="chart-card tall" data-animate style="--delay: 0.1s;">
@@ -106,11 +106,11 @@
       </div>
       <div class="chart-card" data-animate style="--delay: 0.12s;">
         <div class="chart-title">
-          <h3>Total transactions</h3>
+          <h3>Total transactions excluding Gas Claims</h3>
           <span>Per day</span>
         </div>
         <div class="chart-area">
-          <canvas id="chart-total-txs" class="chart-canvas"></canvas>
+          <canvas id="chart-real-usage" class="chart-canvas"></canvas>
         </div>
       </div>
       <div class="chart-card" data-animate style="--delay: 0.14s;">
