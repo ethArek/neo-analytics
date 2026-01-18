@@ -1,11 +1,19 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { ClassifiedType, classifyTransaction, defaultSwapMethods } from '../classifier/classifier';
-import { PrismaService } from '../common/prisma.service';
-import { NeoClient, NeoTransaction, NeoTransfer } from '../neo-client/neo-client.interface';
-import { NEO_CLIENT } from '../neo-client/neo-client.provider';
-import { Prisma } from '@prisma/client';
-import { formatDate, parseDate } from './date-utils';
+import { Inject, Injectable, Logger } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import {
+  ClassifiedType,
+  classifyTransaction,
+  defaultSwapMethods,
+} from "../classifier/classifier";
+import { PrismaService } from "../common/prisma.service";
+import {
+  NeoClient,
+  NeoTransaction,
+  NeoTransfer,
+} from "../neo-client/neo-client.interface";
+import { NEO_CLIENT } from "../neo-client/neo-client.provider";
+import { Prisma } from "@prisma/client";
+import { formatDate, parseDate } from "./date-utils";
 import {
   DailyAssetStatRecord,
   DailyAssetStatCreateRecord,
@@ -18,7 +26,7 @@ import {
   DailyTxRecord,
   DailyTxCreateRecord,
   IngestionPrismaClient,
-} from './ingestion.types';
+} from "./ingestion.types";
 
 type AssetAggregate = {
   transferCount: number;
@@ -85,7 +93,7 @@ export class IngestionService {
   constructor(
     @Inject(NEO_CLIENT) private readonly neoClient: NeoClient,
     @Inject(PrismaService) private readonly prisma: IngestionPrismaClient,
-    private readonly configService: ConfigService,
+    private readonly configService: ConfigService
   ) {}
 
   async ingestDay(date: string): Promise<void> {
@@ -118,10 +126,17 @@ export class IngestionService {
     let blockRange: { start: number; end: number } | undefined;
 
     do {
-      const response = await this.neoClient.fetchTransactionsForDay(date, cursor);
+      const response = await this.neoClient.fetchTransactionsForDay(
+        date,
+        cursor
+      );
       cursor = response.nextCursor;
 
-      if (!blockRange && response.blockStart !== undefined && response.blockEnd !== undefined) {
+      if (
+        !blockRange &&
+        response.blockStart !== undefined &&
+        response.blockEnd !== undefined
+      ) {
         blockRange = { start: response.blockStart, end: response.blockEnd };
       }
 
@@ -130,31 +145,33 @@ export class IngestionService {
 
     await this.flushBuffers(state);
 
-    const dailyAssetStats: DailyAssetStatRecord[] = Array.from(state.assetMap.entries()).map(
-      ([asset, aggregate]) => ({
-        date: day,
-        asset,
-        transferCount: aggregate.transferCount,
-        txCount: aggregate.txCount,
-        uniqueSenders: aggregate.senders.size,
-        uniqueReceivers: aggregate.receivers.size,
-        volumeRaw: aggregate.volumeRaw,
-      }),
-    );
+    const dailyAssetStats: DailyAssetStatRecord[] = Array.from(
+      state.assetMap.entries()
+    ).map(([asset, aggregate]) => ({
+      date: day,
+      asset,
+      transferCount: aggregate.transferCount,
+      txCount: aggregate.txCount,
+      uniqueSenders: aggregate.senders.size,
+      uniqueReceivers: aggregate.receivers.size,
+      volumeRaw: aggregate.volumeRaw,
+    }));
 
-    const dailyMethodStats: DailyMethodStatRecord[] = Array.from(state.methodMap.values()).map((stat) => ({
+    const dailyMethodStats: DailyMethodStatRecord[] = Array.from(
+      state.methodMap.values()
+    ).map((stat) => ({
       date: day,
       method: stat.key,
       txCount: stat.count,
     }));
 
-    const dailyContractStats: DailyContractStatRecord[] = Array.from(state.contractMap.values()).map(
-      (stat) => ({
-        date: day,
-        contract: stat.key,
-        txCount: stat.count,
-      }),
-    );
+    const dailyContractStats: DailyContractStatRecord[] = Array.from(
+      state.contractMap.values()
+    ).map((stat) => ({
+      date: day,
+      contract: stat.key,
+      txCount: stat.count,
+    }));
 
     const blockCount = this.resolveBlockCount(blockRange, state);
     const dailyStat: DailyStatRecord = {
@@ -184,7 +201,8 @@ export class IngestionService {
     });
 
     if (state.lastProcessedBlock !== undefined) {
-      const network = this.configService.get<string>('app.neoNetwork') ?? 'MainNet';
+      const network =
+        this.configService.get<string>("app.neoNetwork") ?? "MainNet";
 
       await this.prisma.ingestionCursor.upsert({
         where: { network },
@@ -203,8 +221,10 @@ export class IngestionService {
     const rangeLabel =
       blockRange && blockRange.start <= blockRange.end
         ? ` (blocks ${blockRange.start}-${blockRange.end})`
-        : '';
-    this.logger.log(`Ingested ${state.totalTxCount} transactions for ${date}${rangeLabel}.`);
+        : "";
+    this.logger.log(
+      `Ingested ${state.totalTxCount} transactions for ${date}${rangeLabel}.`
+    );
   }
 
   async rebuildDay(date: string): Promise<void> {
@@ -223,8 +243,9 @@ export class IngestionService {
     const endIso = end.toISOString();
     this.logger.log(`Starting ingestion window ${startIso} to ${endIso}.`);
 
-    const { transactions, blockRange } = await this.fetchAllTransactionsForRange(start, end);
-    const dateLabel = formatDate(start, 'UTC');
+    const { transactions, blockRange } =
+      await this.fetchAllTransactionsForRange(start, end);
+    const dateLabel = formatDate(start, "UTC");
     const day = parseDate(dateLabel);
     const summary = this.buildDailySummary(transactions, day, blockRange);
 
@@ -233,16 +254,16 @@ export class IngestionService {
     const rangeLabel =
       blockRange && blockRange.start <= blockRange.end
         ? ` (blocks ${blockRange.start}-${blockRange.end})`
-        : '';
+        : "";
     this.logger.log(
-      `Ingested ${transactions.length} transactions for ${dateLabel} (${startIso} to ${endIso})${rangeLabel}.`,
+      `Ingested ${transactions.length} transactions for ${dateLabel} (${startIso} to ${endIso})${rangeLabel}.`
     );
   }
 
   private buildDailySummary(
     transactions: NeoTransaction[],
     day: Date,
-    blockRange?: { start: number; end: number },
+    blockRange?: { start: number; end: number }
   ): DailySummary {
     const dailyTx: DailyTxRecord[] = [];
     const dailyTransfers: DailyTransferRecord[] = [];
@@ -262,7 +283,7 @@ export class IngestionService {
     let maxBlockIndex: number | undefined;
 
     for (const transaction of transactions) {
-      if (typeof transaction.blockIndex === 'number') {
+      if (typeof transaction.blockIndex === "number") {
         minBlockIndex =
           minBlockIndex === undefined
             ? transaction.blockIndex
@@ -344,20 +365,20 @@ export class IngestionService {
 
         assetsInTx.add(asset);
 
-        if (asset === 'NEO') {
+        if (asset === "NEO") {
           neoVolumeRaw += amountRaw;
         }
 
-        if (asset === 'GAS') {
+        if (asset === "GAS") {
           gasVolumeRaw += amountRaw;
         }
 
-        if (from && from !== '') {
+        if (from && from !== "") {
           senders.add(from);
           addresses.add(from);
         }
 
-        if (to && to !== '') {
+        if (to && to !== "") {
           receivers.add(to);
           addresses.add(to);
         }
@@ -370,10 +391,10 @@ export class IngestionService {
           volumeRaw: 0n,
         };
         aggregate.transferCount += 1;
-        if (from && from !== '') {
+        if (from && from !== "") {
           aggregate.senders.add(from);
         }
-        if (to && to !== '') {
+        if (to && to !== "") {
           aggregate.receivers.add(to);
         }
         aggregate.volumeRaw += amountRaw;
@@ -410,33 +431,38 @@ export class IngestionService {
       }
     }
 
-    const dailyAssetStats: DailyAssetStatRecord[] = Array.from(assetMap.entries()).map(
-      ([asset, aggregate]) => ({
-        date: day,
-        asset,
-        transferCount: aggregate.transferCount,
-        txCount: aggregate.txCount,
-        uniqueSenders: aggregate.senders.size,
-        uniqueReceivers: aggregate.receivers.size,
-        volumeRaw: aggregate.volumeRaw,
-      }),
-    );
+    const dailyAssetStats: DailyAssetStatRecord[] = Array.from(
+      assetMap.entries()
+    ).map(([asset, aggregate]) => ({
+      date: day,
+      asset,
+      transferCount: aggregate.transferCount,
+      txCount: aggregate.txCount,
+      uniqueSenders: aggregate.senders.size,
+      uniqueReceivers: aggregate.receivers.size,
+      volumeRaw: aggregate.volumeRaw,
+    }));
 
-    const dailyMethodStats: DailyMethodStatRecord[] = Array.from(methodMap.values()).map((stat) => ({
+    const dailyMethodStats: DailyMethodStatRecord[] = Array.from(
+      methodMap.values()
+    ).map((stat) => ({
       date: day,
       method: stat.key,
       txCount: stat.count,
     }));
 
-    const dailyContractStats: DailyContractStatRecord[] = Array.from(contractMap.values()).map(
-      (stat) => ({
-        date: day,
-        contract: stat.key,
-        txCount: stat.count,
-      }),
-    );
+    const dailyContractStats: DailyContractStatRecord[] = Array.from(
+      contractMap.values()
+    ).map((stat) => ({
+      date: day,
+      contract: stat.key,
+      txCount: stat.count,
+    }));
 
-    const blockCount = this.resolveBlockCount(blockRange, { minBlockIndex, maxBlockIndex });
+    const blockCount = this.resolveBlockCount(blockRange, {
+      minBlockIndex,
+      maxBlockIndex,
+    });
     const dailyStat: DailyStatRecord = {
       date: day,
       totalTxCount: transactions.length,
@@ -464,20 +490,27 @@ export class IngestionService {
     };
   }
 
-  private async saveDailySummary(day: Date, summary: DailySummary): Promise<void> {
-    const dailyTxData: DailyTxCreateRecord[] = summary.dailyTx.map((record) => ({
-      ...record,
-      amountRaw: record.amountRaw?.toString(),
-      rawJson: this.toJsonValue(record.rawJson),
-    }));
-    const dailyTransfersData: DailyTransferCreateRecord[] = summary.dailyTransfers.map((transfer) => ({
-      ...transfer,
-      amountRaw: transfer.amountRaw.toString(),
-    }));
-    const dailyAssetStatsData: DailyAssetStatCreateRecord[] = summary.dailyAssetStats.map((stat) => ({
-      ...stat,
-      volumeRaw: stat.volumeRaw.toString(),
-    }));
+  private async saveDailySummary(
+    day: Date,
+    summary: DailySummary
+  ): Promise<void> {
+    const dailyTxData: DailyTxCreateRecord[] = summary.dailyTx.map(
+      (record) => ({
+        ...record,
+        amountRaw: record.amountRaw?.toString(),
+        rawJson: this.toJsonValue(record.rawJson),
+      })
+    );
+    const dailyTransfersData: DailyTransferCreateRecord[] =
+      summary.dailyTransfers.map((transfer) => ({
+        ...transfer,
+        amountRaw: transfer.amountRaw.toString(),
+      }));
+    const dailyAssetStatsData: DailyAssetStatCreateRecord[] =
+      summary.dailyAssetStats.map((stat) => ({
+        ...stat,
+        volumeRaw: stat.volumeRaw.toString(),
+      }));
     const dailyStatData: DailyStatUpsertRecord = {
       ...summary.dailyStat,
       neoVolumeRaw: summary.dailyStat.neoVolumeRaw.toString(),
@@ -493,11 +526,17 @@ export class IngestionService {
       await tx.dailyStat.deleteMany({ where: { date: day } });
 
       if (dailyTxData.length > 0) {
-        await tx.dailyTx.createMany({ data: dailyTxData, skipDuplicates: true });
+        await tx.dailyTx.createMany({
+          data: dailyTxData,
+          skipDuplicates: true,
+        });
       }
 
       if (dailyTransfersData.length > 0) {
-        await tx.dailyTransfer.createMany({ data: dailyTransfersData, skipDuplicates: true });
+        await tx.dailyTransfer.createMany({
+          data: dailyTransfersData,
+          skipDuplicates: true,
+        });
       }
 
       if (dailyAssetStatsData.length > 0) {
@@ -509,7 +548,9 @@ export class IngestionService {
       }
 
       if (summary.dailyContractStats.length > 0) {
-        await tx.dailyContractStat.createMany({ data: summary.dailyContractStats });
+        await tx.dailyContractStat.createMany({
+          data: summary.dailyContractStats,
+        });
       }
 
       await tx.dailyStat.upsert({
@@ -520,11 +561,15 @@ export class IngestionService {
     });
   }
 
-  private async saveAggregates(day: Date, summary: DailySummary): Promise<void> {
-    const dailyAssetStatsData: DailyAssetStatCreateRecord[] = summary.dailyAssetStats.map((stat) => ({
-      ...stat,
-      volumeRaw: stat.volumeRaw.toString(),
-    }));
+  private async saveAggregates(
+    day: Date,
+    summary: DailySummary
+  ): Promise<void> {
+    const dailyAssetStatsData: DailyAssetStatCreateRecord[] =
+      summary.dailyAssetStats.map((stat) => ({
+        ...stat,
+        volumeRaw: stat.volumeRaw.toString(),
+      }));
     const dailyStatData: DailyStatUpsertRecord = {
       ...summary.dailyStat,
       neoVolumeRaw: summary.dailyStat.neoVolumeRaw.toString(),
@@ -546,7 +591,9 @@ export class IngestionService {
       }
 
       if (summary.dailyContractStats.length > 0) {
-        await tx.dailyContractStat.createMany({ data: summary.dailyContractStats });
+        await tx.dailyContractStat.createMany({
+          data: summary.dailyContractStats,
+        });
       }
 
       await tx.dailyStat.upsert({
@@ -568,11 +615,14 @@ export class IngestionService {
     });
   }
 
-  private async processTransactionBatch(transactions: NeoTransaction[], state: StreamState): Promise<void> {
+  private async processTransactionBatch(
+    transactions: NeoTransaction[],
+    state: StreamState
+  ): Promise<void> {
     for (const transaction of transactions) {
       state.totalTxCount += 1;
 
-      if (typeof transaction.blockIndex === 'number') {
+      if (typeof transaction.blockIndex === "number") {
         state.minBlockIndex =
           state.minBlockIndex === undefined
             ? transaction.blockIndex
@@ -667,20 +717,20 @@ export class IngestionService {
           await this.flushTransferBuffer(state);
         }
 
-        if (asset === 'NEO') {
+        if (asset === "NEO") {
           state.neoVolumeRaw += amountRaw;
         }
 
-        if (asset === 'GAS') {
+        if (asset === "GAS") {
           state.gasVolumeRaw += amountRaw;
         }
 
-        if (from && from !== '') {
+        if (from && from !== "") {
           state.senders.add(from);
           state.addresses.add(from);
         }
 
-        if (to && to !== '') {
+        if (to && to !== "") {
           state.receivers.add(to);
           state.addresses.add(to);
         }
@@ -693,10 +743,10 @@ export class IngestionService {
           volumeRaw: 0n,
         };
         aggregate.transferCount += 1;
-        if (from && from !== '') {
+        if (from && from !== "") {
           aggregate.senders.add(from);
         }
-        if (to && to !== '') {
+        if (to && to !== "") {
           aggregate.receivers.add(to);
         }
         aggregate.volumeRaw += amountRaw;
@@ -742,7 +792,10 @@ export class IngestionService {
       return;
     }
 
-    await this.prisma.dailyTx.createMany({ data: state.txBuffer, skipDuplicates: true });
+    await this.prisma.dailyTx.createMany({
+      data: state.txBuffer,
+      skipDuplicates: true,
+    });
     state.txBuffer.length = 0;
   }
 
@@ -751,18 +804,21 @@ export class IngestionService {
       return;
     }
 
-    await this.prisma.dailyTransfer.createMany({ data: state.transferBuffer, skipDuplicates: true });
+    await this.prisma.dailyTransfer.createMany({
+      data: state.transferBuffer,
+      skipDuplicates: true,
+    });
     state.transferBuffer.length = 0;
   }
 
   private async fetchAllTransactionsForRange(
     start: Date,
-    end: Date,
+    end: Date
   ): Promise<TransactionBatch> {
     if (!this.neoClient.fetchTransactionsForRange) {
-      const fallbackDate = formatDate(start, 'UTC');
+      const fallbackDate = formatDate(start, "UTC");
       this.logger.warn(
-        `Neo client does not support range ingestion; falling back to full day ${fallbackDate}.`,
+        `Neo client does not support range ingestion; falling back to full day ${fallbackDate}.`
       );
 
       return this.fetchAllTransactionsForDay(fallbackDate);
@@ -774,12 +830,20 @@ export class IngestionService {
     let blockRange: { start: number; end: number } | undefined;
 
     do {
-      const response = await this.neoClient.fetchTransactionsForRange(start, end, cursor);
+      const response = await this.neoClient.fetchTransactionsForRange(
+        start,
+        end,
+        cursor
+      );
       transactions.push(...response.transactions);
       nextCursor = response.nextCursor;
       cursor = nextCursor;
 
-      if (!blockRange && response.blockStart !== undefined && response.blockEnd !== undefined) {
+      if (
+        !blockRange &&
+        response.blockStart !== undefined &&
+        response.blockEnd !== undefined
+      ) {
         blockRange = { start: response.blockStart, end: response.blockEnd };
       }
     } while (nextCursor);
@@ -787,19 +851,28 @@ export class IngestionService {
     return { transactions, blockRange };
   }
 
-  private async fetchAllTransactionsForDay(date: string): Promise<TransactionBatch> {
+  private async fetchAllTransactionsForDay(
+    date: string
+  ): Promise<TransactionBatch> {
     const transactions: NeoTransaction[] = [];
     let cursor: string | undefined;
     let nextCursor: string | undefined;
     let blockRange: { start: number; end: number } | undefined;
 
     do {
-      const response = await this.neoClient.fetchTransactionsForDay(date, cursor);
+      const response = await this.neoClient.fetchTransactionsForDay(
+        date,
+        cursor
+      );
       transactions.push(...response.transactions);
       nextCursor = response.nextCursor;
       cursor = nextCursor;
 
-      if (!blockRange && response.blockStart !== undefined && response.blockEnd !== undefined) {
+      if (
+        !blockRange &&
+        response.blockStart !== undefined &&
+        response.blockEnd !== undefined
+      ) {
         blockRange = { start: response.blockStart, end: response.blockEnd };
       }
     } while (nextCursor);
@@ -807,26 +880,27 @@ export class IngestionService {
     return { transactions, blockRange };
   }
 
-  private getPrimaryTransfer(transfers: NeoTransfer[]): NeoTransfer | undefined {
+  private getPrimaryTransfer(
+    transfers: NeoTransfer[]
+  ): NeoTransfer | undefined {
     if (transfers.length === 0) {
-
       return undefined;
     }
 
-    const primary = transfers.find((transfer) => transfer.asset === 'NEO' || transfer.asset === 'GAS');
+    const primary = transfers.find(
+      (transfer) => transfer.asset === "NEO" || transfer.asset === "GAS"
+    );
 
     return primary ?? transfers[0];
   }
 
   private normalizeMethod(method?: string): string | undefined {
     if (!method) {
-
       return undefined;
     }
 
     const trimmed = method.trim();
     if (!trimmed) {
-
       return undefined;
     }
 
@@ -835,19 +909,16 @@ export class IngestionService {
 
   private normalizeContract(contract?: string): string | undefined {
     if (!contract) {
-
       return undefined;
     }
 
     const trimmed = contract.trim();
     if (!trimmed) {
-
       return undefined;
     }
 
     const lower = trimmed.toLowerCase();
-    if (lower.startsWith('0x')) {
-
+    if (lower.startsWith("0x")) {
       return lower;
     }
 
@@ -856,25 +927,21 @@ export class IngestionService {
 
   private normalizeAsset(asset?: string): string | undefined {
     if (!asset) {
-
       return undefined;
     }
 
     const trimmed = asset.trim();
     if (!trimmed) {
-
       return undefined;
     }
 
     const upper = trimmed.toUpperCase();
-    if (upper === 'NEO' || upper === 'GAS') {
-
+    if (upper === "NEO" || upper === "GAS") {
       return upper;
     }
 
     const lower = trimmed.toLowerCase();
-    if (lower.startsWith('0x')) {
-
+    if (lower.startsWith("0x")) {
       return lower;
     }
 
@@ -883,19 +950,16 @@ export class IngestionService {
 
   private normalizeAddress(value?: string): string | undefined {
     if (value === undefined) {
-
       return undefined;
     }
 
     const trimmed = value.trim();
     if (!trimmed) {
-
-      return '';
+      return "";
     }
 
     const lower = trimmed.toLowerCase();
-    if (lower.startsWith('0x')) {
-
+    if (lower.startsWith("0x")) {
       return lower;
     }
 
@@ -904,15 +968,12 @@ export class IngestionService {
 
   private toBigInt(value?: string): bigint | null {
     if (!value) {
-
       return null;
     }
 
     try {
-
       return BigInt(value);
     } catch (error) {
-
       return null;
     }
   }
@@ -926,16 +987,19 @@ export class IngestionService {
     return serialized;
   }
 
-  private serializeJsonValue(value: unknown, seen: WeakSet<object>): Prisma.InputJsonValue | null {
+  private serializeJsonValue(
+    value: unknown,
+    seen: WeakSet<object>
+  ): Prisma.InputJsonValue | null {
     if (value === null || value === undefined) {
       return null;
     }
 
-    if (typeof value === 'string' || typeof value === 'boolean') {
+    if (typeof value === "string" || typeof value === "boolean") {
       return value;
     }
 
-    if (typeof value === 'number') {
+    if (typeof value === "number") {
       if (!Number.isFinite(value)) {
         return null;
       }
@@ -943,7 +1007,7 @@ export class IngestionService {
       return value;
     }
 
-    if (typeof value === 'bigint') {
+    if (typeof value === "bigint") {
       return value.toString();
     }
 
@@ -952,11 +1016,11 @@ export class IngestionService {
     }
 
     if (Buffer.isBuffer(value)) {
-      return `0x${value.toString('hex')}`;
+      return `0x${value.toString("hex")}`;
     }
 
     if (value instanceof Uint8Array) {
-      return `0x${Buffer.from(value).toString('hex')}`;
+      return `0x${Buffer.from(value).toString("hex")}`;
     }
 
     if (Array.isArray(value)) {
@@ -986,12 +1050,12 @@ export class IngestionService {
       return result;
     }
 
-    if (typeof value !== 'object') {
+    if (typeof value !== "object") {
       return String(value);
     }
 
     if (seen.has(value)) {
-      return '[Circular]';
+      return "[Circular]";
     }
 
     seen.add(value);
@@ -1011,13 +1075,17 @@ export class IngestionService {
 
   private resolveBlockCount(
     blockRange: { start: number; end: number } | undefined,
-    state: { minBlockIndex?: number; maxBlockIndex?: number } | undefined,
+    state: { minBlockIndex?: number; maxBlockIndex?: number } | undefined
   ): number {
     if (blockRange) {
       return blockRange.end - blockRange.start + 1;
     }
 
-    if (!state || state.minBlockIndex === undefined || state.maxBlockIndex === undefined) {
+    if (
+      !state ||
+      state.minBlockIndex === undefined ||
+      state.maxBlockIndex === undefined
+    ) {
       return 0;
     }
 

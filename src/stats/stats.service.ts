@@ -154,7 +154,6 @@ export class StatsService {
 
     return aggregated.sort((a, b) => {
       if (a.volumeRaw === b.volumeRaw) {
-
         return 0;
       }
 

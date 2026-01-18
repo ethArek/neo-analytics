@@ -34,7 +34,6 @@ export class WebController {
     const totals = this.sumStats(stats);
 
     if (!range) {
-
       return {
         stats: labeledStats,
         totals: this.formatTotals(totals),
@@ -97,7 +96,6 @@ export class WebController {
     }));
 
     if (!range) {
-
       return {
         stats: labeledStats,
         rangeLabel: 'No data available',
@@ -241,12 +239,10 @@ export class WebController {
 
   private shortenAddress(value?: string) {
     if (!value) {
-
       return '';
     }
 
     if (value.length <= 12) {
-
       return value;
     }
 
@@ -255,12 +251,10 @@ export class WebController {
 
   private formatAmount(asset: string | null | undefined, value: bigint) {
     if (!asset) {
-
       return formatUnits(value, 0);
     }
 
     if (asset === 'GAS') {
-
       return formatUnits(value, 8);
     }
 

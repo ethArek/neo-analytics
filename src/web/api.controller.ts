@@ -31,7 +31,6 @@ export class ApiController {
   async summary(@Query('from') from?: string, @Query('to') to?: string) {
     const { stats, range } = await this.statsService.getRangeOrLatest(from, to);
     if (!range) {
-
       return { range: null, totals: null };
     }
 
@@ -53,7 +52,6 @@ export class ApiController {
   async assets(@Query('from') from?: string, @Query('to') to?: string) {
     const { range } = await this.statsService.getRangeOrLatest(from, to);
     if (!range) {
-
       return [];
     }
 
@@ -73,7 +71,6 @@ export class ApiController {
   ) {
     const { range } = await this.statsService.getRangeOrLatest(from, to);
     if (!range) {
-
       return [];
     }
 
@@ -94,7 +91,6 @@ export class ApiController {
   ) {
     const { range } = await this.statsService.getRangeOrLatest(from, to);
     if (!range) {
-
       return [];
     }
 
@@ -116,7 +112,6 @@ export class ApiController {
   ) {
     const { range } = await this.statsService.getRangeOrLatest(from, to);
     if (!range) {
-
       return [];
     }
 
@@ -145,7 +140,6 @@ export class ApiController {
   async rebuild(@Body('date') date: string, @Headers('x-admin-token') token?: string) {
     const adminToken = this.configService.get<string>('app.adminToken');
     if (!adminToken || token !== adminToken) {
-
       return { status: 'error', message: 'Unauthorized' };
     }
 
@@ -163,12 +157,10 @@ export class ApiController {
   ) {
     const adminToken = this.configService.get<string>('app.adminToken');
     if (!adminToken || token !== adminToken) {
-
       return { status: 'error', message: 'Unauthorized' };
     }
 
     if (!from || !to) {
-
       return { status: 'error', message: 'from and to are required' };
     }
 
@@ -186,7 +178,6 @@ export class ApiController {
   async backfillLast30(@Headers('x-admin-token') token?: string) {
     const adminToken = this.configService.get<string>('app.adminToken');
     if (!adminToken || token !== adminToken) {
-
       return { status: 'error', message: 'Unauthorized' };
     }
 
@@ -211,13 +202,11 @@ export class ApiController {
   ) {
     const adminToken = this.configService.get<string>('app.adminToken');
     if (!adminToken || token !== adminToken) {
-
       return { status: 'error', message: 'Unauthorized' };
     }
 
     const start = from ? new Date(from) : new Date(Date.now() - 10 * 60 * 1000);
     if (Number.isNaN(start.getTime())) {
-
       return { status: 'error', message: 'Invalid from timestamp' };
     }
 
@@ -313,13 +302,11 @@ export class ApiController {
 
   private parseLimit(limit: string | undefined, fallback: number): number {
     if (!limit) {
-
       return fallback;
     }
 
     const parsed = Number(limit);
     if (!Number.isFinite(parsed) || parsed <= 0) {
-
       return fallback;
     }
 
@@ -330,7 +317,6 @@ export class ApiController {
     const start = parseDate(from);
     const end = parseDate(to);
     if (start > end) {
-
       return [];
     }
 

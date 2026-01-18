@@ -87,7 +87,6 @@ export class RpcNeoClient implements NeoClient {
   ): Promise<NeoPagedResponse> {
     const range = await this.getBlockRangeForDate(date);
     if (!range) {
-
       return { transactions: [] };
     }
 
@@ -106,7 +105,6 @@ export class RpcNeoClient implements NeoClient {
       endTime.getTime()
     );
     if (!range) {
-
       return { transactions: [] };
     }
 
@@ -127,7 +125,6 @@ export class RpcNeoClient implements NeoClient {
   ): Promise<NeoPagedResponse> {
     const startIndex = cursor ? Number(cursor) : range.start;
     if (Number.isNaN(startIndex) || startIndex > range.end) {
-
       return { transactions: [] };
     }
 
@@ -183,7 +180,6 @@ export class RpcNeoClient implements NeoClient {
   ): Promise<{ start: number; end: number } | null> {
     const cached = this.dateBlockRangeCache.get(date);
     if (cached) {
-
       return cached;
     }
 
@@ -191,7 +187,6 @@ export class RpcNeoClient implements NeoClient {
     const endTime = Date.parse(`${date}T23:59:59.999Z`);
     const range = await this.getBlockRangeForTimeRange(startTime, endTime);
     if (!range) {
-
       return null;
     }
 
@@ -205,13 +200,11 @@ export class RpcNeoClient implements NeoClient {
     endTime: number
   ): Promise<{ start: number; end: number } | null> {
     if (startTime > endTime) {
-
       return null;
     }
 
     const blockCount = await this.getBlockCount();
     if (blockCount === 0) {
-
       return null;
     }
 
@@ -228,7 +221,6 @@ export class RpcNeoClient implements NeoClient {
     );
 
     if (startIndex === null || endIndex === null || startIndex > endIndex) {
-
       return null;
     }
 
@@ -526,12 +518,10 @@ export class RpcNeoClient implements NeoClient {
   private toTimestampMs(value: number | string): number {
     const numeric = this.toNumber(value);
     if (!Number.isFinite(numeric)) {
-
       return 0;
     }
 
     if (numeric > 1_000_000_000_000) {
-
       return Math.floor(numeric);
     }
 
@@ -540,7 +530,6 @@ export class RpcNeoClient implements NeoClient {
 
   private async getNativeAssetMap(): Promise<Map<string, string>> {
     if (this.nativeAssetMap) {
-
       return this.nativeAssetMap;
     }
 
