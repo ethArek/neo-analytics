@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query, Render } from '@nestjs/common';
+import { Controller, Get, Param, Query, Redirect, Render } from '@nestjs/common';
 import { formatDate } from '../ingestion/date-utils';
 import { StatsService } from '../stats/stats.service';
 import { formatNumber, formatUnits, toNumber } from '../stats/stats.utils';
@@ -23,6 +23,10 @@ type StatTotals = {
 export class WebController {
   constructor(private readonly statsService: StatsService) {}
 
+  @Get('/favicon.ico')
+  @Redirect('/favicon.svg', 302)
+  favicon() {}
+
   @Get('/')
   @Render('dashboard')
   async dashboard(@Query('from') from?: string, @Query('to') to?: string) {
@@ -31,7 +35,7 @@ export class WebController {
       ...stat,
       dateLabel: formatDate(stat.date),
     }));
-    const totals = this.sumStats(stats);
+    const totals = stats[stats.length - 1] ?? this.emptyTotals();
 
     if (!range) {
       return {
@@ -48,16 +52,11 @@ export class WebController {
 
     const rangeFrom = formatDate(range.from);
     const rangeTo = formatDate(range.to);
-    const [assetStats, topSenders, topReceivers, addressTotals] = await Promise.all([
+    const [assetStats, topSenders, topReceivers] = await Promise.all([
       this.statsService.getAssetStatsRange(rangeFrom, rangeTo),
       this.statsService.getTopAddresses(rangeFrom, rangeTo, 'from', 6),
       this.statsService.getTopAddresses(rangeFrom, rangeTo, 'to', 6),
-      this.statsService.getUniqueAddressStatsRange(rangeFrom, rangeTo),
     ]);
-
-    totals.uniqueSenders = addressTotals.uniqueSenders;
-    totals.uniqueReceivers = addressTotals.uniqueReceivers;
-    totals.uniqueAddresses = addressTotals.uniqueAddresses;
 
     const chartData = this.buildChartData(labeledStats, assetStats);
 
@@ -141,42 +140,22 @@ export class WebController {
     };
   }
 
-  private sumStats(
-    stats: Array<Awaited<ReturnType<StatsService['getLatestStats']>>[number]>,
-  ): StatTotals {
-    return stats.reduce(
-      (acc, stat) => ({
-        ...acc,
-        totalTxCount: acc.totalTxCount + stat.totalTxCount,
-        swapsCount: acc.swapsCount + stat.swapsCount,
-        transfersCount: acc.transfersCount + stat.transfersCount,
-        gasClaimsCount: acc.gasClaimsCount + stat.gasClaimsCount,
-        ignoredCount: acc.ignoredCount + stat.ignoredCount,
-        realUsageTotal: acc.realUsageTotal + stat.realUsageTotal,
-        totalTransfers: acc.totalTransfers + stat.totalTransfers,
-        uniqueSenders: acc.uniqueSenders + stat.uniqueSenders,
-        uniqueReceivers: acc.uniqueReceivers + stat.uniqueReceivers,
-        uniqueAddresses: acc.uniqueAddresses + stat.uniqueAddresses,
-        neoVolumeRaw: acc.neoVolumeRaw + stat.neoVolumeRaw,
-        gasVolumeRaw: acc.gasVolumeRaw + stat.gasVolumeRaw,
-        blockCount: acc.blockCount + stat.blockCount,
-      }),
-      {
-        totalTxCount: 0,
-        swapsCount: 0,
-        transfersCount: 0,
-        gasClaimsCount: 0,
-        ignoredCount: 0,
-        realUsageTotal: 0,
-        totalTransfers: 0,
-        uniqueSenders: 0,
-        uniqueReceivers: 0,
-        uniqueAddresses: 0,
-        neoVolumeRaw: 0n,
-        gasVolumeRaw: 0n,
-        blockCount: 0,
-      },
-    );
+  private emptyTotals(): StatTotals {
+    return {
+      totalTxCount: 0,
+      swapsCount: 0,
+      transfersCount: 0,
+      gasClaimsCount: 0,
+      ignoredCount: 0,
+      realUsageTotal: 0,
+      totalTransfers: 0,
+      uniqueSenders: 0,
+      uniqueReceivers: 0,
+      uniqueAddresses: 0,
+      neoVolumeRaw: 0n,
+      gasVolumeRaw: 0n,
+      blockCount: 0,
+    };
   }
 
   private formatTotals(totals: StatTotals) {
