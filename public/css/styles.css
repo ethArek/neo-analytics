@@ -213,6 +213,22 @@ h3 {
   color: var(--muted);
 }
 
+.range-analytics-section {
+  margin-bottom: 32px;
+}
+
+.range-analytics-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 16px;
+}
+
+.range-analytics-section .range-form {
+  box-shadow: var(--shadow);
+}
+
 .card {
   background: var(--card);
   border-radius: var(--radius);
@@ -542,6 +558,11 @@ input:focus-visible {
 
   .hero-links {
     justify-content: flex-start;
+  }
+
+  .range-analytics-header {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .chart-grid {
