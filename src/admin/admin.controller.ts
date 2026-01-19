@@ -32,11 +32,6 @@ export class AdminController {
 
   @Get()
   async adminHome(@Req() req: AdminRequest, @Res() res: AdminResponse) {
-    const hasAdmin = await this.adminService.hasAdmins();
-    if (!hasAdmin) {
-      return res.redirect('/admin/register');
-    }
-
     const admin = await this.requireAdmin(req, res);
     if (!admin) {
       return;
@@ -50,8 +45,7 @@ export class AdminController {
 
   @Get('login')
   async loginForm(@Res() res: AdminResponse) {
-    const hasAdmin = await this.adminService.hasAdmins();
-    return res.render('admin-login', { allowRegister: !hasAdmin });
+    return res.render('admin-login');
   }
 
   @Post('login')
@@ -64,52 +58,14 @@ export class AdminController {
     const password = body.password ?? '';
     const admin = await this.adminService.authenticateAdmin(email, password);
     if (!admin) {
-      const hasAdmin = await this.adminService.hasAdmins();
       res.status(401);
       return res.render('admin-login', {
         error: 'Invalid email or password.',
         email,
-        allowRegister: !hasAdmin,
       });
     }
 
     const token = await this.adminService.createSession(admin.id);
-    res.cookie(SESSION_COOKIE, token, {
-      httpOnly: true,
-      sameSite: 'lax',
-      maxAge: SESSION_MAX_AGE,
-      secure: this.shouldUseSecureCookies(req),
-    });
-
-    return res.redirect('/admin');
-  }
-
-  @Get('register')
-  async registerForm(@Res() res: AdminResponse) {
-    const hasAdmin = await this.adminService.hasAdmins();
-    return res.render('admin-register', { registrationDisabled: hasAdmin });
-  }
-
-  @Post('register')
-  async register(
-    @Req() req: AdminRequest,
-    @Body() body: Record<string, string>,
-    @Res() res: AdminResponse,
-  ) {
-    const email = body.email ?? '';
-    const password = body.password ?? '';
-    const result = await this.adminService.registerAdmin(email, password);
-    if (!result.ok) {
-      const hasAdmin = await this.adminService.hasAdmins();
-      res.status(400);
-      return res.render('admin-register', {
-        error: result.error,
-        registrationDisabled: hasAdmin,
-        email,
-      });
-    }
-
-    const token = await this.adminService.createSession(result.adminId);
     res.cookie(SESSION_COOKIE, token, {
       httpOnly: true,
       sameSite: 'lax',
