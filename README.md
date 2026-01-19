@@ -82,7 +82,6 @@ It relies on:
 
 ## Admin UI
 
-- `GET /admin/register` creates the first admin account (disabled once an admin exists).
 - `GET /admin/login` signs in an admin account.
 - `GET /admin` shows the ingestion console for triggering manual ingestion runs.
 
