@@ -1,4 +1,5 @@
 import { ConfigService } from '@nestjs/config';
+import { DailyStat, IngestionCursor, Prisma } from '@prisma/client';
 import { IngestionService } from '../src/ingestion/ingestion.service';
 import {
   DailyAssetStatCreateRecord,
@@ -23,57 +24,96 @@ class FakePrismaService implements IngestionPrismaClient {
   dailyTx = {
     createMany: async ({ data }: { data: DailyTxCreateRecord[]; skipDuplicates?: boolean }) => {
       this.dailyTxData.push(...data);
+
+      return { count: data.length };
     },
     deleteMany: async ({ where }: { where: { date: Date } }) => {
+      const before = this.dailyTxData.length;
       this.dailyTxData = this.dailyTxData.filter((tx) => tx.date.getTime() !== where.date.getTime());
+      const after = this.dailyTxData.length;
+
+      return { count: before - after };
     },
   };
 
   dailyTransfer = {
     createMany: async ({ data }: { data: DailyTransferCreateRecord[]; skipDuplicates?: boolean }) => {
       this.dailyTransferData.push(...data);
+
+      return { count: data.length };
     },
     deleteMany: async ({ where }: { where: { date: Date } }) => {
+      const before = this.dailyTransferData.length;
       this.dailyTransferData = this.dailyTransferData.filter(
         (transfer) => transfer.date.getTime() !== where.date.getTime(),
       );
+      const after = this.dailyTransferData.length;
+
+      return { count: before - after };
     },
   };
 
   dailyAssetStat = {
     createMany: async ({ data }: { data: DailyAssetStatCreateRecord[] }) => {
       this.dailyAssetStatData = data;
+
+      return { count: data.length };
     },
     deleteMany: async ({ where }: { where: { date: Date } }) => {
+      const before = this.dailyAssetStatData.length;
       this.dailyAssetStatData = this.dailyAssetStatData.filter(
         (stat) => stat.date.getTime() !== where.date.getTime(),
       );
+      const after = this.dailyAssetStatData.length;
+
+      return { count: before - after };
     },
   };
 
   dailyMethodStat = {
     createMany: async ({ data }: { data: DailyMethodStatRecord[] }) => {
       this.dailyMethodStatData = data;
+
+      return { count: data.length };
     },
     deleteMany: async ({ where }: { where: { date: Date } }) => {
+      const before = this.dailyMethodStatData.length;
       this.dailyMethodStatData = this.dailyMethodStatData.filter(
         (stat) => stat.date.getTime() !== where.date.getTime(),
       );
+      const after = this.dailyMethodStatData.length;
+
+      return { count: before - after };
     },
   };
 
   dailyContractStat = {
     createMany: async ({ data }: { data: DailyContractStatRecord[] }) => {
       this.dailyContractStatData = data;
+
+      return { count: data.length };
     },
     deleteMany: async ({ where }: { where: { date: Date } }) => {
+      const before = this.dailyContractStatData.length;
       this.dailyContractStatData = this.dailyContractStatData.filter(
         (stat) => stat.date.getTime() !== where.date.getTime(),
       );
+      const after = this.dailyContractStatData.length;
+
+      return { count: before - after };
     },
   };
 
   dailyStat = {
+    findUnique: async ({ where }: { where: { date: Date } }) => {
+      const key = where.date.toISOString();
+      const record = this.dailyStatData[key];
+      if (!record) {
+        return null;
+      }
+
+      return this.buildDailyStat(where.date, record);
+    },
     upsert: async ({
       where,
       update,
@@ -84,10 +124,17 @@ class FakePrismaService implements IngestionPrismaClient {
       create: DailyStatUpsertRecord;
     }) => {
       const key = where.date.toISOString();
-      this.dailyStatData[key] = { ...create, ...update };
+      const record = { ...create, ...update };
+      this.dailyStatData[key] = record;
+
+      return this.buildDailyStat(where.date, record);
     },
     deleteMany: async ({ where }: { where: { date: Date } }) => {
-      delete this.dailyStatData[where.date.toISOString()];
+      const key = where.date.toISOString();
+      const existed = this.dailyStatData[key] ? 1 : 0;
+      delete this.dailyStatData[key];
+
+      return { count: existed };
     },
   };
 
@@ -102,12 +149,54 @@ class FakePrismaService implements IngestionPrismaClient {
       create: { network: string; lastProcessedBlock?: number; lastProcessedTimestamp?: Date };
     }) => {
       const key = where.network;
-      this.ingestionCursorData[key] = { ...create, ...update };
+      const record = { ...create, ...update };
+      this.ingestionCursorData[key] = record;
+
+      return this.buildIngestionCursor(key, record);
     },
   };
 
   $transaction = async <T>(callback: (tx: IngestionPrismaClient) => Promise<T>): Promise<T> =>
     callback(this);
+
+  private buildDailyStat(date: Date, record: DailyStatUpsertRecord): DailyStat {
+    const now = new Date();
+
+    return {
+      id: 1,
+      date,
+      totalTxCount: record.totalTxCount,
+      swapsCount: record.swapsCount,
+      transfersCount: record.transfersCount,
+      gasClaimsCount: record.gasClaimsCount,
+      ignoredCount: record.ignoredCount,
+      realUsageTotal: record.realUsageTotal,
+      totalTransfers: record.totalTransfers,
+      uniqueSenders: record.uniqueSenders,
+      uniqueReceivers: record.uniqueReceivers,
+      uniqueAddresses: record.uniqueAddresses,
+      neoVolumeRaw: new Prisma.Decimal(record.neoVolumeRaw),
+      gasVolumeRaw: new Prisma.Decimal(record.gasVolumeRaw),
+      blockCount: record.blockCount,
+      createdAt: now,
+      updatedAt: now,
+    };
+  }
+
+  private buildIngestionCursor(
+    network: string,
+    record: { lastProcessedBlock?: number; lastProcessedTimestamp?: Date }
+  ): IngestionCursor {
+    const now = new Date();
+
+    return {
+      id: 1,
+      network,
+      lastProcessedBlock: record.lastProcessedBlock ?? null,
+      lastProcessedTimestamp: record.lastProcessedTimestamp ?? null,
+      updatedAt: now,
+    };
+  }
 }
 
 describe('IngestionService', () => {

@@ -1,5 +1,5 @@
 import { ClassifiedType } from '../classifier/classifier';
-import { Prisma } from '@prisma/client';
+import { DailyStat, IngestionCursor, Prisma } from '@prisma/client';
 
 export type DailyTxRecord = {
   date: Date;
@@ -86,39 +86,52 @@ export type DailyStatUpsertRecord = Omit<DailyStatRecord, 'neoVolumeRaw' | 'gasV
 
 export type IngestionPrismaClient = {
   dailyTx: {
-    createMany: (args: { data: DailyTxCreateRecord[]; skipDuplicates?: boolean }) => Promise<unknown>;
-    deleteMany: (args: { where: { date: Date } }) => Promise<unknown>;
+    createMany: (args: {
+      data: DailyTxCreateRecord[];
+      skipDuplicates?: boolean;
+    }) => Promise<Prisma.BatchPayload>;
+    deleteMany: (args: { where: { date: Date } }) => Promise<Prisma.BatchPayload>;
   };
   dailyTransfer: {
-    createMany: (args: { data: DailyTransferCreateRecord[]; skipDuplicates?: boolean }) => Promise<unknown>;
-    deleteMany: (args: { where: { date: Date } }) => Promise<unknown>;
+    createMany: (args: {
+      data: DailyTransferCreateRecord[];
+      skipDuplicates?: boolean;
+    }) => Promise<Prisma.BatchPayload>;
+    deleteMany: (args: { where: { date: Date } }) => Promise<Prisma.BatchPayload>;
   };
   dailyAssetStat: {
-    createMany: (args: { data: DailyAssetStatCreateRecord[] }) => Promise<unknown>;
-    deleteMany: (args: { where: { date: Date } }) => Promise<unknown>;
+    createMany: (args: {
+      data: DailyAssetStatCreateRecord[];
+    }) => Promise<Prisma.BatchPayload>;
+    deleteMany: (args: { where: { date: Date } }) => Promise<Prisma.BatchPayload>;
   };
   dailyMethodStat: {
-    createMany: (args: { data: DailyMethodStatRecord[] }) => Promise<unknown>;
-    deleteMany: (args: { where: { date: Date } }) => Promise<unknown>;
+    createMany: (args: {
+      data: DailyMethodStatRecord[];
+    }) => Promise<Prisma.BatchPayload>;
+    deleteMany: (args: { where: { date: Date } }) => Promise<Prisma.BatchPayload>;
   };
   dailyContractStat: {
-    createMany: (args: { data: DailyContractStatRecord[] }) => Promise<unknown>;
-    deleteMany: (args: { where: { date: Date } }) => Promise<unknown>;
+    createMany: (args: {
+      data: DailyContractStatRecord[];
+    }) => Promise<Prisma.BatchPayload>;
+    deleteMany: (args: { where: { date: Date } }) => Promise<Prisma.BatchPayload>;
   };
   dailyStat: {
+    findUnique: (args: { where: { date: Date } }) => Promise<DailyStat | null>;
     upsert: (args: {
       where: { date: Date };
       update: DailyStatUpsertRecord;
       create: DailyStatUpsertRecord;
-    }) => Promise<unknown>;
-    deleteMany: (args: { where: { date: Date } }) => Promise<unknown>;
+    }) => Promise<DailyStat>;
+    deleteMany: (args: { where: { date: Date } }) => Promise<Prisma.BatchPayload>;
   };
   ingestionCursor: {
     upsert: (args: {
       where: { network: string };
       update: { lastProcessedBlock?: number; lastProcessedTimestamp?: Date };
       create: { network: string; lastProcessedBlock?: number; lastProcessedTimestamp?: Date };
-    }) => Promise<unknown>;
+    }) => Promise<IngestionCursor>;
   };
   $transaction: <T>(callback: (tx: IngestionPrismaClient) => Promise<T>) => Promise<T>;
 };
