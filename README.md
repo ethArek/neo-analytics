@@ -80,6 +80,12 @@ It relies on:
 - `POST /api/jobs/backfill-last-30` with `x-admin-token` header (ingests yesterday + previous 29 days).
 - `POST /api/jobs/backfill-10-minutes` with optional `{ "from": "YYYY-MM-DDTHH:mm:ssZ" }` and `x-admin-token` header (defaults to last 10 minutes).
 
+## Admin UI
+
+- `GET /admin/register` creates the first admin account (disabled once an admin exists).
+- `GET /admin/login` signs in an admin account.
+- `GET /admin` shows the ingestion console for triggering manual ingestion runs.
+
 ## Tests
 
 ```bash

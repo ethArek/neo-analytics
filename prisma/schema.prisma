@@ -5,7 +5,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("NEO_DATABASE_URL")
 }
 
 enum TxType {
@@ -119,4 +118,15 @@ model IngestionCursor {
   lastProcessedBlock    Int?
   lastProcessedTimestamp DateTime?
   updatedAt             DateTime  @updatedAt
+}
+
+model AdminUser {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  passwordHash String
+  passwordSalt String
+  sessionToken String?  @unique
+  lastLoginAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
