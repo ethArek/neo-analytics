@@ -10,6 +10,8 @@ import { IngestionJob } from './ingestion/ingestion.job';
 import { StatsService } from './stats/stats.service';
 import { WebController } from './web/web.controller';
 import { ApiController } from './web/api.controller';
+import { AdminController } from './admin/admin.controller';
+import { AdminService } from './admin/admin.service';
 
 @Module({
   imports: [
@@ -19,12 +21,13 @@ import { ApiController } from './web/api.controller';
     }),
     ScheduleModule.forRoot(),
   ],
-  controllers: [WebController, ApiController],
+  controllers: [WebController, ApiController, AdminController],
   providers: [
     PrismaService,
     IngestionService,
     IngestionJob,
     StatsService,
+    AdminService,
     {
       provide: NEO_CLIENT,
       useClass: RpcNeoClient,
@@ -32,4 +35,3 @@ import { ApiController } from './web/api.controller';
   ],
 })
 export class AppModule {}
-
