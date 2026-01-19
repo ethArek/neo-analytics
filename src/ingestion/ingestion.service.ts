@@ -227,6 +227,15 @@ export class IngestionService {
     );
   }
 
+  async isDayIngested(date: string): Promise<boolean> {
+    const day = parseDate(date);
+    const record = await this.prisma.dailyStat.findUnique({
+      where: { date: day },
+    });
+
+    return Boolean(record);
+  }
+
   async rebuildDay(date: string): Promise<void> {
     const day = parseDate(date);
     await this.prisma.dailyTx.deleteMany({ where: { date: day } });
