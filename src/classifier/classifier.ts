@@ -220,7 +220,7 @@ export const classifyTransaction = (
         type: ClassifiedType.IGNORED,
         from,
         to,
-        reason: 'Self-transfer excluded from real usage.',
+        reason: 'Self-transfer excluded from totals.',
       };
     }
 

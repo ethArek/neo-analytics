@@ -123,7 +123,7 @@
         labels,
         datasets: [
           {
-            label: "Real usage",
+            label: "Neo N3 activity",
             data: normalizeSeries(series.realUsage, labels.length),
             borderColor: swapColor,
             backgroundColor: withAlpha(swapRgb, 0.2),

@@ -20,7 +20,6 @@
         <span class="nav-mark">N3</span>
         <span class="nav-copy">
           <span class="nav-title">Neo Analytics</span>
-          <span class="nav-subtitle">Real usage explorer</span>
         </span>
       </a>
       <div class="nav-links">
@@ -34,7 +33,7 @@
         <span class="pill">FAQ</span>
         <h1>Clear answers to how Neo Analytics works.</h1>
         <p class="subtitle">
-          We translate on-chain activity into a simple picture of real usage,
+          We translate on-chain activity into a simple picture of Neo N3 activity,
           with transparent rules and daily updates.
         </p>
         <div class="hero-meta">
@@ -45,81 +44,20 @@
       </div>
       <div class="faq-hero-card">
         <div class="faq-stat">
-          <span>Classification</span>
-          <strong>Swap, transfer, gas claim</strong>
-          <p>Order of precedence: swap, gas claim, transfer.</p>
-        </div>
-        <div class="faq-stat">
-          <span>Token labels</span>
-          <strong>Symbol first, contract name fallback</strong>
-          <p>Unknown contracts keep the hash as a last resort.</p>
+          <span class="faq-label">Support</span>
+          <strong>Want to support this project?</strong>
+          <p>
+            This project is not funded by any organization. I cover the server costs and spend my own
+            time to keep it running. If you want to support it, Neo/GAS or any N3 token
+            donations to <span class="mono">NgdZvkR3bvsXuScWFrTQWfNhALarQ76CEr</span> are appreciated.
+          </p>
         </div>
       </div>
     </header>
 
-    <section class="faq-grid" data-animate style="--delay: 0.08s;">
-      <article class="faq-card">
-        <div class="faq-card-header">
-          <span class="faq-tag">Real usage</span>
-          <span class="faq-code">NORMAL_TRANSFER</span>
-        </div>
-        <h3>What counts as real usage?</h3>
-        <p>
-          Real usage includes swaps and normal transfers, while gas claims and
-          self-transfers are excluded. The goal is to focus on activity that
-          represents actual user intent.
-        </p>
-      </article>
-      <article class="faq-card">
-        <div class="faq-card-header">
-          <span class="faq-tag">Swaps</span>
-          <span class="faq-code">SWAP</span>
-        </div>
-        <h3>How are swaps detected?</h3>
-        <p>
-          We flag transactions with swap-like methods and multiple transfers.
-          Known DEX contracts and swap notifications also count as swaps.
-        </p>
-      </article>
-      <article class="faq-card">
-        <div class="faq-card-header">
-          <span class="faq-tag">Claims</span>
-          <span class="faq-code">GAS_CLAIM</span>
-        </div>
-        <h3>Why are GAS claims separated?</h3>
-        <p>
-          Claims are system distributions with no sender address. They are
-          important to track, but they do not reflect user-initiated transfers.
-        </p>
-      </article>
-      <article class="faq-card">
-        <div class="faq-card-header">
-          <span class="faq-tag">Coverage</span>
-          <span class="faq-code">NEP-17</span>
-        </div>
-        <h3>Which transfers are counted?</h3>
-        <p>
-          The pipeline reads NEP-17 transfer notifications. Native NEO and GAS
-          are labeled automatically, and other tokens resolve by symbol when possible.
-        </p>
-      </article>
-      <article class="faq-card">
-        <div class="faq-card-header">
-          <span class="faq-tag">Support</span>
-          <span class="faq-code">COMMUNITY</span>
-        </div>
-        <h3>Who funds this project?</h3>
-        <p>
-          This project is not funded by anyone. I cover the server costs and spend my own
-          time to keep it running. If you want to support it, Neo/GAS or any N3 token
-          donations to <span class="mono">NgdZvkR3bvsXuScWFrTQWfNhALarQ76CEr</span> are appreciated.
-        </p>
-      </article>
-    </section>
-
     <section class="faq-accordion" data-animate style="--delay: 0.12s;">
       <div class="faq-accordion-header">
-        <h2>More details</h2>
+        <h2>FAQ</h2>
         <p class="summary-subtitle">Short answers for deeper dives.</p>
       </div>
       <div class="faq-stack">
@@ -138,6 +76,20 @@
           </p>
         </details>
         <details>
+          <summary>How do I change the date range?</summary>
+          <p>
+            Use the date picker on the dashboard to set a range, then click Apply.
+            The charts and tables update to reflect that window.
+          </p>
+        </details>
+        <details>
+          <summary>Which RPC endpoints are used?</summary>
+          <p>
+            The app connects to the RPC endpoints configured in the environment.
+            Multiple endpoints are rotated to improve reliability.
+          </p>
+        </details>
+        <details>
           <summary>What happens to unknown tokens?</summary>
           <p>
             We attempt to fetch the symbol first, then the contract name.
@@ -145,10 +97,66 @@
           </p>
         </details>
         <details>
+          <summary>How are token amounts formatted?</summary>
+          <p>
+            NEO is shown as an integer and GAS uses 8 decimals. Other assets use
+            their raw amounts for now.
+          </p>
+        </details>
+        <details>
+          <summary>Why can totals change after a refresh?</summary>
+          <p>
+            If a day was missing or partially ingested, the hourly retry or a backfill
+            can update the stored totals. That is normal and keeps the dataset accurate.
+          </p>
+        </details>
+        <details>
+          <summary>What is the swap detection rule?</summary>
+          <p>
+            Swaps are detected when swap-like methods are called and there are multiple
+            transfers, or when known DEX contracts and swap notifications are present.
+          </p>
+        </details>
+        <details>
           <summary>Why are zero-amount transfers ignored?</summary>
           <p>
             Zero-amount events can be noisy and do not represent user activity.
             Ignoring them keeps the metrics aligned with meaningful movement.
+          </p>
+        </details>
+        <details>
+          <summary>Are self-transfers included?</summary>
+          <p>
+            Self-transfers are excluded from totals to avoid inflating activity
+            without actual value movement.
+          </p>
+        </details>
+        <details>
+          <summary>Why do some days show no data?</summary>
+          <p>
+            The dashboard reflects what has been ingested. If a day is missing, it
+            can be backfilled by an admin job or will be retried automatically.
+          </p>
+        </details>
+        <details>
+          <summary>Is this open source?</summary>
+          <p>
+            The codebase is maintained privately for now, but the methodology and rules
+            are described on the site to keep the analytics transparent.
+          </p>
+        </details>
+        <details>
+          <summary>Do you store user data?</summary>
+          <p>
+            The app stores on-chain transaction summaries only. No personal data is
+            collected beyond what is already public on-chain.
+          </p>
+        </details>
+        <details>
+          <summary>Can I request a new metric?</summary>
+          <p>
+            Yes. If you have a suggestion, share it and I will evaluate it for
+            stability and long-term maintenance.
           </p>
         </details>
       </div>

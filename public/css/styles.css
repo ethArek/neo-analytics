@@ -665,6 +665,8 @@ h3 {
   display: grid;
   gap: 16px;
   min-width: 260px;
+  max-width: 360px;
+  width: 100%;
   position: relative;
   overflow: hidden;
 }
@@ -677,7 +679,7 @@ h3 {
   pointer-events: none;
 }
 
-.faq-stat span {
+.faq-stat .faq-label {
   color: var(--muted);
   font-size: 0.78rem;
   text-transform: uppercase;

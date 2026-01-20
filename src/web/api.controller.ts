@@ -1,9 +1,11 @@
 import { Body, Controller, Get, Headers, Logger, Post, Query } from '@nestjs/common';
+import { ApiExcludeEndpoint, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { formatDate, parseDate, yesterdayInTimeZone } from '../ingestion/date-utils';
 import { IngestionService } from '../ingestion/ingestion.service';
 import { StatsService } from '../stats/stats.service';
 
+@ApiTags('stats')
 @Controller('api')
 export class ApiController {
   private readonly logger = new Logger(ApiController.name);
@@ -15,6 +17,8 @@ export class ApiController {
   ) {}
 
   @Get('stats')
+  @ApiQuery({ name: 'from', required: false, example: '2024-05-01' })
+  @ApiQuery({ name: 'to', required: false, example: '2024-05-31' })
   async stats(@Query('from') from?: string, @Query('to') to?: string) {
     if (from && to) {
       const stats = await this.statsService.getStatsRange(from, to);
@@ -28,6 +32,8 @@ export class ApiController {
   }
 
   @Get('stats/summary')
+  @ApiQuery({ name: 'from', required: false, example: '2024-05-01' })
+  @ApiQuery({ name: 'to', required: false, example: '2024-05-31' })
   async summary(@Query('from') from?: string, @Query('to') to?: string) {
     const { stats, range } = await this.statsService.getRangeOrLatest(from, to);
     if (!range) {
@@ -49,6 +55,8 @@ export class ApiController {
   }
 
   @Get('stats/assets')
+  @ApiQuery({ name: 'from', required: false, example: '2024-05-01' })
+  @ApiQuery({ name: 'to', required: false, example: '2024-05-31' })
   async assets(@Query('from') from?: string, @Query('to') to?: string) {
     const { range } = await this.statsService.getRangeOrLatest(from, to);
     if (!range) {
@@ -64,6 +72,9 @@ export class ApiController {
   }
 
   @Get('stats/methods')
+  @ApiQuery({ name: 'from', required: false, example: '2024-05-01' })
+  @ApiQuery({ name: 'to', required: false, example: '2024-05-31' })
+  @ApiQuery({ name: 'limit', required: false, example: 8 })
   async methods(
     @Query('from') from?: string,
     @Query('to') to?: string,
@@ -84,6 +95,9 @@ export class ApiController {
   }
 
   @Get('stats/contracts')
+  @ApiQuery({ name: 'from', required: false, example: '2024-05-01' })
+  @ApiQuery({ name: 'to', required: false, example: '2024-05-31' })
+  @ApiQuery({ name: 'limit', required: false, example: 8 })
   async contracts(
     @Query('from') from?: string,
     @Query('to') to?: string,
@@ -104,6 +118,10 @@ export class ApiController {
   }
 
   @Get('stats/top')
+  @ApiQuery({ name: 'from', required: false, example: '2024-05-01' })
+  @ApiQuery({ name: 'to', required: false, example: '2024-05-31' })
+  @ApiQuery({ name: 'type', required: false, example: 'senders' })
+  @ApiQuery({ name: 'limit', required: false, example: 8 })
   async top(
     @Query('from') from?: string,
     @Query('to') to?: string,
@@ -128,6 +146,7 @@ export class ApiController {
   }
 
   @Post('jobs/run')
+  @ApiExcludeEndpoint()
   async runJob(@Body('date') date?: string) {
     const target = date ?? yesterdayInTimeZone('Europe/Warsaw');
     this.logger.log(`Manual ingestion requested for ${target}.`);
@@ -137,6 +156,7 @@ export class ApiController {
   }
 
   @Post('jobs/rebuild')
+  @ApiExcludeEndpoint()
   async rebuild(@Body('date') date: string, @Headers('x-admin-token') token?: string) {
     const adminToken = this.configService.get<string>('app.adminToken');
     if (!adminToken || token !== adminToken) {
@@ -150,6 +170,7 @@ export class ApiController {
   }
 
   @Post('jobs/backfill')
+  @ApiExcludeEndpoint()
   async backfill(
     @Body('from') from: string,
     @Body('to') to: string,
@@ -175,6 +196,7 @@ export class ApiController {
   }
 
   @Post('jobs/backfill-last-30')
+  @ApiExcludeEndpoint()
   async backfillLast30(@Headers('x-admin-token') token?: string) {
     const adminToken = this.configService.get<string>('app.adminToken');
     if (!adminToken || token !== adminToken) {
@@ -196,6 +218,7 @@ export class ApiController {
   }
 
   @Post('jobs/backfill-10-minutes')
+  @ApiExcludeEndpoint()
   async backfillTenMinutes(
     @Body('from') from?: string,
     @Headers('x-admin-token') token?: string,

@@ -1,4 +1,5 @@
 import { Controller, Get, Inject, Param, Query, Redirect, Render } from '@nestjs/common';
+import { ApiExcludeController } from '@nestjs/swagger';
 import { formatDate } from '../ingestion/date-utils';
 import { StatsService } from '../stats/stats.service';
 import { formatNumber, formatUnits, toNumber } from '../stats/stats.utils';
@@ -21,6 +22,7 @@ type StatTotals = {
   blockCount: number;
 };
 
+@ApiExcludeController()
 @Controller()
 export class WebController {
   constructor(

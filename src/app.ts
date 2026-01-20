@@ -1,5 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { join } from 'path';
 import { existsSync } from 'fs';
@@ -17,6 +18,15 @@ async function bootstrap() {
   app.useStaticAssets(publicDir);
   app.setBaseViewsDir(viewsDir);
   app.setViewEngine('hbs');
+
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle('Neo Analytics API')
+    .setDescription('Public stats endpoints for Neo N3 analytics.')
+    .setVersion('1.0')
+    .build();
+  const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
+  SwaggerModule.setup('api/docs', app, swaggerDocument);
+
   await app.listen(3000);
 }
 
