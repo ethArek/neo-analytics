@@ -250,7 +250,7 @@ export class ApiController {
         swapsCount: acc.swapsCount + stat.swapsCount,
         transfersCount: acc.transfersCount + stat.transfersCount,
         gasClaimsCount: acc.gasClaimsCount + stat.gasClaimsCount,
-        ignoredCount: acc.ignoredCount + stat.ignoredCount,
+        othersCount: acc.othersCount + stat.othersCount,
         realUsageTotal: acc.realUsageTotal + stat.realUsageTotal,
         totalTransfers: acc.totalTransfers + stat.totalTransfers,
         uniqueSenders: acc.uniqueSenders + stat.uniqueSenders,
@@ -266,7 +266,7 @@ export class ApiController {
         swapsCount: 0,
         transfersCount: 0,
         gasClaimsCount: 0,
-        ignoredCount: 0,
+        othersCount: 0,
         realUsageTotal: 0,
         totalTransfers: 0,
         uniqueSenders: 0,
@@ -285,7 +285,7 @@ export class ApiController {
     swapsCount: number;
     transfersCount: number;
     gasClaimsCount: number;
-    ignoredCount: number;
+    othersCount: number;
     realUsageTotal: number;
     totalTransfers: number;
     uniqueSenders: number;

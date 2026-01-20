@@ -68,7 +68,7 @@ export type DailyStatRecord = {
   swapsCount: number;
   transfersCount: number;
   gasClaimsCount: number;
-  ignoredCount: number;
+  othersCount: number;
   realUsageTotal: number;
   totalTransfers: number;
   uniqueSenders: number;

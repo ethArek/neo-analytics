@@ -21,7 +21,7 @@ model DailyStat {
   swapsCount      Int      @default(0)
   transfersCount  Int      @default(0)
   gasClaimsCount  Int      @default(0)
-  ignoredCount    Int      @default(0)
+  othersCount     Int      @default(0)
   realUsageTotal  Int      @default(0)
   totalTransfers  Int      @default(0)
   uniqueSenders   Int      @default(0)

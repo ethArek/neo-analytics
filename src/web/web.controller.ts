@@ -11,7 +11,7 @@ type StatTotals = {
   swapsCount: number;
   transfersCount: number;
   gasClaimsCount: number;
-  ignoredCount: number;
+  othersCount: number;
   realUsageTotal: number;
   totalTransfers: number;
   uniqueSenders: number;
@@ -86,7 +86,10 @@ export class WebController {
     );
     const labeledAssetStats = assetStats.map((asset) => ({
       ...asset,
-      assetLabel: assetLabelMap.get(asset.asset) ?? asset.asset,
+      assetLabel: this.normalizeAssetLabel(
+        assetLabelMap.get(asset.asset),
+        asset.asset,
+      ),
     }));
     const chartData = this.buildChartData(labeledStats, labeledAssetStats);
 
@@ -124,6 +127,7 @@ export class WebController {
       swapsCountLabel: formatNumber(stat.swapsCount),
       transfersCountLabel: formatNumber(stat.transfersCount),
       gasClaimsCountLabel: formatNumber(stat.gasClaimsCount),
+      othersCountLabel: formatNumber(stat.othersCount),
       realUsageTotalLabel: formatNumber(stat.realUsageTotal),
     }));
 
@@ -194,7 +198,7 @@ export class WebController {
       swapsCount: 0,
       transfersCount: 0,
       gasClaimsCount: 0,
-      ignoredCount: 0,
+      othersCount: 0,
       realUsageTotal: 0,
       totalTransfers: 0,
       uniqueSenders: 0,
@@ -211,6 +215,7 @@ export class WebController {
       swaps: formatNumber(totals.swapsCount),
       transfers: formatNumber(totals.transfersCount),
       gasClaims: formatNumber(totals.gasClaimsCount),
+      others: formatNumber(totals.othersCount),
       realUsage: formatNumber(totals.realUsageTotal),
       totalTxs: formatNumber(totals.totalTxCount),
       totalTransfers: formatNumber(totals.totalTransfers),
@@ -242,7 +247,9 @@ export class WebController {
     const topAssets = assetsSorted.slice(0, 5);
     const remainingAssets = assetsSorted.slice(5);
     const otherTransfers = remainingAssets.reduce((total, asset) => total + asset.transferCount, 0);
-    const assetLabels = topAssets.map((asset) => asset.assetLabel ?? asset.asset);
+    const assetLabels = topAssets.map((asset) =>
+      this.normalizeAssetLabel(asset.assetLabel, asset.asset),
+    );
     const assetValues = topAssets.map((asset) => asset.transferCount);
     if (otherTransfers > 0) {
       assetLabels.push('Other');
@@ -255,6 +262,7 @@ export class WebController {
         swaps: stats.map((stat) => stat.swapsCount),
         transfers: stats.map((stat) => stat.transfersCount),
         gasClaims: stats.map((stat) => stat.gasClaimsCount),
+        others: stats.map((stat) => stat.othersCount),
         realUsage: stats.map((stat) => stat.realUsageTotal),
         totalTxs: stats.map((stat) => stat.totalTxCount),
         activeAddresses: stats.map((stat) => stat.uniqueAddresses),
@@ -266,6 +274,18 @@ export class WebController {
         values: assetValues,
       },
     };
+  }
+
+  private normalizeAssetLabel(
+    label?: string | null,
+    fallback?: string | null
+  ): string {
+    const value = (label ?? fallback ?? '').trim();
+    if (!value) {
+      return 'Unknown';
+    }
+
+    return value;
   }
 
   private async buildAssetLabelMap(
