@@ -15,6 +15,20 @@
 </head>
 <body>
   <main class="container">
+    <nav class="navbar" data-animate style="--delay: 0s;">
+      <a class="nav-brand" href="/dashboard">
+        <span class="nav-mark">N3</span>
+        <span class="nav-copy">
+          <span class="nav-title">Neo Analytics</span>
+          <span class="nav-subtitle">Real usage explorer</span>
+        </span>
+      </a>
+      <div class="nav-links">
+        <a class="nav-link {{#if nav.dashboard}}is-active{{/if}}" href="/dashboard">Dashboard</a>
+        <a class="nav-link {{#if nav.faq}}is-active{{/if}}" href="/faq">FAQ</a>
+      </div>
+    </nav>
+
     <header class="hero" data-animate style="--delay: 0s;">
       <div>
         <h1>Neo Analytics</h1>
@@ -34,7 +48,7 @@
           <button class="button" type="submit">Apply</button>
         </form>
         <div class="hero-links">
-          <a class="button secondary" href="/?from={{rangeFrom}}&to={{rangeTo}}">Back to dashboard</a>
+          <a class="button secondary" href="/dashboard?from={{rangeFrom}}&to={{rangeTo}}">Back to dashboard</a>
           <span class="pill">{{rangeLabel}}</span>
         </div>
       </div>

@@ -34,4 +34,5 @@ export interface NeoClient {
     endTime: Date,
     cursor?: string
   ): Promise<NeoPagedResponse>;
+  resolveAssetLabel?(asset: string): Promise<string | null>;
 }

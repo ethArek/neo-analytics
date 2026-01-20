@@ -15,6 +15,20 @@
 </head>
 <body>
   <main class="container">
+    <nav class="navbar" data-animate style="--delay: 0s;">
+      <a class="nav-brand" href="/dashboard">
+        <span class="nav-mark">N3</span>
+        <span class="nav-copy">
+          <span class="nav-title">Neo Analytics</span>
+          <span class="nav-subtitle">Real usage explorer</span>
+        </span>
+      </a>
+      <div class="nav-links">
+        <a class="nav-link {{#if nav.dashboard}}is-active{{/if}}" href="/dashboard">Dashboard</a>
+        <a class="nav-link {{#if nav.faq}}is-active{{/if}}" href="/faq">FAQ</a>
+      </div>
+    </nav>
+
     <header class="hero" data-animate style="--delay: 0s;">
       <div>
         <h1>Neo Analytics</h1>
@@ -22,7 +36,7 @@
         <p class="hero-meta">Classified transactions and breakdowns for the selected day.</p>
       </div>
       <div class="hero-actions">
-        <a href="/" class="button">Back to dashboard</a>
+        <a href="/dashboard" class="button">Back to dashboard</a>
       </div>
     </header>
 
@@ -68,7 +82,7 @@
           {{#each assetStats}}
           <li>
             <div>
-              <div class="mono">{{this.asset}}</div>
+              <div class="mono">{{this.assetLabel}}</div>
               <small>{{this.transferCount}} transfers</small>
             </div>
             <strong>{{this.volumeLabel}}</strong>
@@ -120,7 +134,7 @@
             <td>{{this.timestampLabel}}</td>
             <td class="mono">{{this.shortTxid}}</td>
             <td>{{this.type}}</td>
-            <td class="mono">{{this.asset}}</td>
+            <td class="mono">{{this.assetLabel}}</td>
             <td>{{this.amountLabel}}</td>
             <td class="mono">{{this.from}}</td>
             <td class="mono">{{this.to}}</td>

@@ -26,7 +26,8 @@ npm run prisma:migrate
 npm run start:dev
 ```
 
-Visit http://localhost:3000 to see the dashboard.
+Visit http://localhost:3000/dashboard to see the dashboard.
+The FAQ is available at http://localhost:3000/faq.
 
 The dashboard supports date range filters via `?from=YYYY-MM-DD&to=YYYY-MM-DD`.
 
