@@ -43,7 +43,6 @@
   const transferRgb = "14, 165, 164";
   const gasColor = "#f59e0b";
   const gasRgb = "245, 158, 11";
-  const othersColor = "#64748b";
   const othersRgb = "100, 116, 139";
   const totalTxColor = "#2563eb";
   const totalTxRgb = "37, 99, 235";
