@@ -73,7 +73,7 @@ type StreamState = {
   swapsCount: number;
   transfersCount: number;
   gasClaimsCount: number;
-  ignoredCount: number;
+  othersCount: number;
   neoVolumeRaw: bigint;
   gasVolumeRaw: bigint;
   totalTxCount: number;
@@ -115,7 +115,7 @@ export class IngestionService {
       swapsCount: 0,
       transfersCount: 0,
       gasClaimsCount: 0,
-      ignoredCount: 0,
+      othersCount: 0,
       neoVolumeRaw: 0n,
       gasVolumeRaw: 0n,
       totalTxCount: 0,
@@ -180,7 +180,7 @@ export class IngestionService {
       swapsCount: state.swapsCount,
       transfersCount: state.transfersCount,
       gasClaimsCount: state.gasClaimsCount,
-      ignoredCount: state.ignoredCount,
+      othersCount: state.othersCount,
       realUsageTotal: state.swapsCount + state.transfersCount,
       totalTransfers: state.totalTransfers,
       uniqueSenders: state.senders.size,
@@ -285,7 +285,7 @@ export class IngestionService {
     let swapsCount = 0;
     let transfersCount = 0;
     let gasClaimsCount = 0;
-    let ignoredCount = 0;
+    let othersCount = 0;
     let neoVolumeRaw = 0n;
     let gasVolumeRaw = 0n;
     let minBlockIndex: number | undefined;
@@ -346,7 +346,7 @@ export class IngestionService {
           break;
         }
         default: {
-          ignoredCount += 1;
+          othersCount += 1;
           break;
         }
       }
@@ -478,7 +478,7 @@ export class IngestionService {
       swapsCount,
       transfersCount,
       gasClaimsCount,
-      ignoredCount,
+      othersCount,
       realUsageTotal: swapsCount + transfersCount,
       totalTransfers: dailyTransfers.length,
       uniqueSenders: senders.size,
@@ -692,7 +692,7 @@ export class IngestionService {
           break;
         }
         default: {
-          state.ignoredCount += 1;
+          state.othersCount += 1;
           break;
         }
       }

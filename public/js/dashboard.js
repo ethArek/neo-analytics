@@ -43,6 +43,8 @@
   const transferRgb = "14, 165, 164";
   const gasColor = "#f59e0b";
   const gasRgb = "245, 158, 11";
+  const othersColor = "#64748b";
+  const othersRgb = "100, 116, 139";
   const totalTxColor = "#2563eb";
   const totalTxRgb = "37, 99, 235";
 
@@ -154,8 +156,14 @@
     const swapSeries = normalizeSeries(series.swaps, labels.length);
     const transferSeries = normalizeSeries(series.transfers, labels.length);
     const gasSeries = normalizeSeries(series.gasClaims, labels.length);
+    const othersSeries = normalizeSeries(series.others, labels.length);
     const typeTotals = labels.map((_, index) => {
-      return swapSeries[index] + transferSeries[index] + gasSeries[index];
+      return (
+        swapSeries[index] +
+        transferSeries[index] +
+        gasSeries[index] +
+        othersSeries[index]
+      );
     });
     const swapPercent = swapSeries.map((value, index) => {
       const total = typeTotals[index];
@@ -174,6 +182,14 @@
       return (value / total) * 100;
     });
     const gasPercent = gasSeries.map((value, index) => {
+      const total = typeTotals[index];
+      if (total <= 0) {
+        return 0;
+      }
+
+      return (value / total) * 100;
+    });
+    const othersPercent = othersSeries.map((value, index) => {
       const total = typeTotals[index];
       if (total <= 0) {
         return 0;
@@ -202,6 +218,11 @@
             data: gasPercent,
             backgroundColor: withAlpha(gasRgb, 0.7),
           },
+          {
+            label: "Others",
+            data: othersPercent,
+            backgroundColor: withAlpha(othersRgb, 0.7),
+          },
         ],
       },
       options: {
@@ -215,7 +236,12 @@
                 const dataIndex = context.dataIndex ?? 0;
                 const total = typeTotals[dataIndex] ?? 0;
                 const label = context.dataset.label ?? "";
-                const counts = [swapSeries, transferSeries, gasSeries];
+                const counts = [
+                  swapSeries,
+                  transferSeries,
+                  gasSeries,
+                  othersSeries,
+                ];
                 const count = counts[datasetIndex]?.[dataIndex] ?? 0;
                 const percent = total > 0 ? (count / total) * 100 : 0;
 
@@ -355,13 +381,41 @@
 
   const assetCtx = getContext("chart-assets");
   if (assetCtx) {
-    const assetValues = assets.values.map((value) => toNumberSafe(value));
+    const assetValues = (assets?.values ?? []).map((value) =>
+      toNumberSafe(value)
+    );
+    const rawLabels = Array.isArray(assets?.labels) ? assets.labels : [];
+    const assetLabels = assetValues.map((_, index) => {
+      const label = rawLabels[index];
+      if (typeof label === "string" && label.trim()) {
+        return label;
+      }
+
+      return `Unknown ${index + 1}`;
+    });
     const assetTotal = assetValues.reduce((total, value) => total + value, 0);
+    const buildLegendItems = (chart) => {
+      const meta = chart.getDatasetMeta(0);
+      const controller = meta?.controller;
+
+      return assetLabels.map((label, index) => {
+        const style = controller?.getStyle(index) ?? {};
+
+        return {
+          text: label,
+          fillStyle: style.backgroundColor,
+          strokeStyle: style.borderColor,
+          lineWidth: style.borderWidth,
+          hidden: !chart.getDataVisibility(index),
+          index,
+        };
+      });
+    };
 
     createChart(assetCtx, {
       type: "doughnut",
       data: {
-        labels: assets.labels,
+        labels: assetLabels,
         datasets: [
           {
             data: assetValues,
@@ -379,14 +433,17 @@
               generateLabels: (chart) => {
                 const baseLabels =
                   Chart.defaults.plugins.legend.labels.generateLabels(chart);
+                if (baseLabels.length !== assetLabels.length) {
+                  return buildLegendItems(chart);
+                }
 
-                return baseLabels.map((item) => {
-                  const value = assetValues[item.index] ?? 0;
-                  const percent = assetTotal > 0 ? (value / assetTotal) * 100 : 0;
+                return baseLabels.map((item, index) => {
+                  const itemIndex = Number.isFinite(item.index) ? item.index : index;
+                  const label = assetLabels[itemIndex] ?? `Unknown ${itemIndex + 1}`;
 
                   return {
                     ...item,
-                    text: `${item.text} (${formatPercent(percent)})`,
+                    text: label,
                   };
                 });
               },
@@ -395,9 +452,13 @@
           tooltip: {
             callbacks: {
               label: (context) => {
-                const value = assetValues[context.dataIndex] ?? 0;
+                const dataIndex = Number.isFinite(context.dataIndex)
+                  ? context.dataIndex
+                  : 0;
+                const value = assetValues[dataIndex] ?? 0;
                 const percent = assetTotal > 0 ? (value / assetTotal) * 100 : 0;
-                const label = context.label ?? "";
+                const label =
+                  assetLabels[dataIndex] ?? context.label ?? `Unknown ${dataIndex + 1}`;
 
                 return `${label}: ${value} (${formatPercent(percent)})`;
               },

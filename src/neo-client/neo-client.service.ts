@@ -305,12 +305,26 @@ export class RpcNeoClient implements NeoClient {
         return null;
       }
 
-      const decoded = Buffer.from(item.value, "base64").toString("utf8");
-      if (!decoded) {
+      const raw = item.value;
+      const decodedBase64 = this.decodeAscii(Buffer.from(raw, "base64"));
+      if (decodedBase64) {
+        return decodedBase64;
+      }
+
+      const hexCandidate = raw.startsWith("0x") ? raw.slice(2) : raw;
+      if (/^[0-9a-f]+$/i.test(hexCandidate)) {
+        const decodedHex = this.decodeAscii(Buffer.from(hexCandidate, "hex"));
+        if (decodedHex) {
+          return decodedHex;
+        }
+      }
+
+      const trimmed = raw.trim();
+      if (!trimmed) {
         return null;
       }
 
-      return decoded;
+      return trimmed;
     }
 
     return null;

@@ -169,7 +169,7 @@ class FakePrismaService implements IngestionPrismaClient {
       swapsCount: record.swapsCount,
       transfersCount: record.transfersCount,
       gasClaimsCount: record.gasClaimsCount,
-      ignoredCount: record.ignoredCount,
+      othersCount: record.othersCount,
       realUsageTotal: record.realUsageTotal,
       totalTransfers: record.totalTransfers,
       uniqueSenders: record.uniqueSenders,
@@ -246,7 +246,7 @@ describe('IngestionService', () => {
     expect(stat.swapsCount).toBe(1);
     expect(stat.transfersCount).toBe(1);
     expect(stat.gasClaimsCount).toBe(0);
-    expect(stat.ignoredCount).toBe(0);
+    expect(stat.othersCount).toBe(0);
     expect(stat.realUsageTotal).toBe(2);
     expect(stat.totalTransfers).toBe(3);
     expect(stat.uniqueSenders).toBe(2);
