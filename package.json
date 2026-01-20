@@ -1,7 +1,7 @@
 {
   "name": "neo-n3-real-usage",
   "version": "1.0.0",
-  "description": "Neo N3 Real Usage dashboard",
+  "description": "Neo N3 dashboard",
   "scripts": {
     "start": "nest start",
     "start:dev": "nest start --watch",
@@ -18,13 +18,15 @@
     "@nestjs/core": "^10.3.2",
     "@nestjs/platform-express": "^10.3.2",
     "@nestjs/schedule": "^4.0.1",
+    "@nestjs/swagger": "^7.4.2",
     "@prisma/adapter-pg": "7.2.0",
     "@prisma/client": "7.2.0",
     "dotenv": "^17.2.3",
     "hbs": "^4.2.0",
     "pg": "^8.16.3",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.4.2",

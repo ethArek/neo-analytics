@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Post, Req, Res } from '@nestjs/common';
+import { ApiExcludeController } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
 import { IngestionService } from '../ingestion/ingestion.service';
 import { formatDate, parseDate, yesterdayInTimeZone } from '../ingestion/date-utils';
@@ -23,6 +24,7 @@ type AdminResponse = {
   status: (code: number) => AdminResponse;
 };
 
+@ApiExcludeController()
 @Controller('admin')
 export class AdminController {
   constructor(

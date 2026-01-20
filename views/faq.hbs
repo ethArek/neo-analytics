@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Neo Analytics - FAQ</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <main class="container">
+    <nav class="navbar" data-animate style="--delay: 0s;">
+      <a class="nav-brand" href="/dashboard">
+        <span class="nav-mark">N3</span>
+        <span class="nav-copy">
+          <span class="nav-title">Neo Analytics</span>
+        </span>
+      </a>
+      <div class="nav-links">
+        <a class="nav-link {{#if nav.dashboard}}is-active{{/if}}" href="/dashboard">Dashboard</a>
+        <a class="nav-link {{#if nav.faq}}is-active{{/if}}" href="/faq">FAQ</a>
+      </div>
+    </nav>
+
+    <header class="hero faq-hero" data-animate style="--delay: 0.04s;">
+      <div>
+        <span class="pill">FAQ</span>
+        <h1>Clear answers to how Neo Analytics works.</h1>
+        <p class="subtitle">
+          We translate on-chain activity into a simple picture of Neo N3 activity,
+          with transparent rules and daily updates.
+        </p>
+        <div class="hero-meta">
+          <span class="pill">Neo N3 RPC data</span>
+          <span class="pill">Daily ingestion</span>
+          <span class="pill">Deterministic rules</span>
+        </div>
+      </div>
+      <div class="faq-hero-card">
+        <div class="faq-stat">
+          <span class="faq-label">Support</span>
+          <strong>Want to support this project?</strong>
+          <p>
+            This project is not funded by any organization. I cover the server costs and spend my own
+            time to keep it running. If you want to support it, Neo/GAS or any N3 token
+            donations to <span class="mono">NgdZvkR3bvsXuScWFrTQWfNhALarQ76CEr</span> are appreciated.
+          </p>
+        </div>
+      </div>
+    </header>
+
+    <section class="faq-accordion" data-animate style="--delay: 0.12s;">
+      <div class="faq-accordion-header">
+        <h2>FAQ</h2>
+        <p class="summary-subtitle">Short answers for deeper dives.</p>
+      </div>
+      <div class="faq-stack">
+        <details open>
+          <summary>How often is data updated?</summary>
+          <p>
+            The ingestion job runs daily and retries hourly if a day is missing.
+            Admin endpoints can backfill ranges when needed.
+          </p>
+        </details>
+        <details>
+          <summary>Can I query the raw data?</summary>
+          <p>
+            Use the API endpoints under <span class="mono">/api/stats</span> for
+            totals, asset stats, methods, and contract breakdowns.
+          </p>
+        </details>
+        <details>
+          <summary>How do I change the date range?</summary>
+          <p>
+            Use the date picker on the dashboard to set a range, then click Apply.
+            The charts and tables update to reflect that window.
+          </p>
+        </details>
+        <details>
+          <summary>Which RPC endpoints are used?</summary>
+          <p>
+            The app connects to the RPC endpoints configured in the environment.
+            Multiple endpoints are rotated to improve reliability.
+          </p>
+        </details>
+        <details>
+          <summary>What happens to unknown tokens?</summary>
+          <p>
+            We attempt to fetch the symbol first, then the contract name.
+            If those calls fail, the contract hash is displayed.
+          </p>
+        </details>
+        <details>
+          <summary>How are token amounts formatted?</summary>
+          <p>
+            NEO is shown as an integer and GAS uses 8 decimals. Other assets use
+            their raw amounts for now.
+          </p>
+        </details>
+        <details>
+          <summary>Why can totals change after a refresh?</summary>
+          <p>
+            If a day was missing or partially ingested, the hourly retry or a backfill
+            can update the stored totals. That is normal and keeps the dataset accurate.
+          </p>
+        </details>
+        <details>
+          <summary>What is the swap detection rule?</summary>
+          <p>
+            Swaps are detected when swap-like methods are called and there are multiple
+            transfers, or when known DEX contracts and swap notifications are present.
+          </p>
+        </details>
+        <details>
+          <summary>Why are zero-amount transfers ignored?</summary>
+          <p>
+            Zero-amount events can be noisy and do not represent user activity.
+            Ignoring them keeps the metrics aligned with meaningful movement.
+          </p>
+        </details>
+        <details>
+          <summary>Are self-transfers included?</summary>
+          <p>
+            Self-transfers are excluded from totals to avoid inflating activity
+            without actual value movement.
+          </p>
+        </details>
+        <details>
+          <summary>Why do some days show no data?</summary>
+          <p>
+            The dashboard reflects what has been ingested. If a day is missing, it
+            can be backfilled by an admin job or will be retried automatically.
+          </p>
+        </details>
+        <details>
+          <summary>Is this open source?</summary>
+          <p>
+            The codebase is maintained privately for now, but the methodology and rules
+            are described on the site to keep the analytics transparent.
+          </p>
+        </details>
+        <details>
+          <summary>Do you store user data?</summary>
+          <p>
+            The app stores on-chain transaction summaries only. No personal data is
+            collected beyond what is already public on-chain.
+          </p>
+        </details>
+        <details>
+          <summary>Can I request a new metric?</summary>
+          <p>
+            Yes. If you have a suggestion, share it and I will evaluate it for
+            stability and long-term maintenance.
+          </p>
+        </details>
+      </div>
+    </section>
+
+    <section class="faq-cta" data-animate style="--delay: 0.16s;">
+      <div>
+        <span class="range-caption">Ready to explore</span>
+        <h2>Open the dashboard for live activity.</h2>
+        <p class="summary-subtitle">
+          Filter by date range and drill into daily details.
+        </p>
+      </div>
+      <a class="button" href="/dashboard">Open dashboard</a>
+    </section>
+  </main>
+</body>
+</html>

@@ -94,6 +94,16 @@
     return Array.from({ length: labelsCount }, () => 0);
   };
 
+  const formatPercent = (value, decimals = 1) => {
+    if (!Number.isFinite(value)) {
+      return "0%";
+    }
+
+    const rounded = Number(value.toFixed(decimals));
+
+    return `${rounded}%`;
+  };
+
   const createChart = (ctx, config) => {
     const existing = Chart.getChart(ctx.canvas);
     if (existing) {
@@ -113,7 +123,7 @@
         labels,
         datasets: [
           {
-            label: "Real usage",
+            label: "Neo N3 activity",
             data: normalizeSeries(series.realUsage, labels.length),
             borderColor: swapColor,
             backgroundColor: withAlpha(swapRgb, 0.2),
@@ -141,6 +151,37 @@
 
   const typeCtx = getContext("chart-types");
   if (typeCtx) {
+    const swapSeries = normalizeSeries(series.swaps, labels.length);
+    const transferSeries = normalizeSeries(series.transfers, labels.length);
+    const gasSeries = normalizeSeries(series.gasClaims, labels.length);
+    const typeTotals = labels.map((_, index) => {
+      return swapSeries[index] + transferSeries[index] + gasSeries[index];
+    });
+    const swapPercent = swapSeries.map((value, index) => {
+      const total = typeTotals[index];
+      if (total <= 0) {
+        return 0;
+      }
+
+      return (value / total) * 100;
+    });
+    const transferPercent = transferSeries.map((value, index) => {
+      const total = typeTotals[index];
+      if (total <= 0) {
+        return 0;
+      }
+
+      return (value / total) * 100;
+    });
+    const gasPercent = gasSeries.map((value, index) => {
+      const total = typeTotals[index];
+      if (total <= 0) {
+        return 0;
+      }
+
+      return (value / total) * 100;
+    });
+
     createChart(typeCtx, {
       type: "bar",
       data: {
@@ -148,17 +189,17 @@
         datasets: [
           {
             label: "Swaps",
-            data: normalizeSeries(series.swaps, labels.length),
+            data: swapPercent,
             backgroundColor: withAlpha(swapRgb, 0.7),
           },
           {
             label: "Transfers",
-            data: normalizeSeries(series.transfers, labels.length),
+            data: transferPercent,
             backgroundColor: withAlpha(transferRgb, 0.7),
           },
           {
             label: "Gas claims",
-            data: normalizeSeries(series.gasClaims, labels.length),
+            data: gasPercent,
             backgroundColor: withAlpha(gasRgb, 0.7),
           },
         ],
@@ -167,10 +208,32 @@
         maintainAspectRatio: false,
         plugins: {
           legend: { position: "bottom" },
+          tooltip: {
+            callbacks: {
+              label: (context) => {
+                const datasetIndex = context.datasetIndex ?? 0;
+                const dataIndex = context.dataIndex ?? 0;
+                const total = typeTotals[dataIndex] ?? 0;
+                const label = context.dataset.label ?? "";
+                const counts = [swapSeries, transferSeries, gasSeries];
+                const count = counts[datasetIndex]?.[dataIndex] ?? 0;
+                const percent = total > 0 ? (count / total) * 100 : 0;
+
+                return `${label}: ${count} (${formatPercent(percent)})`;
+              },
+            },
+          },
         },
         scales: {
           x: { stacked: true },
-          y: { stacked: true, beginAtZero: true },
+          y: {
+            stacked: true,
+            beginAtZero: true,
+            max: 100,
+            ticks: {
+              callback: (value) => `${value}%`,
+            },
+          },
         },
       },
     });
@@ -292,14 +355,17 @@
 
   const assetCtx = getContext("chart-assets");
   if (assetCtx) {
+    const assetValues = assets.values.map((value) => toNumberSafe(value));
+    const assetTotal = assetValues.reduce((total, value) => total + value, 0);
+
     createChart(assetCtx, {
       type: "doughnut",
       data: {
         labels: assets.labels,
         datasets: [
           {
-            data: assets.values,
-            backgroundColor: buildPalette(assets.values.length),
+            data: assetValues,
+            backgroundColor: buildPalette(assetValues.length),
             borderWidth: 0,
           },
         ],
@@ -307,7 +373,36 @@
       options: {
         maintainAspectRatio: false,
         plugins: {
-          legend: { position: "bottom" },
+          legend: {
+            position: "bottom",
+            labels: {
+              generateLabels: (chart) => {
+                const baseLabels =
+                  Chart.defaults.plugins.legend.labels.generateLabels(chart);
+
+                return baseLabels.map((item) => {
+                  const value = assetValues[item.index] ?? 0;
+                  const percent = assetTotal > 0 ? (value / assetTotal) * 100 : 0;
+
+                  return {
+                    ...item,
+                    text: `${item.text} (${formatPercent(percent)})`,
+                  };
+                });
+              },
+            },
+          },
+          tooltip: {
+            callbacks: {
+              label: (context) => {
+                const value = assetValues[context.dataIndex] ?? 0;
+                const percent = assetTotal > 0 ? (value / assetTotal) * 100 : 0;
+                const label = context.label ?? "";
+
+                return `${label}: ${value} (${formatPercent(percent)})`;
+              },
+            },
+          },
         },
         cutout: "65%",
       },

@@ -6,7 +6,7 @@ describe('classifier', () => {
     swapMethodAllowlist: defaultSwapMethods,
   };
 
-  it('classifies swap as real usage when multiple transfers with swap method', () => {
+  it('classifies swap when multiple transfers with swap method', () => {
     const tx: NeoTransaction = {
       txid: '1',
       timestamp: new Date().toISOString(),
@@ -132,7 +132,7 @@ describe('classifier', () => {
     expect(result.reason).toContain('GAS claim');
   });
 
-  it('excludes self-transfer from real usage', () => {
+  it('excludes self-transfer from totals', () => {
     const tx: NeoTransaction = {
       txid: '3',
       timestamp: new Date().toISOString(),

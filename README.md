@@ -26,7 +26,9 @@ npm run prisma:migrate
 npm run start:dev
 ```
 
-Visit http://localhost:3000 to see the dashboard.
+Visit http://localhost:3000/dashboard to see the dashboard.
+The FAQ is available at http://localhost:3000/faq.
+Swagger docs are available at http://localhost:3000/api/docs (stats endpoints only).
 
 The dashboard supports date range filters via `?from=YYYY-MM-DD&to=YYYY-MM-DD`.
 
@@ -34,18 +36,18 @@ The dashboard supports date range filters via `?from=YYYY-MM-DD&to=YYYY-MM-DD`.
 
 Classification is handled in `src/classifier/classifier.ts` and is deterministic.
 
-- **Swap (real usage)**
+- **Swap**
   - A transaction is classified as a swap if it has **both**:
     1. An invocation with a swap-like method name (e.g. `swap`, `swapToken`, `swapTokens`, `swapExactTokens`)
     2. Multiple transfers (2 or more), which represent the token exchange in a swap operation
   - The detection is based on transaction data, not on a DEX contract allowlist
-- **Gas claim (not real usage)**
+- **Gas claim**
   - Gas claims are detected based on transaction data: GAS transfers with no `from` address (or an empty `from` field).
   - This pattern indicates GAS being distributed from the system to a user, which is characteristic of gas claim operations in Neo N3.
   - Normal GAS transfers (with a valid `from` address) are classified as normal transfers.
-- **Normal transfer (real usage)**
+- **Normal transfer**
   - Native NEO/GAS transfers that are not swaps and not gas claims.
-  - Self-transfers (`from == to`) are excluded from real usage.
+  - Self-transfers (`from == to`) are excluded from totals.
   - Zero-amount transfers are ignored if an amount is provided.
 
 Precedence order: **swap > gas claim > normal transfer**.

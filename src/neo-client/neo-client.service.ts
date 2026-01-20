@@ -52,6 +52,16 @@ type RpcStackItem = {
   value?: unknown;
 };
 
+type RpcInvokeResult = {
+  stack?: RpcStackItem[];
+  state?: string;
+  exception?: string;
+};
+
+type RpcContractState = {
+  manifest?: { name?: string };
+};
+
 type RpcNativeContract = {
   name?: string;
   hash?: string;
@@ -70,6 +80,8 @@ export class RpcNeoClient implements NeoClient {
   >();
   private nativeAssetMap?: Map<string, string>;
   private clientIndex = 0;
+  private readonly assetLabelCache = new Map<string, string>();
+  private readonly assetLabelInFlight = new Map<string, Promise<string>>();
 
   constructor(private readonly configService: ConfigService) {
     const endpoints =
@@ -116,6 +128,40 @@ export class RpcNeoClient implements NeoClient {
     );
 
     return response;
+  }
+
+  async resolveAssetLabel(asset: string): Promise<string | null> {
+    const trimmed = asset.trim();
+    if (!trimmed) {
+      return null;
+    }
+
+    const upper = trimmed.toUpperCase();
+    if (upper === "NEO" || upper === "GAS") {
+      return upper;
+    }
+
+    const normalized = this.normalizeHash(trimmed);
+    if (!this.isHash(normalized)) {
+      return trimmed;
+    }
+
+    const cached = this.assetLabelCache.get(normalized);
+    if (cached) {
+      return cached;
+    }
+
+    const inFlight = this.assetLabelInFlight.get(normalized);
+    if (inFlight) {
+      return inFlight;
+    }
+
+    const promise = this.fetchAssetLabel(normalized).finally(() => {
+      this.assetLabelInFlight.delete(normalized);
+    });
+    this.assetLabelInFlight.set(normalized, promise);
+
+    return promise;
   }
 
   private async fetchTransactionsForBlockRange(
@@ -174,6 +220,100 @@ export class RpcNeoClient implements NeoClient {
       blockStart: range.start,
       blockEnd: range.end,
     };
+  }
+
+  private async fetchAssetLabel(assetHash: string): Promise<string> {
+    const symbol = await this.fetchTokenSymbol(assetHash);
+    if (symbol) {
+      this.assetLabelCache.set(assetHash, symbol);
+      return symbol;
+    }
+
+    const name = await this.fetchContractName(assetHash);
+    if (name) {
+      this.assetLabelCache.set(assetHash, name);
+      return name;
+    }
+
+    this.assetLabelCache.set(assetHash, assetHash);
+
+    return assetHash;
+  }
+
+  private async fetchTokenSymbol(assetHash: string): Promise<string | null> {
+    try {
+      const result = await this.withRpc((client) =>
+        client.invokeFunction(assetHash, "symbol")
+      );
+      const typed = result as RpcInvokeResult;
+      if (typed.state && typed.state.toUpperCase().includes("FAULT")) {
+        return null;
+      }
+
+      const symbol = this.readStackString(typed.stack?.[0]);
+      if (!symbol) {
+        return null;
+      }
+
+      const trimmed = symbol.trim();
+      if (!trimmed) {
+        return null;
+      }
+
+      return trimmed;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  private async fetchContractName(assetHash: string): Promise<string | null> {
+    try {
+      const state = await this.withRpc((client) =>
+        client.getContractState(assetHash)
+      );
+      const name = (state as RpcContractState)?.manifest?.name;
+      if (typeof name !== "string") {
+        return null;
+      }
+
+      const trimmed = name.trim();
+      if (!trimmed) {
+        return null;
+      }
+
+      return trimmed;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  private readStackString(item?: RpcStackItem): string | null {
+    if (!item) {
+      return null;
+    }
+
+    if (item.type === "String") {
+      if (typeof item.value !== "string") {
+        return null;
+      }
+
+      return item.value;
+    }
+
+    if (item.type === "ByteString") {
+      if (typeof item.value !== "string") {
+        return null;
+      }
+
+      const decoded = Buffer.from(item.value, "base64").toString("utf8");
+      if (!decoded) {
+        return null;
+      }
+
+      return decoded;
+    }
+
+    return null;
   }
 
   private async getBlockRangeForDate(
@@ -497,6 +637,10 @@ export class RpcNeoClient implements NeoClient {
     }
 
     return String(item.value);
+  }
+
+  private isHash(value: string): boolean {
+    return /^0x[0-9a-f]{40}$/i.test(value);
   }
 
   private normalizeHash(hash: string): string {
