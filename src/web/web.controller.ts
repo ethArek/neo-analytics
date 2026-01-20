@@ -281,11 +281,17 @@ export class WebController {
       uniqueAssets.add(asset);
     }
 
+    const resolutionPromises: Array<Promise<void>> = [];
     for (const asset of uniqueAssets) {
-      const label = await this.resolveAssetLabel(asset);
-      labels.set(asset, label);
+      resolutionPromises.push(
+        (async () => {
+          const label = await this.resolveAssetLabel(asset);
+          labels.set(asset, label);
+        })()
+      );
     }
 
+    await Promise.all(resolutionPromises);
     return labels;
   }
 
@@ -310,7 +316,10 @@ export class WebController {
       if (resolved) {
         return resolved;
       }
+
+      console.debug(`Asset label resolution returned no value for asset "${asset}", falling back to asset hash.`);
     } catch (error) {
+      console.warn(`Failed to resolve asset label for asset "${asset}", falling back to asset hash.`, error);
       return asset;
     }
 
