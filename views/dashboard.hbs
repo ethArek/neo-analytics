@@ -14,26 +14,7 @@
   </head>
   <body>
     <main class="container">
-      <nav class="navbar" data-animate style="--delay: 0s;">
-        <a class="nav-brand" href="/dashboard">
-          <span class="nav-mark">N3</span>
-          <span class="nav-copy">
-            <span class="nav-title">Neo Analytics</span>
-          </span>
-        </a>
-        <div class="nav-links">
-          <a class="nav-link {{#if nav.dashboard}}is-active{{/if}}" href="/dashboard">Dashboard</a>
-          <a class="nav-link {{#if nav.faq}}is-active{{/if}}" href="/faq">FAQ</a>
-        </div>
-      </nav>
-
-      <header class="hero" data-animate style="--delay: 0s;">
-        <div>
-          <h1>Neo Analytics</h1>
-          <p class="subtitle">Analytics for the Neo N3 blockchain.</p>
-        </div>
-      </header>
-
+      {{> navbar}}
       <section class="summary-section">
         <div class="summary-header" data-animate style="--delay: 0.02s;">
           <div>
@@ -104,18 +85,7 @@
       <section class="chart-grid">
         <div class="chart-card wide" data-animate style="--delay: 0.05s;">
           <div class="chart-title">
-            <h3 class="title-with-tip">
-              Total transactions
-              <span
-                class="tooltip"
-                tabindex="0"
-                role="note"
-                aria-label="All scanned blocks."
-                data-tooltip="All scanned blocks."
-              >
-                ?
-              </span>
-            </h3>
+            <h3>Total transactions</h3>
             <span>Per day (range)</span>
           </div>
           <div class="chart-area">

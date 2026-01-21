@@ -48,6 +48,16 @@ export class WebController {
     };
   }
 
+  @Get('/special-thanks')
+  @Render('special-thanks')
+  specialThanks() {
+    return {
+      nav: {
+        specialThanks: true,
+      },
+    };
+  }
+
   @Get('/dashboard')
   @Render('dashboard')
   async dashboard(@Query('from') from?: string, @Query('to') to?: string) {
