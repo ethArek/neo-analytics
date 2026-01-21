@@ -30,6 +30,7 @@
   },
   "devDependencies": {
     "@nestjs/cli": "^10.4.2",
+    "@types/hbs": "^4.0.5",
     "@types/jest": "^29.5.12",
     "@types/node": "^20.19.29",
     "@types/pg": "8.11.11",
