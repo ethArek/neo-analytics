@@ -1,3 +1,4 @@
+import { wallet, u } from '@cityofzion/neon-js';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { decimalToBigInt } from '../common/prisma-decimal';
@@ -232,7 +233,7 @@ export class StatsService {
       });
 
       return grouped.map((row) => ({
-        address: row.from ?? '',
+        address: this.toN3Address(row.from ?? ''),
         transferCount: row._count.from ?? 0,
         volumeRaw: decimalToBigInt(row._sum.amountRaw),
       }));
@@ -251,7 +252,7 @@ export class StatsService {
     });
 
     return grouped.map((row) => ({
-      address: row.to ?? '',
+      address: this.toN3Address(row.to ?? ''),
       transferCount: row._count.to ?? 0,
       volumeRaw: decimalToBigInt(row._sum.amountRaw),
     }));
@@ -334,6 +335,40 @@ export class StatsService {
     }));
 
     return entries.sort((a, b) => b.count - a.count);
+  }
+
+  private toN3Address(value: string): string {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return value;
+    }
+
+    if (!this.isScriptHash(trimmed)) {
+      return value;
+    }
+
+    const scriptHash = trimmed.slice(2);
+    const reversed = u.reverseHex(scriptHash);
+    const converted =
+      this.safeGetAddressFromScriptHash(reversed) ??
+      this.safeGetAddressFromScriptHash(scriptHash);
+    if (!converted) {
+      return value;
+    }
+
+    return converted;
+  }
+
+  private safeGetAddressFromScriptHash(scriptHash: string): string | null {
+    try {
+      return wallet.getAddressFromScriptHash(scriptHash);
+    } catch (error) {
+      return null;
+    }
+  }
+
+  private isScriptHash(value: string): boolean {
+    return /^0x[0-9a-f]{40}$/i.test(value);
   }
 
   private mapDailyStat(stat: DailyStatRow): DailyStatWithBigInt {
