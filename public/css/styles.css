@@ -207,7 +207,7 @@ h3 {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
-  align-items: center;
+  align-items: flex-end;
   background: var(--card);
   padding: 12px 14px;
   border-radius: 14px;
@@ -230,6 +230,12 @@ h3 {
   font: inherit;
   background: var(--surface-1);
   color: var(--ink);
+}
+
+.range-form .button {
+  padding: 6px 16px;
+  align-self: flex-end;
+  margin-bottom: 4px;
 }
 
 .form-grid {
@@ -426,11 +432,11 @@ h3 {
 }
 
 .chart-card.wide {
-  grid-column: span 4;
+  grid-column: span 3;
 }
 
 .chart-card.tall {
-  grid-column: span 2;
+  grid-column: span 3;
 }
 
 .chart-card.full {

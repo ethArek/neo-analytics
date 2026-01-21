@@ -15,18 +15,7 @@
 </head>
 <body>
   <main class="container">
-    <nav class="navbar" data-animate style="--delay: 0s;">
-      <a class="nav-brand" href="/dashboard">
-        <span class="nav-mark">N3</span>
-        <span class="nav-copy">
-          <span class="nav-title">Neo Analytics</span>
-        </span>
-      </a>
-      <div class="nav-links">
-        <a class="nav-link {{#if nav.dashboard}}is-active{{/if}}" href="/dashboard">Dashboard</a>
-        <a class="nav-link {{#if nav.faq}}is-active{{/if}}" href="/faq">FAQ</a>
-      </div>
-    </nav>
+    {{> navbar}}
 
     <header class="hero faq-hero" data-animate style="--delay: 0.04s;">
       <div>
@@ -64,85 +53,29 @@
         <details open>
           <summary>How often is data updated?</summary>
           <p>
-            The ingestion job runs daily and retries hourly if a day is missing.
-            Admin endpoints can backfill ranges when needed.
+            The ingestion job runs daily at 00:30 UTC, processing all blocks from the
+            previous day. Data is typically available within half an hour of completion.
           </p>
         </details>
         <details>
           <summary>Can I query the raw data?</summary>
           <p>
             Use the API endpoints under <span class="mono">/api/stats</span> for
-            totals, asset stats, methods, and contract breakdowns.
+            totals, asset stats, methods, and contract breakdowns. Swagger docs
+            are available at <a href="/api/docs" class="mono">/api/docs</a>.
           </p>
         </details>
         <details>
-          <summary>How do I change the date range?</summary>
-          <p>
-            Use the date picker on the dashboard to set a range, then click Apply.
-            The charts and tables update to reflect that window.
-          </p>
-        </details>
-        <details>
-          <summary>Which RPC endpoints are used?</summary>
-          <p>
-            The app connects to the RPC endpoints configured in the environment.
-            Multiple endpoints are rotated to improve reliability.
-          </p>
-        </details>
-        <details>
-          <summary>What happens to unknown tokens?</summary>
-          <p>
-            We attempt to fetch the symbol first, then the contract name.
-            If those calls fail, the contract hash is displayed.
-          </p>
-        </details>
-        <details>
-          <summary>How are token amounts formatted?</summary>
-          <p>
-            NEO is shown as an integer and GAS uses 8 decimals. Other assets use
-            their raw amounts for now.
-          </p>
-        </details>
-        <details>
-          <summary>Why can totals change after a refresh?</summary>
-          <p>
-            If a day was missing or partially ingested, the hourly retry or a backfill
-            can update the stored totals. That is normal and keeps the dataset accurate.
-          </p>
-        </details>
-        <details>
-          <summary>What is the swap detection rule?</summary>
+          <summary>How is a transaction detected as a swap?</summary>
           <p>
             Swaps are detected when swap-like methods are called and there are multiple
             transfers, or when known DEX contracts and swap notifications are present.
           </p>
         </details>
         <details>
-          <summary>Why are zero-amount transfers ignored?</summary>
-          <p>
-            Zero-amount events can be noisy and do not represent user activity.
-            Ignoring them keeps the metrics aligned with meaningful movement.
-          </p>
-        </details>
-        <details>
-          <summary>Are self-transfers included?</summary>
-          <p>
-            Self-transfers are excluded from totals to avoid inflating activity
-            without actual value movement.
-          </p>
-        </details>
-        <details>
-          <summary>Why do some days show no data?</summary>
-          <p>
-            The dashboard reflects what has been ingested. If a day is missing, it
-            can be backfilled by an admin job or will be retried automatically.
-          </p>
-        </details>
-        <details>
           <summary>Is this open source?</summary>
           <p>
-            The codebase is maintained privately for now, but the methodology and rules
-            are described on the site to keep the analytics transparent.
+            The codebase is maintained privately for now.
           </p>
         </details>
         <details>
@@ -155,8 +88,9 @@
         <details>
           <summary>Can I request a new metric?</summary>
           <p>
-            Yes. If you have a suggestion, share it and I will evaluate it for
-            stability and long-term maintenance.
+            Yes. Reach out on
+            <a href="https://github.com/ethArek" target="_blank" rel="noreferrer">github.com/ethArek</a>
+            to suggest new metrics or features. Feedback is always welcome.
           </p>
         </details>
       </div>
@@ -165,7 +99,7 @@
     <section class="faq-cta" data-animate style="--delay: 0.16s;">
       <div>
         <span class="range-caption">Ready to explore</span>
-        <h2>Open the dashboard for live activity.</h2>
+        <h2>Open the analytics dashboard</h2>
         <p class="summary-subtitle">
           Filter by date range and drill into daily details.
         </p>
