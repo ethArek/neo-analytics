@@ -1,12 +1,12 @@
 # Neo Analytics
 
-Neo Analytics is a NestJS + Handlebars dashboard that tracks Neo N3 daily activity and classifies it into swaps, normal transfers, and gas claims. It provides a public-facing dashboard, a JSON API for analytics, and admin endpoints for running ingestion jobs.
+Neo Analytics is a NestJS + React (Vite) dashboard that tracks Neo N3 daily activity and classifies it into swaps, normal transfers, and gas claims. It provides a public-facing dashboard, a JSON API for analytics, and admin endpoints for running ingestion jobs.
 
 ## Project overview
 
 - **Data ingestion**: Pulls Neo N3 block data via JSON-RPC, extracts NEP-17 transfer activity, and persists aggregates in PostgreSQL.
 - **Classification**: Deterministic rules map transfers into swaps, gas claims, and normal transfers.
-- **Presentation**: A Handlebars dashboard plus an API layer for programmatic access.
+- **Presentation**: A React (Vite) dashboard plus an API layer for programmatic access.
 
 ## Architecture
 
@@ -63,6 +63,13 @@ ADMIN_TOKEN="change-me"
 npm run start:dev
 ```
 
+For React development with hot reload, run the Vite dev server in another terminal and set `VITE_DEV_SERVER_URL`
+(for example `http://localhost:5173`) so the server renders the Vite scripts.
+
+```bash
+npm run dev:client
+```
+
 Visit http://localhost:3000/dashboard to see the dashboard.
 The FAQ is available at http://localhost:3000/faq.
 Swagger docs are available at http://localhost:3000/api/docs (stats endpoints only).
@@ -79,11 +86,11 @@ npm run build
 npm run start
 ```
 
-The build outputs the client bundle to `public/app` and the NestJS server serves it using the Vite
+The build outputs the React client bundle to `public/app` and the NestJS server serves it using the Vite
 manifest. Ensure the `public/app` directory is deployed alongside the server bundle.
 
-If you want to serve a prebuilt client bundle from a different host or CDN, set
-`VITE_DEV_SERVER_URL` to point at the host URL so the server renders the correct script tags.
+If you want to serve a prebuilt client bundle from a different host or CDN (or run the Vite dev server),
+set `VITE_DEV_SERVER_URL` to point at the host URL so the server renders the correct script tags.
 
 ## Classification rules
 
