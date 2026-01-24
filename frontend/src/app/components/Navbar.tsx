@@ -1,5 +1,6 @@
 import React from 'react';
 import type { NavState } from '../types';
+import { delayStyle } from '../utils';
 
 type NavbarProps = {
   nav?: NavState;
@@ -9,7 +10,7 @@ const navClass = (isActive?: boolean) =>
   isActive ? 'nav-link is-active' : 'nav-link';
 
 export const Navbar: React.FC<NavbarProps> = ({ nav }) => (
-  <nav className="navbar" data-animate style={{ '--delay': '0s' } as React.CSSProperties}>
+  <nav className="navbar" data-animate style={delayStyle('0s')}>
     <a className="nav-brand" href="/dashboard">
       <span className="nav-mark">N3</span>
       <span className="nav-copy">

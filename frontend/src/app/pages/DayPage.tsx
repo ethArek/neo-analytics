@@ -1,10 +1,10 @@
 import React from 'react';
 import { Navbar } from '../components/Navbar';
-import { ensureArray, getPageData } from '../utils';
+import { delayStyle, ensureArray, getPageData } from '../utils';
 import type { DayData } from '../types';
 
 export const DayPage: React.FC = () => {
-  const data = getPageData() as DayData;
+  const data = getPageData<DayData>();
   const stat = data.stat ?? null;
   const assetStats = ensureArray(data.assetStats);
   const methodStats = ensureArray(data.methodStats);
@@ -15,7 +15,7 @@ export const DayPage: React.FC = () => {
     <main className="container">
       <Navbar nav={data.nav} />
 
-      <header className="hero" data-animate style={{ '--delay': '0s' } as React.CSSProperties}>
+      <header className="hero" data-animate style={delayStyle('0s')}>
         <div>
           <h1>Neo Analytics</h1>
           <p className="subtitle">Day details: {data.date}</p>
@@ -32,35 +32,35 @@ export const DayPage: React.FC = () => {
 
       {stat ? (
         <section className="summary-grid">
-          <div className="card accent" data-animate style={{ '--delay': '0.05s' } as React.CSSProperties}>
+          <div className="card accent" data-animate style={delayStyle('0.05s')}>
             <span>Total transactions</span>
             <strong>{stat.totalTxCount}</strong>
             <small>All scanned blocks</small>
           </div>
-          <div className="card" data-animate style={{ '--delay': '0.1s' } as React.CSSProperties}>
+          <div className="card" data-animate style={delayStyle('0.1s')}>
             <span>Total transactions excluding Gas Claims</span>
             <strong>{stat.realUsageTotal}</strong>
             <small>Swaps + transfers</small>
           </div>
-          <div className="card" data-animate style={{ '--delay': '0.15s' } as React.CSSProperties}>
+          <div className="card" data-animate style={delayStyle('0.15s')}>
             <span>Active addresses</span>
             <strong>{stat.uniqueAddresses}</strong>
             <small>Unique senders + receivers</small>
           </div>
-          <div className="card" data-animate style={{ '--delay': '0.2s' } as React.CSSProperties}>
+          <div className="card" data-animate style={delayStyle('0.2s')}>
             <span>NEO volume</span>
             <strong>{stat.neoVolume} NEO</strong>
           </div>
-          <div className="card" data-animate style={{ '--delay': '0.25s' } as React.CSSProperties}>
+          <div className="card" data-animate style={delayStyle('0.25s')}>
             <span>GAS volume</span>
             <strong>{stat.gasVolume} GAS</strong>
           </div>
-          <div className="card" data-animate style={{ '--delay': '0.3s' } as React.CSSProperties}>
+          <div className="card" data-animate style={delayStyle('0.3s')}>
             <span>Others</span>
             <strong>{stat.othersCount}</strong>
             <small>Ignored or uncategorized</small>
           </div>
-          <div className="card" data-animate style={{ '--delay': '0.35s' } as React.CSSProperties}>
+          <div className="card" data-animate style={delayStyle('0.35s')}>
             <span>Blocks scanned</span>
             <strong>{stat.blockCount}</strong>
             <small>Daily total</small>
@@ -71,7 +71,7 @@ export const DayPage: React.FC = () => {
       )}
 
       <section className="list-grid">
-        <div className="list-card" data-animate style={{ '--delay': '0.35s' } as React.CSSProperties}>
+        <div className="list-card" data-animate style={delayStyle('0.35s')}>
           <h3>Asset breakdown</h3>
           <ul>
             {assetStats.map((asset) => (
@@ -85,7 +85,7 @@ export const DayPage: React.FC = () => {
             ))}
           </ul>
         </div>
-        <div className="list-card" data-animate style={{ '--delay': '0.4s' } as React.CSSProperties}>
+        <div className="list-card" data-animate style={delayStyle('0.4s')}>
           <h3>Top methods</h3>
           <ul>
             {methodStats.map((method) => (
@@ -96,7 +96,7 @@ export const DayPage: React.FC = () => {
             ))}
           </ul>
         </div>
-        <div className="list-card" data-animate style={{ '--delay': '0.45s' } as React.CSSProperties}>
+        <div className="list-card" data-animate style={delayStyle('0.45s')}>
           <h3>Top contracts</h3>
           <ul>
             {contractStats.map((contract) => (
@@ -109,7 +109,7 @@ export const DayPage: React.FC = () => {
         </div>
       </section>
 
-      <section className="table" data-animate style={{ '--delay': '0.5s' } as React.CSSProperties}>
+      <section className="table" data-animate style={delayStyle('0.5s')}>
         <table>
           <thead>
             <tr>

@@ -1,10 +1,10 @@
 import React from 'react';
 import { Navbar } from '../components/Navbar';
-import { ensureArray, getPageData } from '../utils';
+import { delayStyle, ensureArray, getPageData } from '../utils';
 import type { DaysData } from '../types';
 
 export const DaysPage: React.FC = () => {
-  const data = getPageData() as DaysData;
+  const data = getPageData<DaysData>();
   const stats = ensureArray(data.stats);
   const rangeFrom = data.rangeFrom ?? '';
   const rangeTo = data.rangeTo ?? '';
@@ -14,7 +14,7 @@ export const DaysPage: React.FC = () => {
     <main className="container">
       <Navbar nav={data.nav} />
 
-      <header className="hero" data-animate style={{ '--delay': '0s' } as React.CSSProperties}>
+      <header className="hero" data-animate style={delayStyle('0s')}>
         <div>
           <h1>Neo Analytics</h1>
           <p className="subtitle">Daily activity table</p>
@@ -45,7 +45,7 @@ export const DaysPage: React.FC = () => {
         </div>
       </header>
 
-      <section className="table" data-animate style={{ '--delay': '0.1s' } as React.CSSProperties}>
+      <section className="table" data-animate style={delayStyle('0.1s')}>
         <table>
           <thead>
             <tr>

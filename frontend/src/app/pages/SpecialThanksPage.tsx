@@ -1,16 +1,16 @@
 import React from 'react';
 import { Navbar } from '../components/Navbar';
-import { getPageData } from '../utils';
+import { delayStyle, getPageData } from '../utils';
 import type { DashboardData } from '../types';
 
 export const SpecialThanksPage: React.FC = () => {
-  const data = getPageData() as DashboardData;
+  const data = getPageData<DashboardData>();
 
   return (
     <main className="container">
       <Navbar nav={data.nav} />
 
-      <header className="hero" data-animate style={{ '--delay': '0s' } as React.CSSProperties}>
+      <header className="hero" data-animate style={delayStyle('0s')}>
         <div>
           <h1>Special thanks</h1>
           <p className="subtitle">
@@ -20,7 +20,7 @@ export const SpecialThanksPage: React.FC = () => {
       </header>
 
       <section className="list-grid">
-        <div className="list-card" data-animate style={{ '--delay': '0.1s' } as React.CSSProperties}>
+        <div className="list-card" data-animate style={delayStyle('0.1s')}>
           <h3>City of Zion (CoZ)</h3>
           <p>
             Deep thanks to{' '}
@@ -43,7 +43,7 @@ export const SpecialThanksPage: React.FC = () => {
             and it is hugely appreciated.
           </p>
         </div>
-        <div className="list-card" data-animate style={{ '--delay': '0.15s' } as React.CSSProperties}>
+        <div className="list-card" data-animate style={delayStyle('0.15s')}>
           <h3>Neo builders</h3>
           <p>
             Special thanks to every Neo builder who cares about the Neo N3 chain. Wallet teams,

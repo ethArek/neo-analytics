@@ -69,6 +69,22 @@ Swagger docs are available at http://localhost:3000/api/docs (stats endpoints on
 
 The dashboard supports date range filters via `?from=YYYY-MM-DD&to=YYYY-MM-DD`.
 
+## Build + deployment
+
+```bash
+npm install
+npm run prisma:generate
+npm run prisma:migrate
+npm run build
+npm run start
+```
+
+The build outputs the client bundle to `public/app` and the NestJS server serves it using the Vite
+manifest. Ensure the `public/app` directory is deployed alongside the server bundle.
+
+If you want to serve a prebuilt client bundle from a different host or CDN, set
+`VITE_DEV_SERVER_URL` to point at the host URL so the server renders the correct script tags.
+
 ## Classification rules
 
 Classification is handled in `src/classifier/classifier.ts` and is deterministic.

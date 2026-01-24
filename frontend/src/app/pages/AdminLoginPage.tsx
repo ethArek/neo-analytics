@@ -1,13 +1,13 @@
 import React from 'react';
-import { getPageData } from '../utils';
+import { delayStyle, getPageData } from '../utils';
 import type { AdminLoginData } from '../types';
 
 export const AdminLoginPage: React.FC = () => {
-  const data = getPageData() as AdminLoginData;
+  const data = getPageData<AdminLoginData>();
 
   return (
     <main className="container">
-      <header className="hero" data-animate style={{ '--delay': '0s' } as React.CSSProperties}>
+      <header className="hero" data-animate style={delayStyle('0s')}>
         <div>
           <h1>Admin access</h1>
           <p className="subtitle">Sign in to manage ingestion runs.</p>
@@ -19,7 +19,7 @@ export const AdminLoginPage: React.FC = () => {
         </div>
       </header>
 
-      <section className="summary-section" data-animate style={{ '--delay': '0.1s' } as React.CSSProperties}>
+      <section className="summary-section" data-animate style={delayStyle('0.1s')}>
         <div className="summary-header">
           <h2>Log in</h2>
         </div>

@@ -1,13 +1,13 @@
 import React from 'react';
-import { getPageData } from '../utils';
+import { delayStyle, getPageData } from '../utils';
 import type { AdminData } from '../types';
 
 export const AdminPage: React.FC = () => {
-  const data = getPageData() as AdminData;
+  const data = getPageData<AdminData>();
 
   return (
     <main className="container">
-      <header className="hero" data-animate style={{ '--delay': '0s' } as React.CSSProperties}>
+      <header className="hero" data-animate style={delayStyle('0s')}>
         <div>
           <h1>Admin console</h1>
           <p className="subtitle">Trigger manual ingestion runs for Neo N3.</p>
@@ -27,7 +27,7 @@ export const AdminPage: React.FC = () => {
         </div>
       </header>
 
-      <section className="summary-section" data-animate style={{ '--delay': '0.1s' } as React.CSSProperties}>
+      <section className="summary-section" data-animate style={delayStyle('0.1s')}>
         <div className="summary-header">
           <h2>Manual ingestion</h2>
         </div>

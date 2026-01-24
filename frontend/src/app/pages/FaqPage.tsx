@@ -1,16 +1,16 @@
 import React from 'react';
 import { Navbar } from '../components/Navbar';
-import { getPageData } from '../utils';
+import { delayStyle, getPageData } from '../utils';
 import type { DashboardData } from '../types';
 
 export const FaqPage: React.FC = () => {
-  const data = getPageData() as DashboardData;
+  const data = getPageData<DashboardData>();
 
   return (
     <main className="container">
       <Navbar nav={data.nav} />
 
-      <header className="hero faq-hero" data-animate style={{ '--delay': '0.04s' } as React.CSSProperties}>
+      <header className="hero faq-hero" data-animate style={delayStyle('0.04s')}>
         <div>
           <span className="pill">FAQ</span>
           <h1>Clear answers to how Neo Analytics works.</h1>
@@ -38,7 +38,7 @@ export const FaqPage: React.FC = () => {
         </div>
       </header>
 
-      <section className="faq-accordion" data-animate style={{ '--delay': '0.12s' } as React.CSSProperties}>
+      <section className="faq-accordion" data-animate style={delayStyle('0.12s')}>
         <div className="faq-accordion-header">
           <h2>FAQ</h2>
           <p className="summary-subtitle">Short answers for deeper dives.</p>
@@ -93,7 +93,7 @@ export const FaqPage: React.FC = () => {
         </div>
       </section>
 
-      <section className="faq-cta" data-animate style={{ '--delay': '0.16s' } as React.CSSProperties}>
+      <section className="faq-cta" data-animate style={delayStyle('0.16s')}>
         <div>
           <span className="range-caption">Ready to explore</span>
           <h2>Open the analytics dashboard</h2>

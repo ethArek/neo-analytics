@@ -1,11 +1,11 @@
 import React, { useEffect } from 'react';
 import { Navbar } from '../components/Navbar';
-import { ensureArray, getPageData } from '../utils';
+import { delayStyle, ensureArray, getPageData } from '../utils';
 import type { DashboardData } from '../types';
 import { initDashboardCharts } from '../../charts/dashboard';
 
 export const DashboardPage: React.FC = () => {
-  const data = getPageData() as DashboardData;
+  const data = getPageData<DashboardData>();
   const totals = data.totals;
   const rangeFrom = data.rangeFrom ?? '';
   const rangeTo = data.rangeTo ?? '';
@@ -23,36 +23,36 @@ export const DashboardPage: React.FC = () => {
     <main className="container">
       <Navbar nav={data.nav} />
       <section className="summary-section">
-        <div className="summary-header" data-animate style={{ '--delay': '0.02s' } as React.CSSProperties}>
+        <div className="summary-header" data-animate style={delayStyle('0.02s')}>
           <div>
             <h2>Yesterday stats</h2>
           </div>
           {rangeTo ? <span className="range-pill">{rangeTo}</span> : null}
         </div>
         <div className="summary-grid">
-          <div className="card accent" data-animate style={{ '--delay': '0.05s' } as React.CSSProperties}>
+          <div className="card accent" data-animate style={delayStyle('0.05s')}>
             <span>Transactions</span>
             <strong>{totals?.totalTxs}</strong>
           </div>
-          <div className="card" data-animate style={{ '--delay': '0.1s' } as React.CSSProperties}>
+          <div className="card" data-animate style={delayStyle('0.1s')}>
             <span>Transactions excluding Gas Claims</span>
             <strong>{totals?.realUsage}</strong>
             <small>Swaps + transfers</small>
           </div>
-          <div className="card" data-animate style={{ '--delay': '0.15s' } as React.CSSProperties}>
+          <div className="card" data-animate style={delayStyle('0.15s')}>
             <span>Active addresses</span>
             <strong>{totals?.activeAddresses}</strong>
             <small>Unique senders + receivers</small>
           </div>
-          <div className="card" data-animate style={{ '--delay': '0.2s' } as React.CSSProperties}>
+          <div className="card" data-animate style={delayStyle('0.2s')}>
             <span>NEO volume</span>
             <strong>{totals?.neoVolume} NEO</strong>
           </div>
-          <div className="card" data-animate style={{ '--delay': '0.25s' } as React.CSSProperties}>
+          <div className="card" data-animate style={delayStyle('0.25s')}>
             <span>GAS volume</span>
             <strong>{totals?.gasVolume} GAS</strong>
           </div>
-          <div className="card" data-animate style={{ '--delay': '0.35s' } as React.CSSProperties}>
+          <div className="card" data-animate style={delayStyle('0.35s')}>
             <span>Blocks scanned</span>
             <strong>{totals?.blocks}</strong>
           </div>
@@ -60,7 +60,7 @@ export const DashboardPage: React.FC = () => {
       </section>
 
       <section className="range-analytics-section">
-        <div className="range-analytics-header" data-animate style={{ '--delay': '0.32s' } as React.CSSProperties}>
+        <div className="range-analytics-header" data-animate style={delayStyle('0.32s')}>
           <div>
             <h2>Range analytics</h2>
             <p className="summary-subtitle">Charts reflect the selected range.</p>
@@ -72,7 +72,7 @@ export const DashboardPage: React.FC = () => {
             <span className="pill">{rangeLabel}</span>
           </div>
         </div>
-        <form className="range-form" method="get" data-animate style={{ '--delay': '0.34s' } as React.CSSProperties}>
+        <form className="range-form" method="get" data-animate style={delayStyle('0.34s')}>
           <label>
             From
             <input type="date" name="from" defaultValue={rangeFrom} />
@@ -88,7 +88,7 @@ export const DashboardPage: React.FC = () => {
       </section>
 
       <section className="chart-grid">
-        <div className="chart-card wide" data-animate style={{ '--delay': '0.05s' } as React.CSSProperties}>
+        <div className="chart-card wide" data-animate style={delayStyle('0.05s')}>
           <div className="chart-title">
             <h3>Total transactions</h3>
             <span>Per day (range)</span>
@@ -97,7 +97,7 @@ export const DashboardPage: React.FC = () => {
             <canvas id="chart-total-txs" className="chart-canvas"></canvas>
           </div>
         </div>
-        <div className="chart-card tall" data-animate style={{ '--delay': '0.1s' } as React.CSSProperties}>
+        <div className="chart-card tall" data-animate style={delayStyle('0.1s')}>
           <div className="chart-title">
             <h3>Mix by type</h3>
             <span>Per day (range)</span>
@@ -106,7 +106,7 @@ export const DashboardPage: React.FC = () => {
             <canvas id="chart-types" className="chart-canvas"></canvas>
           </div>
         </div>
-        <div className="chart-card" data-animate style={{ '--delay': '0.12s' } as React.CSSProperties}>
+        <div className="chart-card" data-animate style={delayStyle('0.12s')}>
           <div className="chart-title">
             <h3>Total transactions excluding Gas Claims</h3>
             <span>Per day (range)</span>
@@ -115,7 +115,7 @@ export const DashboardPage: React.FC = () => {
             <canvas id="chart-real-usage" className="chart-canvas"></canvas>
           </div>
         </div>
-        <div className="chart-card" data-animate style={{ '--delay': '0.14s' } as React.CSSProperties}>
+        <div className="chart-card" data-animate style={delayStyle('0.14s')}>
           <div className="chart-title">
             <h3>Swaps</h3>
             <span>Per day (range)</span>
@@ -124,7 +124,7 @@ export const DashboardPage: React.FC = () => {
             <canvas id="chart-swaps" className="chart-canvas"></canvas>
           </div>
         </div>
-        <div className="chart-card" data-animate style={{ '--delay': '0.15s' } as React.CSSProperties}>
+        <div className="chart-card" data-animate style={delayStyle('0.15s')}>
           <div className="chart-title">
             <h3>Active addresses</h3>
             <span>Per day (range)</span>
@@ -133,7 +133,7 @@ export const DashboardPage: React.FC = () => {
             <canvas id="chart-addresses" className="chart-canvas"></canvas>
           </div>
         </div>
-        <div className="chart-card" data-animate style={{ '--delay': '0.2s' } as React.CSSProperties}>
+        <div className="chart-card" data-animate style={delayStyle('0.2s')}>
           <div className="chart-title">
             <h3>Transfer activity by asset</h3>
             <span>Top assets</span>
@@ -145,7 +145,7 @@ export const DashboardPage: React.FC = () => {
       </section>
 
       <section className="list-grid">
-        <div className="list-card" data-animate style={{ '--delay': '0.35s' } as React.CSSProperties}>
+        <div className="list-card" data-animate style={delayStyle('0.35s')}>
           <h3>Top senders</h3>
           <ul>
             {topSenders.map((sender) => (
@@ -159,7 +159,7 @@ export const DashboardPage: React.FC = () => {
             ))}
           </ul>
         </div>
-        <div className="list-card" data-animate style={{ '--delay': '0.4s' } as React.CSSProperties}>
+        <div className="list-card" data-animate style={delayStyle('0.4s')}>
           <h3>Top receivers</h3>
           <ul>
             {topReceivers.map((receiver) => (
