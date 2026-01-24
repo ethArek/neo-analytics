@@ -1,6 +1,24 @@
 # Neo Analytics
 
-A NestJS + Handlebars dashboard that tracks Neo N3 daily activity and classifies it into swaps, normal transfers, and gas claims.
+Neo Analytics is a NestJS + Handlebars dashboard that tracks Neo N3 daily activity and classifies it into swaps, normal transfers, and gas claims. It provides a public-facing dashboard, a JSON API for analytics, and admin endpoints for running ingestion jobs.
+
+## Project overview
+
+- **Data ingestion**: Pulls Neo N3 block data via JSON-RPC, extracts NEP-17 transfer activity, and persists aggregates in PostgreSQL.
+- **Classification**: Deterministic rules map transfers into swaps, gas claims, and normal transfers.
+- **Presentation**: A Handlebars dashboard plus an API layer for programmatic access.
+
+## Architecture
+
+```mermaid
+flowchart LR
+  RPC[Neo RPC endpoints] -->|JSON-RPC| Ingest[NeoClient + Ingestion Jobs]
+  Ingest -->|Aggregations| DB[(PostgreSQL)]
+  DB --> API[Analytics API]
+  DB --> UI[Dashboard + Admin UI]
+  API --> Consumers[External consumers]
+  UI --> Users[Analysts / Operators]
+```
 
 ## Requirements
 
@@ -17,12 +35,31 @@ RPC_ENDPOINT_2="https://mainnet2.neo.coz.io"
 ADMIN_TOKEN="change-me"
 ```
 
+## Setup
+
+1. Clone the repo and install dependencies:
+
+   ```bash
+   npm install
+   ```
+
+2. Configure environment variables (copy the block above into your shell or a local `.env` file, or start from `.env.example`).
+3. Generate Prisma client and run migrations:
+
+   ```bash
+   npm run prisma:generate
+   npm run prisma:migrate
+   ```
+
+4. Start the development server:
+
+   ```bash
+   npm run start:dev
+   ```
+
 ## Running
 
 ```bash
-npm install
-npm run prisma:generate
-npm run prisma:migrate
 npm run start:dev
 ```
 
@@ -92,3 +129,15 @@ It relies on:
 ```bash
 npm test
 ```
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development workflow, testing guidance, and code style expectations.
+
+## Security
+
+Please review [SECURITY.md](SECURITY.md) for vulnerability reporting and disclosure guidance.
+
+## License
+
+This project is licensed under the MIT License. See [LICENSE](LICENSE).

@@ -1,7 +1,25 @@
 {
   "name": "neo-n3-real-usage",
   "version": "1.0.0",
-  "description": "Neo N3 dashboard",
+  "description": "Neo N3 analytics dashboard and API for tracking daily activity.",
+  "license": "MIT",
+  "homepage": "https://github.com/your-org/neo-n3-real-usage",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/neo-n3-real-usage.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-org/neo-n3-real-usage/issues"
+  },
+  "keywords": [
+    "neo",
+    "neo-n3",
+    "blockchain",
+    "analytics",
+    "dashboard",
+    "nestjs",
+    "postgresql"
+  ],
   "scripts": {
     "start": "nest start",
     "start:dev": "nest start --watch",
