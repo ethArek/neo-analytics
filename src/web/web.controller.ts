@@ -88,7 +88,6 @@ export class WebController {
         renderReactPage({
           title: 'Neo Analytics',
           page: 'dashboard',
-          includeCharts: true,
           data: {
             nav: {
               dashboard: true,
@@ -128,7 +127,6 @@ export class WebController {
       renderReactPage({
         title: 'Neo Analytics',
         page: 'dashboard',
-        includeCharts: true,
         data: {
           nav: {
             dashboard: true,

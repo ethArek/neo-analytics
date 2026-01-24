@@ -1,8 +1,10 @@
+import { existsSync, readFileSync } from 'fs';
+import { join } from 'path';
+
 type ReactPageOptions = {
   title: string;
   page: string;
   data: Record<string, unknown>;
-  includeCharts?: boolean;
 };
 
 const matomoScript = `
@@ -22,19 +24,79 @@ const matomoScript = `
   <!-- End Matomo Code -->
 `;
 
+const manifestCandidates = [
+  join(__dirname, '..', 'public', 'app', 'manifest.json'),
+  join(__dirname, '..', '..', 'public', 'app', 'manifest.json'),
+  join(process.cwd(), 'public', 'app', 'manifest.json'),
+];
+
+const loadManifest = (): Record<string, { file: string; css?: string[] }> | null => {
+  for (const candidate of manifestCandidates) {
+    if (existsSync(candidate)) {
+      return JSON.parse(readFileSync(candidate, 'utf-8')) as Record<
+        string,
+        { file: string; css?: string[] }
+      >;
+    }
+  }
+
+  return null;
+};
+
+const resolveClientAssets = () => {
+  const devServerUrl = process.env.VITE_DEV_SERVER_URL;
+  if (devServerUrl) {
+    return {
+      scripts: [
+        `${devServerUrl}/@vite/client`,
+        `${devServerUrl}/src/main.tsx`,
+      ],
+      styles: [],
+      isModule: true,
+    };
+  }
+
+  const manifest = loadManifest();
+  if (!manifest) {
+    return {
+      scripts: ['/app/assets/index.js'],
+      styles: [],
+      isModule: true,
+    };
+  }
+
+  const entry = manifest['index.html'] ?? manifest['src/main.tsx'];
+  if (!entry) {
+    return {
+      scripts: ['/app/assets/index.js'],
+      styles: [],
+      isModule: true,
+    };
+  }
+
+  return {
+    scripts: [join('/app', entry.file).replace(/\\/g, '/')],
+    styles: (entry.css ?? []).map((href) => join('/app', href).replace(/\\/g, '/')),
+    isModule: true,
+  };
+};
+
 export const renderReactPage = ({
   title,
   page,
   data,
-  includeCharts = false,
 }: ReactPageOptions): string => {
   const serialized = JSON.stringify(data).replace(/</g, '\\u003c');
-  const chartScripts = includeCharts
-    ? `
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    <script src="/js/dashboard.js"></script>
-    `
-    : '';
+  const assets = resolveClientAssets();
+  const scriptTags = assets.scripts
+    .map(
+      (src) =>
+        `<script ${assets.isModule ? 'type="module"' : ''} src="${src}"></script>`,
+    )
+    .join('\n');
+  const styleTags = assets.styles
+    .map((href) => `<link rel="stylesheet" href="${href}" />`)
+    .join('\n');
 
   return `
 <!DOCTYPE html>
@@ -52,6 +114,7 @@ export const renderReactPage = ({
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/css/styles.css" />
     ${matomoScript}
+    ${styleTags}
   </head>
   <body>
     <div id="root"></div>
@@ -59,11 +122,7 @@ export const renderReactPage = ({
       window.__PAGE__ = ${JSON.stringify(page)};
       window.__PAGE_DATA__ = ${serialized};
     </script>
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/htm@3.1.1/dist/htm.umd.js"></script>
-    <script src="/js/app.js"></script>
-    ${chartScripts}
+    ${scriptTags}
   </body>
 </html>
   `.trim();
