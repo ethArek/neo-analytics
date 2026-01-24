@@ -1,28 +1,13 @@
 import { Body, Controller, Get, Post, Req, Res } from '@nestjs/common';
 import { ApiExcludeController } from '@nestjs/swagger';
+import { Request, Response } from 'express';
 import { AdminService } from './admin.service';
 import { IngestionService } from '../ingestion/ingestion.service';
 import { formatDate, parseDate, yesterdayInTimeZone } from '../ingestion/date-utils';
+import { renderReactPage } from '../web/react-view';
 
 const SESSION_COOKIE = 'admin_session';
 const SESSION_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
-
-type AdminRequest = {
-  headers: { cookie?: string; 'x-forwarded-proto'?: string };
-  secure?: boolean;
-};
-
-type AdminResponse = {
-  cookie: (
-    name: string,
-    value: string,
-    options: { httpOnly: boolean; sameSite: 'lax'; maxAge: number; secure: boolean },
-  ) => void;
-  clearCookie: (name: string) => void;
-  redirect: (path: string) => void;
-  render: (view: string, locals?: Record<string, unknown>) => void;
-  status: (code: number) => AdminResponse;
-};
 
 @ApiExcludeController()
 @Controller('admin')
@@ -33,38 +18,56 @@ export class AdminController {
   ) {}
 
   @Get()
-  async adminHome(@Req() req: AdminRequest, @Res() res: AdminResponse) {
+  async adminHome(@Req() req: Request, @Res() res: Response) {
     const admin = await this.requireAdmin(req, res);
     if (!admin) {
       return;
     }
 
-    return res.render('admin', {
-      email: admin.email,
-      defaultDate: yesterdayInTimeZone('Europe/Warsaw'),
-    });
+    return res.send(
+      renderReactPage({
+        title: 'Admin console · Neo Analytics',
+        page: 'admin',
+        data: {
+          email: admin.email,
+          defaultDate: yesterdayInTimeZone('Europe/Warsaw'),
+        },
+      }),
+    );
   }
 
   @Get('login')
-  async loginForm(@Res() res: AdminResponse) {
-    return res.render('admin-login');
+  async loginForm(@Res() res: Response) {
+    return res.send(
+      renderReactPage({
+        title: 'Admin login · Neo Analytics',
+        page: 'admin-login',
+        data: {},
+      }),
+    );
   }
 
   @Post('login')
   async login(
-    @Req() req: AdminRequest,
+    @Req() req: Request,
     @Body() body: Record<string, string>,
-    @Res() res: AdminResponse,
+    @Res() res: Response,
   ) {
     const email = body.email ?? '';
     const password = body.password ?? '';
     const admin = await this.adminService.authenticateAdmin(email, password);
     if (!admin) {
       res.status(401);
-      return res.render('admin-login', {
-        error: 'Invalid email or password.',
-        email,
-      });
+      return res.send(
+        renderReactPage({
+          title: 'Admin login · Neo Analytics',
+          page: 'admin-login',
+          data: {
+            error: 'Invalid email or password.',
+            email,
+          },
+        }),
+      );
     }
 
     const token = await this.adminService.createSession(admin.id);
@@ -80,8 +83,8 @@ export class AdminController {
 
   @Post('ingest')
   async ingest(
-    @Req() req: AdminRequest,
-    @Res() res: AdminResponse,
+    @Req() req: Request,
+    @Res() res: Response,
     @Body('date') date?: string,
   ) {
     const admin = await this.requireAdmin(req, res);
@@ -92,32 +95,50 @@ export class AdminController {
     const targetDate = (date ?? '').trim() || yesterdayInTimeZone('Europe/Warsaw');
     if (!this.isValidDate(targetDate)) {
       res.status(400);
-      return res.render('admin', {
-        email: admin.email,
-        defaultDate: targetDate,
-        error: 'Enter a valid date in YYYY-MM-DD format.',
-      });
+      return res.send(
+        renderReactPage({
+          title: 'Admin console · Neo Analytics',
+          page: 'admin',
+          data: {
+            email: admin.email,
+            defaultDate: targetDate,
+            error: 'Enter a valid date in YYYY-MM-DD format.',
+          },
+        }),
+      );
     }
 
     try {
       await this.ingestionService.ingestDay(targetDate);
-      return res.render('admin', {
-        email: admin.email,
-        defaultDate: targetDate,
-        message: `Ingestion completed for ${targetDate}.`,
-      });
+      return res.send(
+        renderReactPage({
+          title: 'Admin console · Neo Analytics',
+          page: 'admin',
+          data: {
+            email: admin.email,
+            defaultDate: targetDate,
+            message: `Ingestion completed for ${targetDate}.`,
+          },
+        }),
+      );
     } catch (error) {
       res.status(500);
-      return res.render('admin', {
-        email: admin.email,
-        defaultDate: targetDate,
-        error: 'Ingestion failed. Check logs for details.',
-      });
+      return res.send(
+        renderReactPage({
+          title: 'Admin console · Neo Analytics',
+          page: 'admin',
+          data: {
+            email: admin.email,
+            defaultDate: targetDate,
+            error: 'Ingestion failed. Check logs for details.',
+          },
+        }),
+      );
     }
   }
 
   @Post('logout')
-  async logout(@Req() req: AdminRequest, @Res() res: AdminResponse) {
+  async logout(@Req() req: Request, @Res() res: Response) {
     const token = this.getSessionToken(req);
     if (token) {
       await this.adminService.clearSession(token);
@@ -126,7 +147,7 @@ export class AdminController {
     return res.redirect('/admin/login');
   }
 
-  private async requireAdmin(req: AdminRequest, res: AdminResponse) {
+  private async requireAdmin(req: Request, res: Response) {
     const token = this.getSessionToken(req);
     if (!token) {
       res.redirect('/admin/login');
@@ -143,7 +164,7 @@ export class AdminController {
     return admin;
   }
 
-  private getSessionToken(req: AdminRequest): string | null {
+  private getSessionToken(req: Request): string | null {
     const cookieHeader = req.headers.cookie;
     if (!cookieHeader) {
       return null;
@@ -160,7 +181,7 @@ export class AdminController {
     return null;
   }
 
-  private shouldUseSecureCookies(req: AdminRequest): boolean {
+  private shouldUseSecureCookies(req: Request): boolean {
     if (req.secure) {
       return true;
     }
