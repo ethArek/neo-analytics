@@ -10,10 +10,14 @@ type ReactPageOptions = {
 const matomoScript = `
   <!-- Matomo -->
   <script>
-    var _paq = window._paq = window._paq || [];
-    _paq.push(['trackPageView']);
-    _paq.push(['enableLinkTracking']);
     (function() {
+      var hostname = window.location.hostname;
+      if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') {
+        return;
+      }
+      var _paq = window._paq = window._paq || [];
+      _paq.push(['trackPageView']);
+      _paq.push(['enableLinkTracking']);
       var u="//stats0.small.pl/";
       _paq.push(['setTrackerUrl', u+'matomo.php']);
       _paq.push(['setSiteId', '337']);
@@ -26,8 +30,11 @@ const matomoScript = `
 
 const manifestCandidates = [
   join(__dirname, '..', 'public', 'app', 'manifest.json'),
+  join(__dirname, '..', 'public', 'app', '.vite', 'manifest.json'),
   join(__dirname, '..', '..', 'public', 'app', 'manifest.json'),
+  join(__dirname, '..', '..', 'public', 'app', '.vite', 'manifest.json'),
   join(process.cwd(), 'public', 'app', 'manifest.json'),
+  join(process.cwd(), 'public', 'app', '.vite', 'manifest.json'),
 ];
 
 const loadManifest = (): Record<string, { file: string; css?: string[] }> | null => {

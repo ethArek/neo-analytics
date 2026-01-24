@@ -191,7 +191,10 @@ export class AdminController {
       return false;
     }
 
-    return forwarded.split(',')[0].trim().toLowerCase() === 'https';
+    const protoHeader = Array.isArray(forwarded) ? forwarded[0] : forwarded;
+    const proto = protoHeader.split(',')[0].trim().toLowerCase();
+
+    return proto === 'https';
   }
 
   private isValidDate(value: string): boolean {

@@ -2,22 +2,30 @@ import {
   Chart,
   ArcElement,
   BarElement,
+  BarController,
   CategoryScale,
+  DoughnutController,
   Filler,
   Legend,
+  LineController,
   LineElement,
   LinearScale,
   PointElement,
   Tooltip,
+  type ChartConfiguration,
+  type ChartType,
 } from 'chart.js';
 import type { DashboardChartData } from '../app/types';
 
 Chart.register(
   ArcElement,
   BarElement,
+  BarController,
   CategoryScale,
+  DoughnutController,
   Filler,
   Legend,
+  LineController,
   LineElement,
   LinearScale,
   PointElement,
@@ -91,7 +99,10 @@ const formatPercent = (value: number, decimals = 1) => {
   return `${rounded}%`;
 };
 
-const createChart = (ctx: CanvasRenderingContext2D, config: object) => {
+const createChart = <TType extends ChartType>(
+  ctx: CanvasRenderingContext2D,
+  config: ChartConfiguration<TType>,
+) => {
   const existing = Chart.getChart(ctx.canvas);
   if (existing) {
     existing.destroy();
@@ -416,7 +427,7 @@ export const initDashboardCharts = (data: DashboardChartData) => {
       const controller = meta?.controller;
 
       return assetLabels.map((label, index) => {
-        const style = controller?.getStyle(index) ?? {};
+        const style = controller?.getStyle(index, false) ?? {};
 
         return {
           text: label,
@@ -455,7 +466,10 @@ export const initDashboardCharts = (data: DashboardChartData) => {
                 }
 
                 return baseLabels.map((item, index) => {
-                  const itemIndex = Number.isFinite(item.index) ? item.index : index;
+                  const itemIndex =
+                    typeof item.index === 'number' && Number.isFinite(item.index)
+                      ? item.index
+                      : index;
                   const label = assetLabels[itemIndex] ?? `Unknown ${itemIndex + 1}`;
 
                   return {
