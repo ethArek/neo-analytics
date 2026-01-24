@@ -3,13 +3,13 @@
   "version": "1.0.0",
   "description": "Neo N3 analytics dashboard and API for tracking daily activity.",
   "license": "MIT",
-  "homepage": "https://github.com/your-org/neo-n3-real-usage",
+  "homepage": "https://github.com/neo-n3-real-usage/neo-n3-real-usage",
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-org/neo-n3-real-usage.git"
+    "url": "https://github.com/neo-n3-real-usage/neo-n3-real-usage.git"
   },
   "bugs": {
-    "url": "https://github.com/your-org/neo-n3-real-usage/issues"
+    "url": "https://github.com/neo-n3-real-usage/neo-n3-real-usage/issues"
   },
   "keywords": [
     "neo",

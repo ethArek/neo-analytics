@@ -4,7 +4,7 @@
 
 If you discover a security issue, please report it privately and do not open a public issue.
 
-- Email: security@example.com
+- Use the "Report a vulnerability" feature in the GitHub Security tab for this repository to submit a private security advisory.
 - Provide as much detail as possible (affected endpoints, reproduction steps, impact assessment).
 
 We will acknowledge receipt within 5 business days and work with you on a fix and coordinated disclosure.
