@@ -112,7 +112,7 @@ export const DashboardPage: React.FC = () => {
             <span>Per day (range)</span>
           </div>
           <div className="chart-area">
-            <canvas id="chart-real-usage" className="chart-canvas"></canvas>
+            <canvas id="chart-activity" className="chart-canvas"></canvas>
           </div>
         </div>
         <div className="chart-card" data-animate style={delayStyle('0.14s')}>
