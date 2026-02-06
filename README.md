@@ -1,24 +1,30 @@
 # Neo Analytics
 
-Neo Analytics is a NestJS + React (Vite) dashboard that tracks Neo N3 daily activity and classifies it into swaps, normal transfers, and gas claims. It provides a public-facing dashboard, a JSON API for analytics, and admin endpoints for running ingestion jobs.
+Neo Analytics is a NestJS + React (Vite) dashboard that tracks Neo N3 daily activity and classifies transactions into swaps, gas claims, normal transfers, or ignored (self/zero). It provides a public-facing dashboard, a JSON API for analytics, and admin endpoints for running ingestion jobs.
 
 ## Project overview
 
-- **Data ingestion**: Pulls Neo N3 block data via JSON-RPC, extracts NEP-17 transfer activity, and persists aggregates in PostgreSQL.
-- **Classification**: Deterministic rules map transfers into swaps, gas claims, and normal transfers.
-- **Presentation**: A React (Vite) dashboard plus an API layer for programmatic access.
+- **Data ingestion**: Pulls Neo N3 block data via JSON-RPC, extracts NEP-17 transfer activity, and stores per-transaction/per-transfer records plus daily aggregates in PostgreSQL (via Prisma).
+- **Classification**: Deterministic rules classify transactions into swaps, gas claims, normal transfers, or ignored (self/zero), using swap method allowlists, known swap contracts, and DEX notifications.
+- **Presentation**: NestJS renders the HTML shell + page data, React (Vite) hydrates the UI, and a JSON API exposes analytics for external consumers.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-  RPC[Neo RPC endpoints] -->|JSON-RPC| Ingest[NeoClient + Ingestion Jobs]
-  Ingest -->|Aggregations| DB[(PostgreSQL)]
-  DB --> API[Analytics API]
-  DB --> UI[Dashboard + Admin UI]
+  RPC[Neo RPC endpoints] -->|JSON-RPC| NeoClient[RpcNeoClient]
+  NeoClient --> Ingest[IngestionService]
+  Cron[Cron schedules] --> Ingest
+  Admin[Admin UI + job API] -->|manual ingest/backfill| Ingest
+  Ingest -->|transactions + aggregates| DB[(PostgreSQL)]
+  DB --> Stats[StatsService]
+  Stats --> Web[WebController (HTML + page data)]
+  Stats --> API[Analytics API (JSON)]
+  Web --> UI[Dashboard / FAQ / Admin UI (React)]
   API --> Consumers[External consumers]
-  UI --> Users[Analysts / Operators]
 ```
+
+The React app renders from `window.__PAGE_DATA__` injected by the server; the JSON API is intended for external consumers.
 
 ## Requirements
 
@@ -97,20 +103,21 @@ set `VITE_DEV_SERVER_URL` to point at the host URL so the server renders the cor
 Classification is handled in `src/classifier/classifier.ts` and is deterministic.
 
 - **Swap**
-  - A transaction is classified as a swap if it has **both**:
-    1. An invocation with a swap-like method name (e.g. `swap`, `swapToken`, `swapTokens`, `swapExactTokens`)
-    2. Multiple transfers (2 or more), which represent the token exchange in a swap operation
-  - The detection is based on transaction data, not on a DEX contract allowlist
+  - A transaction is classified as a swap if any of these match:
+    1. Invocation targets a known swap contract allowlist.
+    2. Invocation method is in the swap method allowlist (e.g. `swap`, `swapToken`, `swapTokens`, `swapExactTokens`, `swapTokensForExactTokens`, `swapExactTokensForTokens`) **and** there are 2+ transfers.
+    3. Application log notifications include a known swap contract or DEX-style event names (e.g. `Swapped`, `OrderUpdated`, `OrderUpserted`).
 - **Gas claim**
   - Gas claims are detected based on transaction data: GAS transfers with no `from` address (or an empty `from` field).
   - This pattern indicates GAS being distributed from the system to a user, which is characteristic of gas claim operations in Neo N3.
   - Normal GAS transfers (with a valid `from` address) are classified as normal transfers.
 - **Normal transfer**
-  - Native NEO/GAS transfers that are not swaps and not gas claims.
+  - Transfers that are not swaps or gas claims and are not filtered out as ignored.
+- **Ignored**
   - Self-transfers (`from == to`) are excluded from totals.
   - Zero-amount transfers are ignored if an amount is provided.
 
-Precedence order: **swap > gas claim > normal transfer**.
+Precedence order: **swap > gas claim > ignored > normal transfer**.
 
 ## Neo RPC provider
 
@@ -122,8 +129,11 @@ It relies on:
 
 - `getblockcount`
 - `getblock`
+- `getblockheader`
 - `getapplicationlog`
 - `getnativecontracts`
+- `invokefunction`
+- `getcontractstate`
 
 ## Analytics API
 
@@ -144,8 +154,11 @@ It relies on:
 
 ## Admin UI
 
-- `GET /admin/login` signs in an admin account.
+- `GET /admin/login` shows the login form.
 - `GET /admin` shows the ingestion console for triggering manual ingestion runs.
+- `POST /admin/login` submits credentials and creates a session.
+- `POST /admin/ingest` triggers ingestion for a given date (requires a valid session).
+- `POST /admin/logout` clears the session cookie.
 
 ## Tests
 
