@@ -1,10 +1,12 @@
-import { Controller, Get, Inject, Param, Query, Redirect, Render } from '@nestjs/common';
+import { Controller, Get, Inject, Param, Query, Redirect, Res } from '@nestjs/common';
 import { ApiExcludeController } from '@nestjs/swagger';
+import { Response } from 'express';
 import { formatDate } from '../ingestion/date-utils';
 import { StatsService } from '../stats/stats.service';
 import { formatNumber, formatUnits, toNumber } from '../stats/stats.utils';
 import { NeoClient } from '../neo-client/neo-client.interface';
 import { NEO_CLIENT } from '../neo-client/neo-client.provider';
+import { renderReactPage } from './react-view';
 
 type StatTotals = {
   totalTxCount: number;
@@ -39,28 +41,41 @@ export class WebController {
   root() {}
 
   @Get('/faq')
-  @Render('faq')
-  faq() {
-    return {
-      nav: {
-        faq: true,
-      },
-    };
+  faq(@Res() res: Response) {
+    return res.send(
+      renderReactPage({
+        title: 'Neo Analytics - FAQ',
+        page: 'faq',
+        data: {
+          nav: {
+            faq: true,
+          },
+        },
+      }),
+    );
   }
 
   @Get('/special-thanks')
-  @Render('special-thanks')
-  specialThanks() {
-    return {
-      nav: {
-        specialThanks: true,
-      },
-    };
+  specialThanks(@Res() res: Response) {
+    return res.send(
+      renderReactPage({
+        title: 'Neo Analytics - Special thanks',
+        page: 'special-thanks',
+        data: {
+          nav: {
+            specialThanks: true,
+          },
+        },
+      }),
+    );
   }
 
   @Get('/dashboard')
-  @Render('dashboard')
-  async dashboard(@Query('from') from?: string, @Query('to') to?: string) {
+  async dashboard(
+    @Res() res: Response,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
     const { stats, range } = await this.statsService.getRangeOrLatest(from, to, 30);
     const labeledStats = stats.map((stat) => ({
       ...stat,
@@ -69,19 +84,24 @@ export class WebController {
     const totals = stats[stats.length - 1] ?? this.emptyTotals();
 
     if (!range) {
-      return {
-        nav: {
-          dashboard: true,
-        },
-        stats: labeledStats,
-        totals: this.formatTotals(totals),
-        chartData: JSON.stringify(this.buildChartData(labeledStats, [])),
-        rangeLabel: 'No data available',
-        rangeFrom: '',
-        rangeTo: '',
-        topSenders: [],
-        topReceivers: [],
-      };
+      return res.send(
+        renderReactPage({
+          title: 'Neo Analytics',
+          page: 'dashboard',
+          data: {
+            nav: {
+              dashboard: true,
+            },
+            totals: this.formatTotals(totals),
+            chartData: this.buildChartData(labeledStats, []),
+            rangeLabel: 'No data available',
+            rangeFrom: '',
+            rangeTo: '',
+            topSenders: [],
+            topReceivers: [],
+          },
+        }),
+      );
     }
 
     const rangeFrom = formatDate(range.from);
@@ -103,35 +123,42 @@ export class WebController {
     }));
     const chartData = this.buildChartData(labeledStats, labeledAssetStats);
 
-    return {
-      nav: {
-        dashboard: true,
-      },
-      stats: labeledStats,
-      totals: this.formatTotals(totals),
-      chartData: JSON.stringify(chartData),
-      rangeLabel: `${rangeFrom} to ${rangeTo}`,
-      rangeFrom,
-      rangeTo,
-      topSenders: topSenders.map((entry) => ({
-        address: entry.address,
-        shortAddress: this.shortenAddress(entry.address),
-        transferCount: formatNumber(entry.transferCount),
-      })),
-      topReceivers: topReceivers.map((entry) => ({
-        address: entry.address,
-        shortAddress: this.shortenAddress(entry.address),
-        transferCount: formatNumber(entry.transferCount),
-      })),
-    };
+    return res.send(
+      renderReactPage({
+        title: 'Neo Analytics',
+        page: 'dashboard',
+        data: {
+          nav: {
+            dashboard: true,
+          },
+          totals: this.formatTotals(totals),
+          chartData,
+          rangeLabel: `${rangeFrom} to ${rangeTo}`,
+          rangeFrom,
+          rangeTo,
+          topSenders: topSenders.map((entry) => ({
+            address: entry.address,
+            shortAddress: this.shortenAddress(entry.address),
+            transferCount: formatNumber(entry.transferCount),
+          })),
+          topReceivers: topReceivers.map((entry) => ({
+            address: entry.address,
+            shortAddress: this.shortenAddress(entry.address),
+            transferCount: formatNumber(entry.transferCount),
+          })),
+        },
+      }),
+    );
   }
 
   @Get('/days')
-  @Render('days')
-  async days(@Query('from') from?: string, @Query('to') to?: string) {
+  async days(
+    @Res() res: Response,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
     const { stats, range } = await this.statsService.getRangeOrLatest(from, to, 90);
     const labeledStats = stats.map((stat) => ({
-      ...stat,
       dateLabel: formatDate(stat.date),
       totalTxCountLabel: formatNumber(stat.totalTxCount),
       swapsCountLabel: formatNumber(stat.swapsCount),
@@ -142,34 +169,45 @@ export class WebController {
     }));
 
     if (!range) {
-      return {
-        nav: {
-          dashboard: true,
-        },
-        stats: labeledStats,
-        rangeLabel: 'No data available',
-        rangeFrom: '',
-        rangeTo: '',
-      };
+      return res.send(
+        renderReactPage({
+          title: 'Neo Analytics - Daily table',
+          page: 'days',
+          data: {
+            nav: {
+              dashboard: true,
+            },
+            stats: labeledStats,
+            rangeLabel: 'No data available',
+            rangeFrom: '',
+            rangeTo: '',
+          },
+        }),
+      );
     }
 
     const rangeFrom = formatDate(range.from);
     const rangeTo = formatDate(range.to);
 
-    return {
-      nav: {
-        dashboard: true,
-      },
-      stats: labeledStats,
-      rangeLabel: `${rangeFrom} to ${rangeTo}`,
-      rangeFrom,
-      rangeTo,
-    };
+    return res.send(
+      renderReactPage({
+        title: 'Neo Analytics - Daily table',
+        page: 'days',
+        data: {
+          nav: {
+            dashboard: true,
+          },
+          stats: labeledStats,
+          rangeLabel: `${rangeFrom} to ${rangeTo}`,
+          rangeFrom,
+          rangeTo,
+        },
+      }),
+    );
   }
 
   @Get('/day/:date')
-  @Render('day')
-  async day(@Param('date') date: string) {
+  async day(@Res() res: Response, @Param('date') date: string) {
     const { stat, transactions, assetStats, methodStats, contractStats } =
       await this.statsService.getDayDetails(date);
     const assetLabelMap = await this.buildAssetLabelMap([
@@ -178,28 +216,47 @@ export class WebController {
     ]);
 
     const formattedTransactions = transactions.map((tx) => ({
-      ...tx,
       timestampLabel: new Date(tx.timestamp).toISOString(),
-      amountLabel: this.formatAmount(tx.asset, tx.amountRaw ?? 0n),
-      assetLabel: this.getAssetLabel(tx.asset, assetLabelMap),
       shortTxid: this.shortenAddress(tx.txid),
+      type: tx.type,
+      assetLabel: this.getAssetLabel(tx.asset, assetLabelMap),
+      amountLabel: this.formatAmount(tx.asset, tx.amountRaw ?? 0n),
+      from: tx.from,
+      to: tx.to,
+      method: tx.method,
     }));
 
-    return {
-      nav: {
-        dashboard: true,
-      },
-      date,
-      stat: stat ? this.formatStat(stat) : null,
-      transactions: formattedTransactions,
-      assetStats: assetStats.map((asset) => ({
-        ...asset,
-        assetLabel: this.getAssetLabel(asset.asset, assetLabelMap),
-        volumeLabel: this.formatAmount(asset.asset, asset.volumeRaw),
-      })),
-      methodStats: methodStats.sort((a, b) => b.txCount - a.txCount),
-      contractStats: contractStats.sort((a, b) => b.txCount - a.txCount),
-    };
+    return res.send(
+      renderReactPage({
+        title: `Neo Analytics - ${date}`,
+        page: 'day',
+        data: {
+          nav: {
+            dashboard: true,
+          },
+          date,
+          stat: stat ? this.formatStat(stat) : null,
+          transactions: formattedTransactions,
+          assetStats: assetStats.map((asset) => ({
+            assetLabel: this.getAssetLabel(asset.asset, assetLabelMap),
+            transferCount: asset.transferCount,
+            volumeLabel: this.formatAmount(asset.asset, asset.volumeRaw),
+          })),
+          methodStats: methodStats
+            .sort((a, b) => b.txCount - a.txCount)
+            .map((method) => ({
+              method: method.method,
+              txCount: method.txCount,
+            })),
+          contractStats: contractStats
+            .sort((a, b) => b.txCount - a.txCount)
+            .map((contract) => ({
+              contract: contract.contract,
+              txCount: contract.txCount,
+            })),
+        },
+      }),
+    );
   }
 
   private emptyTotals(): StatTotals {
@@ -238,9 +295,13 @@ export class WebController {
 
   private formatStat(stat: StatTotals) {
     return {
-      ...stat,
+      totalTxCount: stat.totalTxCount,
+      realUsageTotal: stat.realUsageTotal,
+      uniqueAddresses: stat.uniqueAddresses,
       neoVolume: this.formatAmount('NEO', stat.neoVolumeRaw),
       gasVolume: this.formatAmount('GAS', stat.gasVolumeRaw),
+      othersCount: stat.othersCount,
+      blockCount: stat.blockCount,
     };
   }
 
