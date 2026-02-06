@@ -18,6 +18,7 @@ module.exports = {
       moduleFileExtensions: ['js', 'json', 'ts', 'tsx', 'jsx'],
       rootDir: '.',
       testRegex: 'frontend/.*\\.spec\\.tsx?$',
+      testPathIgnorePatterns: ['<rootDir>/frontend/test/e2e/'],
       modulePathIgnorePatterns: ['<rootDir>/dist/'],
       transform: {
         '^.+\\.(t|j)sx?$': [
