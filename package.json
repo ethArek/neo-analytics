@@ -3,13 +3,13 @@
   "version": "1.0.0",
   "description": "Neo N3 analytics dashboard and API for tracking daily activity.",
   "license": "MIT",
-  "homepage": "https://github.com/neo-analytics/neo-analytics",
+  "homepage": "https://github.com/ethArek/neo-analytics",
   "repository": {
     "type": "git",
-    "url": "https://github.com/neo-analytics/neo-analytics.git"
+    "url": "https://github.com/ethArek/neo-analytics.git"
   },
   "bugs": {
-    "url": "https://github.com/neo-analytics/neo-analytics/issues"
+    "url": "https://github.com/ethArek/neo-analytics/issues"
   },
   "keywords": [
     "neo",
