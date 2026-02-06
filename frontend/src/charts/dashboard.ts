@@ -156,9 +156,9 @@ export const initDashboardCharts = (data: DashboardChartData) => {
 
   const { labels, series, assets } = data;
 
-  const realUsageCtx = getContext('chart-real-usage');
-  if (realUsageCtx) {
-    createChart(realUsageCtx, {
+  const activityCtx = getContext('chart-activity');
+  if (activityCtx) {
+    createChart(activityCtx, {
       type: 'line',
       data: {
         labels,
