@@ -18,9 +18,9 @@ flowchart LR
   Admin[Admin UI + job API] -->|manual ingest/backfill| Ingest
   Ingest -->|transactions + aggregates| DB[(PostgreSQL)]
   DB --> Stats[StatsService]
-  Stats --> Web[WebController (HTML + page data)]
+  Stats --> Web["WebController<br/>HTML + page data"]
   Stats --> API[Analytics API (JSON)]
-  Web --> UI[Dashboard / FAQ / Admin UI (React)]
+  Web --> UI["Dashboard / FAQ / Admin UI<br/>(React)"]
   API --> Consumers[External consumers]
 ```
 
