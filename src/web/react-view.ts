@@ -7,6 +7,15 @@ type ReactPageOptions = {
   data: Record<string, unknown>;
 };
 
+const escapeHtml = (value: string): string => {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+};
+
 const matomoScript = `
   <!-- Matomo -->
   <script>
@@ -40,10 +49,17 @@ const manifestCandidates = [
 const loadManifest = (): Record<string, { file: string; css?: string[] }> | null => {
   for (const candidate of manifestCandidates) {
     if (existsSync(candidate)) {
-      return JSON.parse(readFileSync(candidate, 'utf-8')) as Record<
-        string,
-        { file: string; css?: string[] }
-      >;
+      try {
+        return JSON.parse(readFileSync(candidate, 'utf-8')) as Record<
+          string,
+          { file: string; css?: string[] }
+        >;
+      } catch (error) {
+        console.warn(
+          `Unable to read Vite manifest from "${candidate}". Trying next candidate.`,
+          error,
+        );
+      }
     }
   }
 
@@ -86,13 +102,17 @@ const resolveClientAssets = () => {
 };
 
 export const renderReactPage = ({ title, page, data }: ReactPageOptions): string => {
+  const safeTitle = escapeHtml(title);
   const serialized = JSON.stringify(data).replace(/</g, '\\u003c');
   const assets = resolveClientAssets();
   const scriptTags = assets.scripts
-    .map((src) => `<script ${assets.isModule ? 'type="module"' : ''} src="${src}"></script>`)
+    .map(
+      (src) =>
+        `<script ${assets.isModule ? 'type="module"' : ''} src="${escapeHtml(src)}"></script>`,
+    )
     .join('\n');
   const styleTags = assets.styles
-    .map((href) => `<link rel="stylesheet" href="${href}" />`)
+    .map((href) => `<link rel="stylesheet" href="${escapeHtml(href)}" />`)
     .join('\n');
 
   return `
@@ -101,7 +121,7 @@ export const renderReactPage = ({ title, page, data }: ReactPageOptions): string
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>${title}</title>
+    <title>${safeTitle}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
