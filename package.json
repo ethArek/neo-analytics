@@ -26,6 +26,10 @@
     "build:client": "vite build --config frontend/vite.config.ts",
     "build": "npm run build:client && nest build && node scripts/copy-assets.js",
     "dev:client": "vite --config frontend/vite.config.ts",
+    "lint": "biome lint . --diagnostic-level=error",
+    "lint:fix": "biome lint . --write",
+    "format": "biome format . --write",
+    "format:check": "biome format .",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:e2e": "playwright test",
@@ -54,6 +58,7 @@
     "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.3.14",
     "@nestjs/cli": "^10.4.2",
     "@playwright/test": "^1.58.1",
     "@testing-library/jest-dom": "^6.9.1",

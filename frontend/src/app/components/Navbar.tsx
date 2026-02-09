@@ -6,8 +6,7 @@ type NavbarProps = {
   nav?: NavState;
 };
 
-const navClass = (isActive?: boolean) =>
-  isActive ? 'nav-link is-active' : 'nav-link';
+const navClass = (isActive?: boolean) => (isActive ? 'nav-link is-active' : 'nav-link');
 
 export const Navbar: React.FC<NavbarProps> = ({ nav }) => (
   <nav className="navbar" data-animate style={delayStyle('0s')}>

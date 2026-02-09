@@ -15,8 +15,8 @@ export const FaqPage: React.FC = () => {
           <span className="pill">FAQ</span>
           <h1>Clear answers to how Neo Analytics works.</h1>
           <p className="subtitle">
-            We translate on-chain activity into a simple picture of Neo N3 activity,
-            with transparent rules and daily updates.
+            We translate on-chain activity into a simple picture of Neo N3 activity, with
+            transparent rules and daily updates.
           </p>
           <div className="hero-meta">
             <span className="pill">Neo N3 RPC data</span>
@@ -29,8 +29,8 @@ export const FaqPage: React.FC = () => {
             <span className="faq-label">Support</span>
             <strong>Want to support this project?</strong>
             <p>
-              This project is not funded by any organization. I cover the server costs and spend
-              my own time to keep it running. If you want to support it, Neo/GAS or any N3 token
+              This project is not funded by any organization. I cover the server costs and spend my
+              own time to keep it running. If you want to support it, Neo/GAS or any N3 token
               donations to <span className="mono">NgdZvkR3bvsXuScWFrTQWfNhALarQ76CEr</span> are
               appreciated.
             </p>
@@ -54,8 +54,8 @@ export const FaqPage: React.FC = () => {
           <details>
             <summary>Can I query the raw data?</summary>
             <p>
-              Use the API endpoints under <span className="mono">/api/stats</span> for totals,
-              asset stats, methods, and contract breakdowns. Swagger docs are available at{' '}
+              Use the API endpoints under <span className="mono">/api/stats</span> for totals, asset
+              stats, methods, and contract breakdowns. Swagger docs are available at{' '}
               <a href="/api/docs" className="mono">
                 /api/docs
               </a>
@@ -65,8 +65,8 @@ export const FaqPage: React.FC = () => {
           <details>
             <summary>How is a transaction detected as a swap?</summary>
             <p>
-              Swaps are detected when swap-like methods are called and there are multiple
-              transfers, or when known DEX contracts and swap notifications are present.
+              Swaps are detected when swap-like methods are called and there are multiple transfers,
+              or when known DEX contracts and swap notifications are present.
             </p>
           </details>
           <details>

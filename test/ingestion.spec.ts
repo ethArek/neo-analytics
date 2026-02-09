@@ -19,7 +19,10 @@ class FakePrismaService implements IngestionPrismaClient {
   dailyMethodStatData: DailyMethodStatRecord[] = [];
   dailyContractStatData: DailyContractStatRecord[] = [];
   dailyStatData: Record<string, DailyStatUpsertRecord> = {};
-  ingestionCursorData: Record<string, { lastProcessedBlock?: number; lastProcessedTimestamp?: Date }> = {};
+  ingestionCursorData: Record<
+    string,
+    { lastProcessedBlock?: number; lastProcessedTimestamp?: Date }
+  > = {};
 
   dailyTx = {
     createMany: async ({ data }: { data: DailyTxCreateRecord[]; skipDuplicates?: boolean }) => {
@@ -29,7 +32,9 @@ class FakePrismaService implements IngestionPrismaClient {
     },
     deleteMany: async ({ where }: { where: { date: Date } }) => {
       const before = this.dailyTxData.length;
-      this.dailyTxData = this.dailyTxData.filter((tx) => tx.date.getTime() !== where.date.getTime());
+      this.dailyTxData = this.dailyTxData.filter(
+        (tx) => tx.date.getTime() !== where.date.getTime(),
+      );
       const after = this.dailyTxData.length;
 
       return { count: before - after };
@@ -37,7 +42,12 @@ class FakePrismaService implements IngestionPrismaClient {
   };
 
   dailyTransfer = {
-    createMany: async ({ data }: { data: DailyTransferCreateRecord[]; skipDuplicates?: boolean }) => {
+    createMany: async ({
+      data,
+    }: {
+      data: DailyTransferCreateRecord[];
+      skipDuplicates?: boolean;
+    }) => {
       this.dailyTransferData.push(...data);
 
       return { count: data.length };
@@ -185,7 +195,7 @@ class FakePrismaService implements IngestionPrismaClient {
 
   private buildIngestionCursor(
     network: string,
-    record: { lastProcessedBlock?: number; lastProcessedTimestamp?: Date }
+    record: { lastProcessedBlock?: number; lastProcessedTimestamp?: Date },
   ): IngestionCursor {
     const now = new Date();
 

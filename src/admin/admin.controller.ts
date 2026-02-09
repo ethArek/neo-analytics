@@ -48,11 +48,7 @@ export class AdminController {
   }
 
   @Post('login')
-  async login(
-    @Req() req: Request,
-    @Body() body: Record<string, string>,
-    @Res() res: Response,
-  ) {
+  async login(@Req() req: Request, @Body() body: Record<string, string>, @Res() res: Response) {
     const email = body.email ?? '';
     const password = body.password ?? '';
     const admin = await this.adminService.authenticateAdmin(email, password);
@@ -82,11 +78,7 @@ export class AdminController {
   }
 
   @Post('ingest')
-  async ingest(
-    @Req() req: Request,
-    @Res() res: Response,
-    @Body('date') date?: string,
-  ) {
+  async ingest(@Req() req: Request, @Res() res: Response, @Body('date') date?: string) {
     const admin = await this.requireAdmin(req, res);
     if (!admin) {
       return;

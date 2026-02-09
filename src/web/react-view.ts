@@ -54,10 +54,7 @@ const resolveClientAssets = () => {
   const devServerUrl = process.env.VITE_DEV_SERVER_URL;
   if (devServerUrl) {
     return {
-      scripts: [
-        `${devServerUrl}/@vite/client`,
-        `${devServerUrl}/src/main.tsx`,
-      ],
+      scripts: [`${devServerUrl}/@vite/client`, `${devServerUrl}/src/main.tsx`],
       styles: [],
       isModule: true,
     };
@@ -88,18 +85,11 @@ const resolveClientAssets = () => {
   };
 };
 
-export const renderReactPage = ({
-  title,
-  page,
-  data,
-}: ReactPageOptions): string => {
+export const renderReactPage = ({ title, page, data }: ReactPageOptions): string => {
   const serialized = JSON.stringify(data).replace(/</g, '\\u003c');
   const assets = resolveClientAssets();
   const scriptTags = assets.scripts
-    .map(
-      (src) =>
-        `<script ${assets.isModule ? 'type="module"' : ''} src="${src}"></script>`,
-    )
+    .map((src) => `<script ${assets.isModule ? 'type="module"' : ''} src="${src}"></script>`)
     .join('\n');
   const styleTags = assets.styles
     .map((href) => `<link rel="stylesheet" href="${href}" />`)

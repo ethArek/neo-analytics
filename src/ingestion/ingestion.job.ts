@@ -27,7 +27,7 @@ export class IngestionJob {
     const date = yesterdayInTimeZone(WARSAW_TIME_ZONE);
     if (this.isRunning) {
       this.logger.warn(
-        `Ingestion already running for ${this.runningDate ?? date}. Skipping ${source} trigger.`
+        `Ingestion already running for ${this.runningDate ?? date}. Skipping ${source} trigger.`,
       );
       return;
     }
@@ -36,7 +36,7 @@ export class IngestionJob {
     if (isComplete) {
       if (source !== 'scheduled') {
         this.logger.debug(
-          `Daily ingestion already completed for ${date}. Skipping ${source} trigger.`
+          `Daily ingestion already completed for ${date}. Skipping ${source} trigger.`,
         );
       }
       return;
@@ -49,9 +49,7 @@ export class IngestionJob {
       if (source === 'scheduled') {
         this.logger.log(`Running daily ingestion for ${date}.`);
       } else {
-        this.logger.warn(
-          `Daily ingestion missing for ${date}. Starting ${source} retry.`
-        );
+        this.logger.warn(`Daily ingestion missing for ${date}. Starting ${source} retry.`);
       }
       await this.ingestionService.ingestDay(date);
     } finally {

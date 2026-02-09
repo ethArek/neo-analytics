@@ -100,21 +100,15 @@ export type IngestionPrismaClient = {
     deleteMany: (args: { where: { date: Date } }) => Promise<Prisma.BatchPayload>;
   };
   dailyAssetStat: {
-    createMany: (args: {
-      data: DailyAssetStatCreateRecord[];
-    }) => Promise<Prisma.BatchPayload>;
+    createMany: (args: { data: DailyAssetStatCreateRecord[] }) => Promise<Prisma.BatchPayload>;
     deleteMany: (args: { where: { date: Date } }) => Promise<Prisma.BatchPayload>;
   };
   dailyMethodStat: {
-    createMany: (args: {
-      data: DailyMethodStatRecord[];
-    }) => Promise<Prisma.BatchPayload>;
+    createMany: (args: { data: DailyMethodStatRecord[] }) => Promise<Prisma.BatchPayload>;
     deleteMany: (args: { where: { date: Date } }) => Promise<Prisma.BatchPayload>;
   };
   dailyContractStat: {
-    createMany: (args: {
-      data: DailyContractStatRecord[];
-    }) => Promise<Prisma.BatchPayload>;
+    createMany: (args: { data: DailyContractStatRecord[] }) => Promise<Prisma.BatchPayload>;
     deleteMany: (args: { where: { date: Date } }) => Promise<Prisma.BatchPayload>;
   };
   dailyStat: {

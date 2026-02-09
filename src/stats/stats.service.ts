@@ -78,20 +78,14 @@ export class StatsService {
     return stats.map((stat) => this.mapDailyStat(stat));
   }
 
-  async getRangeOrLatest(
-    from?: string,
-    to?: string,
-    limit = 30
-  ): Promise<StatsRange> {
+  async getRangeOrLatest(from?: string, to?: string, limit = 30): Promise<StatsRange> {
     if (from && to) {
       const stats = await this.getStatsRange(from, to);
       return { stats, range: { from: parseDate(from), to: parseDate(to) } };
     }
 
     const latest = await this.getLatestStats(limit);
-    const ordered = [...latest].sort(
-      (a, b) => a.date.getTime() - b.date.getTime()
-    );
+    const ordered = [...latest].sort((a, b) => a.date.getTime() - b.date.getTime());
     const rangeFrom = ordered[0]?.date;
     const rangeTo = ordered[ordered.length - 1]?.date;
 
@@ -109,7 +103,7 @@ export class StatsService {
     };
     const [grouped, uniqueSenders, uniqueReceivers] = await Promise.all([
       this.prisma.dailyAssetStat.groupBy({
-        by: ["asset"],
+        by: ['asset'],
         where: { date: dateRange },
         _sum: {
           transferCount: true,
@@ -118,17 +112,17 @@ export class StatsService {
         },
       }),
       this.prisma.dailyTransfer.groupBy({
-        by: ["asset", "from"],
+        by: ['asset', 'from'],
         where: {
           date: dateRange,
-          from: { not: null, notIn: [""] },
+          from: { not: null, notIn: [''] },
         },
       }),
       this.prisma.dailyTransfer.groupBy({
-        by: ["asset", "to"],
+        by: ['asset', 'to'],
         where: {
           date: dateRange,
-          to: { not: null, notIn: [""] },
+          to: { not: null, notIn: [''] },
         },
       }),
     ]);
@@ -162,10 +156,7 @@ export class StatsService {
     });
   }
 
-  async getMethodStatsRange(
-    from: string,
-    to: string
-  ): Promise<AggregatedCount[]> {
+  async getMethodStatsRange(from: string, to: string): Promise<AggregatedCount[]> {
     const records = await this.prisma.dailyMethodStat.findMany({
       where: {
         date: {
@@ -185,10 +176,7 @@ export class StatsService {
     return this.sortCounts(methodMap);
   }
 
-  async getContractStatsRange(
-    from: string,
-    to: string
-  ): Promise<AggregatedCount[]> {
+  async getContractStatsRange(from: string, to: string): Promise<AggregatedCount[]> {
     const records = await this.prisma.dailyContractStat.findMany({
       where: {
         date: {
@@ -212,7 +200,7 @@ export class StatsService {
     from: string,
     to: string,
     direction: 'from' | 'to',
-    limit = 8
+    limit = 8,
   ): Promise<TopAddress[]> {
     const dateRange = {
       gte: parseDate(from),
@@ -258,29 +246,26 @@ export class StatsService {
     }));
   }
 
-  async getUniqueAddressStatsRange(
-    from: string,
-    to: string
-  ): Promise<UniqueAddressStats> {
+  async getUniqueAddressStatsRange(from: string, to: string): Promise<UniqueAddressStats> {
     const [senders, receivers] = await Promise.all([
       this.prisma.dailyTransfer.groupBy({
-        by: ["from"],
+        by: ['from'],
         where: {
           date: {
             gte: parseDate(from),
             lte: parseDate(to),
           },
-          from: { not: null, notIn: [""] },
+          from: { not: null, notIn: [''] },
         },
       }),
       this.prisma.dailyTransfer.groupBy({
-        by: ["to"],
+        by: ['to'],
         where: {
           date: {
             gte: parseDate(from),
             lte: parseDate(to),
           },
-          to: { not: null, notIn: [""] },
+          to: { not: null, notIn: [''] },
         },
       }),
     ]);
@@ -297,17 +282,16 @@ export class StatsService {
 
   async getDayDetails(date: string) {
     const day = parseDate(date);
-    const [stat, transactions, assetStats, methodStats, contractStats] =
-      await Promise.all([
-        this.prisma.dailyStat.findUnique({ where: { date: day } }),
-        this.prisma.dailyTx.findMany({
-          where: { date: day },
-          orderBy: { timestamp: 'asc' },
-        }),
-        this.prisma.dailyAssetStat.findMany({ where: { date: day } }),
-        this.prisma.dailyMethodStat.findMany({ where: { date: day } }),
-        this.prisma.dailyContractStat.findMany({ where: { date: day } }),
-      ]);
+    const [stat, transactions, assetStats, methodStats, contractStats] = await Promise.all([
+      this.prisma.dailyStat.findUnique({ where: { date: day } }),
+      this.prisma.dailyTx.findMany({
+        where: { date: day },
+        orderBy: { timestamp: 'asc' },
+      }),
+      this.prisma.dailyAssetStat.findMany({ where: { date: day } }),
+      this.prisma.dailyMethodStat.findMany({ where: { date: day } }),
+      this.prisma.dailyContractStat.findMany({ where: { date: day } }),
+    ]);
 
     const normalizedStat = stat ? this.mapDailyStat(stat) : null;
     const normalizedTransactions: DailyTxWithBigInt[] = transactions.map((transaction) => ({
@@ -350,8 +334,7 @@ export class StatsService {
     const scriptHash = trimmed.slice(2);
     const reversed = u.reverseHex(scriptHash);
     const converted =
-      this.safeGetAddressFromScriptHash(reversed) ??
-      this.safeGetAddressFromScriptHash(scriptHash);
+      this.safeGetAddressFromScriptHash(reversed) ?? this.safeGetAddressFromScriptHash(scriptHash);
     if (!converted) {
       return value;
     }

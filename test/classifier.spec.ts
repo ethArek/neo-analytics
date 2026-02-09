@@ -1,4 +1,8 @@
-import { classifyTransaction, ClassifiedType, defaultSwapMethods } from '../src/classifier/classifier';
+import {
+  classifyTransaction,
+  ClassifiedType,
+  defaultSwapMethods,
+} from '../src/classifier/classifier';
 import { NeoTransaction } from '../src/neo-client/neo-client.interface';
 
 describe('classifier', () => {
@@ -22,32 +26,32 @@ describe('classifier', () => {
     expect(result.type).toBe(ClassifiedType.SWAP);
   });
 
-  it.each(['OrderUpdated', 'OrderUpserted'])(
-    'classifies swap based on dex-like order notifications (%s)',
-    (eventname) => {
-      const tx: NeoTransaction = {
-        txid: `order-notification-${eventname}`,
-        timestamp: new Date().toISOString(),
-        transfers: [],
-        raw: {
-          applicationLog: {
-            executions: [
-              {
-                notifications: [
-                  {
-                    eventname,
-                  },
-                ],
-              },
-            ],
-          },
+  it.each([
+    'OrderUpdated',
+    'OrderUpserted',
+  ])('classifies swap based on dex-like order notifications (%s)', (eventname) => {
+    const tx: NeoTransaction = {
+      txid: `order-notification-${eventname}`,
+      timestamp: new Date().toISOString(),
+      transfers: [],
+      raw: {
+        applicationLog: {
+          executions: [
+            {
+              notifications: [
+                {
+                  eventname,
+                },
+              ],
+            },
+          ],
         },
-      };
+      },
+    };
 
-      const result = classifyTransaction(tx, config);
-      expect(result.type).toBe(ClassifiedType.SWAP);
-    },
-  );
+    const result = classifyTransaction(tx, config);
+    expect(result.type).toBe(ClassifiedType.SWAP);
+  });
 
   it.each([
     '0xec268e9c642b7d09d10fe658bcb1cc63c0895d4d',

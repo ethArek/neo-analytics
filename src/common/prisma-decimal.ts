@@ -25,4 +25,3 @@ export const decimalToBigInt = (value: DecimalLike | null | undefined): bigint =
 
   return BigInt(value.toFixed(0));
 };
-

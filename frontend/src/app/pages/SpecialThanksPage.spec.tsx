@@ -19,9 +19,7 @@ describe('SpecialThanksPage', () => {
 
     render(<SpecialThanksPage />);
 
-    expect(
-      screen.getByRole('heading', { name: 'Special thanks' }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Special thanks' })).toBeInTheDocument();
     expect(screen.getByText('City of Zion (CoZ)')).toBeInTheDocument();
   });
 });

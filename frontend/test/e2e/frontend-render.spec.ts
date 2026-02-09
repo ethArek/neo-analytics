@@ -1,11 +1,6 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { join } from 'path';
-import type {
-  AdminLoginData,
-  DashboardData,
-  DayData,
-  DaysData,
-} from '../../src/app/types';
+import type { AdminLoginData, DashboardData, DayData, DaysData } from '../../src/app/types';
 
 type PageSeed<T> = {
   page: string;
@@ -185,11 +180,7 @@ const seedAppPage = async (page: Page, seed: PageSeed<unknown>) => {
   });
 };
 
-const captureScreenshot = async (
-  page: Page,
-  testInfo: TestInfo,
-  fileName: string,
-) => {
+const captureScreenshot = async (page: Page, testInfo: TestInfo, fileName: string) => {
   const screenshotPath = testInfo.outputPath(fileName);
   await page.screenshot({ path: screenshotPath, fullPage: true });
   await testInfo.attach(fileName, { path: screenshotPath, contentType: 'image/png' });
@@ -199,7 +190,9 @@ test.describe('frontend rendering', () => {
   test('dashboard renders summary and lists', async ({ page }, testInfo) => {
     await seedAppPage(page, dashboardSeed);
     await expect(page.getByRole('heading', { name: 'Yesterday stats' })).toBeVisible();
-    await expect(page.locator('.summary-grid').getByText('Transactions excluding Gas Claims')).toBeVisible();
+    await expect(
+      page.locator('.summary-grid').getByText('Transactions excluding Gas Claims'),
+    ).toBeVisible();
     await expect(page.getByText('Top senders')).toBeVisible();
     await captureScreenshot(page, testInfo, 'dashboard.png');
   });
@@ -219,7 +212,9 @@ test.describe('frontend rendering', () => {
   });
   test('faq renders accordion and call to action', async ({ page }, testInfo) => {
     await seedAppPage(page, faqSeed);
-    await expect(page.getByRole('heading', { name: 'Clear answers to how Neo Analytics works.' })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Clear answers to how Neo Analytics works.' }),
+    ).toBeVisible();
     await expect(page.getByText('How often is data updated?')).toBeVisible();
     await expect(page.getByRole('link', { name: 'Open dashboard' })).toBeVisible();
     await captureScreenshot(page, testInfo, 'faq.png');

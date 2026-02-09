@@ -219,10 +219,7 @@ export class ApiController {
 
   @Post('jobs/backfill-10-minutes')
   @ApiExcludeEndpoint()
-  async backfillTenMinutes(
-    @Body('from') from?: string,
-    @Headers('x-admin-token') token?: string,
-  ) {
+  async backfillTenMinutes(@Body('from') from?: string, @Headers('x-admin-token') token?: string) {
     const adminToken = this.configService.get<string>('app.adminToken');
     if (!adminToken || token !== adminToken) {
       return { status: 'error', message: 'Unauthorized' };
@@ -344,7 +341,11 @@ export class ApiController {
     }
 
     const days: string[] = [];
-    for (let cursor = new Date(start); cursor <= end; cursor = new Date(cursor.getTime() + 86400000)) {
+    for (
+      let cursor = new Date(start);
+      cursor <= end;
+      cursor = new Date(cursor.getTime() + 86400000)
+    ) {
       days.push(formatDate(cursor, 'UTC'));
     }
 
