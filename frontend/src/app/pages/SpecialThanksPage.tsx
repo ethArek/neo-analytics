@@ -28,7 +28,11 @@ export const SpecialThanksPage: React.FC = () => {
               CityOfZion
             </a>{' '}
             for providing the{' '}
-            <a href="https://www.npmjs.com/package/@cityofzion/neon-js" target="_blank" rel="noreferrer">
+            <a
+              href="https://www.npmjs.com/package/@cityofzion/neon-js"
+              target="_blank"
+              rel="noreferrer"
+            >
               neon-js
             </a>{' '}
             SDK and the public{' '}

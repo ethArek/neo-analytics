@@ -33,9 +33,7 @@ Chart.register(
 );
 
 const getCssVar = (name: string, fallback: string) => {
-  const value = getComputedStyle(document.documentElement)
-    .getPropertyValue(name)
-    .trim();
+  const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   if (!value) {
     return fallback;
   }
@@ -73,11 +71,7 @@ const toNumberSafe = (value: unknown) => {
   return 0;
 };
 
-const normalizeSeries = (
-  value: unknown,
-  labelsCount: number,
-  fallback?: () => number[],
-) => {
+const normalizeSeries = (value: unknown, labelsCount: number, fallback?: () => number[]) => {
   if (Array.isArray(value)) {
     return value.map((entry) => toNumberSafe(entry));
   }
@@ -137,14 +131,7 @@ export const initDashboardCharts = (data: DashboardChartData) => {
   const totalTxColor = '#2563eb';
   const totalTxRgb = '37, 99, 235';
 
-  const palette = [
-    swapColor,
-    transferColor,
-    gasColor,
-    totalTxColor,
-    '#d946ef',
-    accent,
-  ];
+  const palette = [swapColor, transferColor, gasColor, totalTxColor, '#d946ef', accent];
   const buildPalette = (count: number) => {
     const colors: string[] = [];
     for (let i = 0; i < count; i += 1) {
@@ -197,12 +184,7 @@ export const initDashboardCharts = (data: DashboardChartData) => {
     const gasSeries = normalizeSeries(series.gasClaims, labels.length);
     const othersSeries = normalizeSeries(series.others, labels.length);
     const typeTotals = labels.map((_, index) => {
-      return (
-        swapSeries[index] +
-        transferSeries[index] +
-        gasSeries[index] +
-        othersSeries[index]
-      );
+      return swapSeries[index] + transferSeries[index] + gasSeries[index] + othersSeries[index];
     });
     const swapPercent = swapSeries.map((value, index) => {
       const total = typeTotals[index];
@@ -270,7 +252,11 @@ export const initDashboardCharts = (data: DashboardChartData) => {
           legend: { position: 'bottom' },
           tooltip: {
             callbacks: {
-              label: (context: { datasetIndex?: number; dataIndex?: number; dataset: { label?: string } }) => {
+              label: (context: {
+                datasetIndex?: number;
+                dataIndex?: number;
+                dataset: { label?: string };
+              }) => {
                 const datasetIndex = context.datasetIndex ?? 0;
                 const dataIndex = context.dataIndex ?? 0;
                 const total = typeTotals[dataIndex] ?? 0;
@@ -488,8 +474,7 @@ export const initDashboardCharts = (data: DashboardChartData) => {
                   : 0;
                 const value = assetValues[dataIndex] ?? 0;
                 const percent = assetTotal > 0 ? (value / assetTotal) * 100 : 0;
-                const label =
-                  assetLabels[dataIndex] ?? context.label ?? `Unknown ${dataIndex + 1}`;
+                const label = assetLabels[dataIndex] ?? context.label ?? `Unknown ${dataIndex + 1}`;
 
                 return `${label}: ${value} (${formatPercent(percent)})`;
               },

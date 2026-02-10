@@ -19,7 +19,10 @@ class FakePrismaService implements IngestionPrismaClient {
   dailyMethodStatData: DailyMethodStatRecord[] = [];
   dailyContractStatData: DailyContractStatRecord[] = [];
   dailyStatData: Record<string, DailyStatUpsertRecord> = {};
-  ingestionCursorData: Record<string, { lastProcessedBlock?: number; lastProcessedTimestamp?: Date }> = {};
+  ingestionCursorData: Record<
+    string,
+    { lastProcessedBlock?: number; lastProcessedTimestamp?: Date }
+  > = {};
 
   dailyTx = {
     createMany: async ({ data }: { data: DailyTxCreateRecord[]; skipDuplicates?: boolean }) => {
@@ -29,7 +32,9 @@ class FakePrismaService implements IngestionPrismaClient {
     },
     deleteMany: async ({ where }: { where: { date: Date } }) => {
       const before = this.dailyTxData.length;
-      this.dailyTxData = this.dailyTxData.filter((tx) => tx.date.getTime() !== where.date.getTime());
+      this.dailyTxData = this.dailyTxData.filter(
+        (tx) => tx.date.getTime() !== where.date.getTime(),
+      );
       const after = this.dailyTxData.length;
 
       return { count: before - after };
@@ -37,7 +42,12 @@ class FakePrismaService implements IngestionPrismaClient {
   };
 
   dailyTransfer = {
-    createMany: async ({ data }: { data: DailyTransferCreateRecord[]; skipDuplicates?: boolean }) => {
+    createMany: async ({
+      data,
+    }: {
+      data: DailyTransferCreateRecord[];
+      skipDuplicates?: boolean;
+    }) => {
       this.dailyTransferData.push(...data);
 
       return { count: data.length };
@@ -185,7 +195,7 @@ class FakePrismaService implements IngestionPrismaClient {
 
   private buildIngestionCursor(
     network: string,
-    record: { lastProcessedBlock?: number; lastProcessedTimestamp?: Date }
+    record: { lastProcessedBlock?: number; lastProcessedTimestamp?: Date },
   ): IngestionCursor {
     const now = new Date();
 
@@ -309,5 +319,361 @@ describe('IngestionService', () => {
     const stat = prisma.dailyStatData[new Date(Date.UTC(2024, 4, 2)).toISOString()];
     expect(stat.neoVolumeRaw).toBe(hugeAmount);
     expect(stat.gasVolumeRaw).toBe('0');
+  });
+
+  it('handles pagination, mixed classes, normalization, and JSON serialization during day ingestion', async () => {
+    const circular: Record<string, unknown> = {
+      label: 'root',
+    };
+    circular.self = circular;
+
+    const timestamp = new Date('2024-05-03T12:00:00.000Z').toISOString();
+    const neoClient: NeoClient = {
+      fetchTransactionsForDay: jest.fn().mockImplementation((_date: string, cursor?: string) => {
+        if (!cursor) {
+          return Promise.resolve({
+            nextCursor: 'page-2',
+            blockStart: 10,
+            blockEnd: 20,
+            transactions: [
+              {
+                txid: 'swap-serialized',
+                timestamp,
+                blockIndex: 10,
+                invocation: {
+                  contract: 'ABCD',
+                  method: ' Swap ',
+                },
+                transfers: [
+                  { from: 'SenderA', to: 'ReceiverA', asset: ' tokenhash ', amount: '5' },
+                  { from: 'SenderA', to: 'ReceiverA', asset: 'NEO', amount: '2' },
+                ],
+                raw: {
+                  text: 'hello',
+                  enabled: true,
+                  finite: 1,
+                  infinite: Number.POSITIVE_INFINITY,
+                  bigint: 12n,
+                  date: new Date('2024-05-03T00:00:00.000Z'),
+                  buffer: Buffer.from('ab', 'hex'),
+                  bytes: new Uint8Array([1, 2]),
+                  list: [1, undefined, 'x'],
+                  map: new Map([
+                    ['a', 1],
+                    ['b', undefined],
+                  ]),
+                  set: new Set(['alpha', 2]),
+                  symbolValue: Symbol('demo'),
+                  circular,
+                },
+              },
+              {
+                txid: 'gas-claim',
+                timestamp,
+                blockIndex: 11,
+                transfers: [{ from: ' ', to: 'ReceiverGas', asset: 'GAS', amount: '10' }],
+                raw: {},
+              },
+            ],
+          });
+        }
+
+        return Promise.resolve({
+          blockStart: 10,
+          blockEnd: 20,
+          transactions: [
+            {
+              txid: 'normal-transfer',
+              timestamp,
+              blockIndex: 12,
+              invocation: {
+                method: '   ',
+                contract: '   ',
+              },
+              transfers: [
+                { from: 'Alice', to: 'Bob', asset: 'customasset', amount: '9' },
+                { from: 'Alice', to: 'Bob', asset: 'badasset', amount: 'not-a-number' },
+              ],
+              raw: {},
+            },
+            {
+              txid: 'ignored-empty',
+              timestamp,
+              raw: {},
+            },
+            {
+              txid: 'swap-second',
+              timestamp,
+              blockIndex: 14,
+              invocation: {
+                contract: '0xABCD',
+                method: 'SWAP',
+              },
+              transfers: [
+                { from: 'senderB', to: 'receiverB', asset: 'gas', amount: '3' },
+                { from: 'senderB', to: 'receiverC', asset: 'neo', amount: '4' },
+              ],
+              raw: {},
+            },
+          ],
+        });
+      }),
+    };
+    const prisma = new FakePrismaService();
+    const configService = new ConfigService({
+      app: {
+        neoNetwork: 'MainNet',
+      },
+    });
+    const service = new IngestionService(neoClient, prisma, configService);
+
+    Object.defineProperty(service, 'txBatchSize', { value: 1 });
+    Object.defineProperty(service, 'transferBatchSize', { value: 1 });
+
+    await service.ingestDay('2024-05-03');
+
+    expect(neoClient.fetchTransactionsForDay).toHaveBeenCalledTimes(2);
+    expect(prisma.dailyTxData).toHaveLength(5);
+    expect(prisma.dailyTransferData).toHaveLength(6);
+
+    const stat = prisma.dailyStatData[new Date(Date.UTC(2024, 4, 3)).toISOString()];
+    expect(stat.totalTxCount).toBe(5);
+    expect(stat.swapsCount).toBe(2);
+    expect(stat.transfersCount).toBe(1);
+    expect(stat.gasClaimsCount).toBe(1);
+    expect(stat.othersCount).toBe(1);
+    expect(stat.realUsageTotal).toBe(3);
+    expect(stat.totalTransfers).toBe(6);
+    expect(stat.uniqueSenders).toBe(3);
+    expect(stat.uniqueReceivers).toBe(5);
+    expect(stat.uniqueAddresses).toBe(8);
+    expect(stat.neoVolumeRaw).toBe('6');
+    expect(stat.gasVolumeRaw).toBe('13');
+    expect(stat.blockCount).toBe(11);
+
+    expect(prisma.ingestionCursorData.MainNet?.lastProcessedBlock).toBe(14);
+    expect(prisma.dailyMethodStatData).toHaveLength(1);
+    expect(prisma.dailyMethodStatData[0].method).toBe('swap');
+    expect(prisma.dailyMethodStatData[0].txCount).toBe(2);
+    expect(prisma.dailyContractStatData).toHaveLength(1);
+    expect(prisma.dailyContractStatData[0].contract).toBe('0xabcd');
+    expect(prisma.dailyContractStatData[0].txCount).toBe(2);
+
+    const serialized = prisma.dailyTxData.find((tx) => tx.txid === 'swap-serialized');
+    expect(serialized?.asset).toBe('NEO');
+    expect(serialized?.amountRaw).toBe('2');
+    expect(serialized?.from).toBe('0xsendera');
+    expect(serialized?.to).toBe('0xreceivera');
+    expect(serialized?.method).toBe('swap');
+    expect(serialized?.contract).toBe('0xabcd');
+    expect(serialized?.rawJson).toEqual(
+      expect.objectContaining({
+        text: 'hello',
+        enabled: true,
+        finite: 1,
+        infinite: null,
+        bigint: '12',
+        date: '2024-05-03T00:00:00.000Z',
+        buffer: '0xab',
+        bytes: '0x0102',
+        list: [1, null, 'x'],
+        map: [
+          ['a', 1],
+          ['b', null],
+        ],
+        set: ['alpha', 2],
+        symbolValue: 'Symbol(demo)',
+      }),
+    );
+    expect(serialized?.rawJson).toMatchObject({
+      circular: {
+        label: 'root',
+        self: '[Circular]',
+      },
+    });
+  });
+
+  it('keeps block count at zero and does not update cursor when block index is missing', async () => {
+    const neoClient: NeoClient = {
+      fetchTransactionsForDay: async () => ({
+        transactions: [
+          {
+            txid: 'no-block',
+            timestamp: new Date('2024-05-04T12:00:00.000Z').toISOString(),
+            transfers: [{ from: 'a', to: 'b', asset: 'NEO', amount: '1' }],
+            raw: {},
+          },
+        ],
+      }),
+    };
+    const prisma = new FakePrismaService();
+    const configService = new ConfigService({
+      app: {
+        neoNetwork: 'MainNet',
+      },
+    });
+    const service = new IngestionService(neoClient, prisma, configService);
+
+    await service.ingestDay('2024-05-04');
+
+    const stat = prisma.dailyStatData[new Date(Date.UTC(2024, 4, 4)).toISOString()];
+    expect(stat.blockCount).toBe(0);
+    expect(prisma.ingestionCursorData).toEqual({});
+  });
+
+  it('supports range ingestion fallback and paginated day loading', async () => {
+    const fallbackDate = '2024-05-05';
+    const start = new Date('2024-05-05T10:00:00.000Z');
+    const end = new Date('2024-05-05T10:10:00.000Z');
+    const neoClient: NeoClient = {
+      fetchTransactionsForDay: jest.fn().mockImplementation((date: string, cursor?: string) => {
+        expect(date).toBe(fallbackDate);
+        if (!cursor) {
+          return Promise.resolve({
+            nextCursor: 'p2',
+            transactions: [
+              {
+                txid: 'w1',
+                timestamp: start.toISOString(),
+                blockIndex: 21,
+                invocation: {
+                  method: 'swap',
+                  contract: 'abcd',
+                },
+                transfers: [
+                  { from: 'aa', to: 'bb', asset: 'NEO', amount: '2' },
+                  { from: 'bb', to: 'aa', asset: 'GAS', amount: '5' },
+                ],
+                raw: {},
+              },
+            ],
+          });
+        }
+
+        return Promise.resolve({
+          blockStart: 21,
+          blockEnd: 22,
+          transactions: [
+            {
+              txid: 'w2',
+              timestamp: end.toISOString(),
+              blockIndex: 22,
+              transfers: [{ from: 'cc', to: 'dd', asset: 'token', amount: '1' }],
+              raw: {},
+            },
+          ],
+        });
+      }),
+    };
+    const prisma = new FakePrismaService();
+    const configService = new ConfigService({
+      app: {
+        neoNetwork: 'MainNet',
+      },
+    });
+    const service = new IngestionService(neoClient, prisma, configService);
+
+    await service.ingestWindow(start, end);
+
+    expect(neoClient.fetchTransactionsForDay).toHaveBeenCalledTimes(2);
+    expect(prisma.dailyTxData).toHaveLength(2);
+    expect(prisma.dailyTransferData).toHaveLength(3);
+
+    const stat = prisma.dailyStatData[new Date(Date.UTC(2024, 4, 5)).toISOString()];
+    expect(stat.totalTxCount).toBe(2);
+    expect(stat.swapsCount).toBe(1);
+    expect(stat.transfersCount).toBe(1);
+    expect(stat.blockCount).toBe(2);
+  });
+
+  it('supports range ingestion with paginated range API', async () => {
+    const start = new Date('2024-05-06T10:00:00.000Z');
+    const end = new Date('2024-05-06T10:10:00.000Z');
+    const neoClient: NeoClient = {
+      fetchTransactionsForDay: async () => ({ transactions: [] }),
+      fetchTransactionsForRange: jest
+        .fn()
+        .mockImplementation((_start: Date, _end: Date, cursor?: string) => {
+          if (!cursor) {
+            return Promise.resolve({
+              nextCursor: 'next',
+              blockStart: 30,
+              blockEnd: 31,
+              transactions: [
+                {
+                  txid: 'range-1',
+                  timestamp: start.toISOString(),
+                  blockIndex: 30,
+                  transfers: [{ from: 'x', to: 'y', asset: 'NEO', amount: '1' }],
+                  raw: {},
+                },
+              ],
+            });
+          }
+
+          return Promise.resolve({
+            transactions: [
+              {
+                txid: 'range-2',
+                timestamp: end.toISOString(),
+                blockIndex: 31,
+                transfers: [{ from: 'y', to: 'z', asset: 'GAS', amount: '2' }],
+                raw: {},
+              },
+            ],
+          });
+        }),
+    };
+    const prisma = new FakePrismaService();
+    const configService = new ConfigService({
+      app: {
+        neoNetwork: 'MainNet',
+      },
+    });
+    const service = new IngestionService(neoClient, prisma, configService);
+
+    await service.ingestWindow(start, end);
+
+    expect(neoClient.fetchTransactionsForRange).toHaveBeenCalledTimes(2);
+    expect(prisma.dailyTxData).toHaveLength(2);
+    expect(prisma.dailyTransferData).toHaveLength(2);
+
+    const stat = prisma.dailyStatData[new Date(Date.UTC(2024, 4, 6)).toISOString()];
+    expect(stat.totalTxCount).toBe(2);
+    expect(stat.blockCount).toBe(2);
+  });
+
+  it('checks existing day status and rebuilds by re-ingesting', async () => {
+    let responseTxId = 'first-pass';
+    const neoClient: NeoClient = {
+      fetchTransactionsForDay: async () => ({
+        transactions: [
+          {
+            txid: responseTxId,
+            timestamp: new Date('2024-05-07T10:00:00.000Z').toISOString(),
+            blockIndex: 100,
+            transfers: [{ from: 'a', to: 'b', asset: 'NEO', amount: '1' }],
+            raw: {},
+          },
+        ],
+      }),
+    };
+    const prisma = new FakePrismaService();
+    const configService = new ConfigService({
+      app: {
+        neoNetwork: 'MainNet',
+      },
+    });
+    const service = new IngestionService(neoClient, prisma, configService);
+
+    expect(await service.isDayIngested('2024-05-07')).toBe(false);
+    await service.ingestDay('2024-05-07');
+    expect(await service.isDayIngested('2024-05-07')).toBe(true);
+
+    responseTxId = 'second-pass';
+    await service.rebuildDay('2024-05-07');
+
+    expect(prisma.dailyTxData).toHaveLength(1);
+    expect(prisma.dailyTxData[0].txid).toBe('second-pass');
   });
 });

@@ -30,6 +30,8 @@ Thanks for your interest in contributing! This guide covers local setup, develop
 Run the test suite with:
 
 ```bash
+npm run lint
+npm run format
 npm test
 ```
 

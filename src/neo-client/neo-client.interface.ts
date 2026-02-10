@@ -32,7 +32,7 @@ export interface NeoClient {
   fetchTransactionsForRange?(
     startTime: Date,
     endTime: Date,
-    cursor?: string
+    cursor?: string,
   ): Promise<NeoPagedResponse>;
   resolveAssetLabel?(asset: string): Promise<string | null>;
 }

@@ -1,4 +1,7 @@
-const formatDateParts = (date: Date, timeZone: string): { year: string; month: string; day: string } => {
+const formatDateParts = (
+  date: Date,
+  timeZone: string,
+): { year: string; month: string; day: string } => {
   const formatter = new Intl.DateTimeFormat('en-CA', {
     timeZone,
     year: 'numeric',

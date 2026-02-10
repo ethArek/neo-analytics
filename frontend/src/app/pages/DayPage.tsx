@@ -19,9 +19,7 @@ export const DayPage: React.FC = () => {
         <div>
           <h1>Neo Analytics</h1>
           <p className="subtitle">Day details: {data.date}</p>
-          <p className="hero-meta">
-            Classified transactions and breakdowns for the selected day.
-          </p>
+          <p className="hero-meta">Classified transactions and breakdowns for the selected day.</p>
         </div>
         <div className="hero-actions">
           <a href="/dashboard" className="button">

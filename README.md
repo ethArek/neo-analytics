@@ -163,6 +163,8 @@ It relies on:
 ## Tests
 
 ```bash
+npm run lint
+npm run format
 npm test
 ```
 

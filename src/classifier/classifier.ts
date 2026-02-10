@@ -49,7 +49,9 @@ export const defaultSwapContracts = [
   '0xde3a4b093abbd07e9a69cdec88a54d9a1fe14975',
 ];
 
-const swapContractAllowlist = new Set(defaultSwapContracts.map((contract) => normalizeHash(contract)));
+const swapContractAllowlist = new Set(
+  defaultSwapContracts.map((contract) => normalizeHash(contract)),
+);
 
 const isRecord = (value: unknown): value is Record<string, unknown> => {
   return typeof value === 'object' && value !== null;
@@ -131,7 +133,11 @@ const getDexNotificationName = (raw: Record<string, unknown>): string | null => 
       }
 
       const normalized = normalize(eventName);
-      if (normalized === 'swapped' || normalized === 'orderupdated' || normalized === 'orderupserted') {
+      if (
+        normalized === 'swapped' ||
+        normalized === 'orderupdated' ||
+        normalized === 'orderupserted'
+      ) {
         return eventName;
       }
     }

@@ -11,6 +11,14 @@ module.exports = {
       },
       collectCoverageFrom: ['src/**/*.(t|j)s'],
       coverageDirectory: './coverage',
+      coverageThreshold: {
+        global: {
+          statements: 80,
+          branches: 80,
+          functions: 80,
+          lines: 80,
+        },
+      },
       testEnvironment: 'node',
     },
     {
@@ -30,6 +38,14 @@ module.exports = {
       },
       collectCoverageFrom: ['frontend/src/**/*.{ts,tsx,js,jsx}'],
       coverageDirectory: './coverage/frontend',
+      coverageThreshold: {
+        global: {
+          statements: 80,
+          branches: 80,
+          functions: 80,
+          lines: 80,
+        },
+      },
       testEnvironment: 'jsdom',
       setupFilesAfterEnv: ['<rootDir>/frontend/test/setup-tests.ts'],
     },

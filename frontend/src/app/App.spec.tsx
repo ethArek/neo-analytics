@@ -26,9 +26,7 @@ describe('App', () => {
 
     render(<App />);
 
-    expect(
-      screen.getByText(/Clear answers to how Neo Analytics works/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Clear answers to how Neo Analytics works/i)).toBeInTheDocument();
   });
 
   it('falls back to the dashboard page', () => {

@@ -71,11 +71,7 @@ export class WebController {
   }
 
   @Get('/dashboard')
-  async dashboard(
-    @Res() res: Response,
-    @Query('from') from?: string,
-    @Query('to') to?: string,
-  ) {
+  async dashboard(@Res() res: Response, @Query('from') from?: string, @Query('to') to?: string) {
     const { stats, range } = await this.statsService.getRangeOrLatest(from, to, 30);
     const labeledStats = stats.map((stat) => ({
       ...stat,
@@ -111,15 +107,10 @@ export class WebController {
       this.statsService.getTopAddresses(rangeFrom, rangeTo, 'from', 6),
       this.statsService.getTopAddresses(rangeFrom, rangeTo, 'to', 6),
     ]);
-    const assetLabelMap = await this.buildAssetLabelMap(
-      assetStats.map((asset) => asset.asset),
-    );
+    const assetLabelMap = await this.buildAssetLabelMap(assetStats.map((asset) => asset.asset));
     const labeledAssetStats = assetStats.map((asset) => ({
       ...asset,
-      assetLabel: this.normalizeAssetLabel(
-        assetLabelMap.get(asset.asset),
-        asset.asset,
-      ),
+      assetLabel: this.normalizeAssetLabel(assetLabelMap.get(asset.asset), asset.asset),
     }));
     const chartData = this.buildChartData(labeledStats, labeledAssetStats);
 
@@ -152,11 +143,7 @@ export class WebController {
   }
 
   @Get('/days')
-  async days(
-    @Res() res: Response,
-    @Query('from') from?: string,
-    @Query('to') to?: string,
-  ) {
+  async days(@Res() res: Response, @Query('from') from?: string, @Query('to') to?: string) {
     const { stats, range } = await this.statsService.getRangeOrLatest(from, to, 90);
     const labeledStats = stats.map((stat) => ({
       dateLabel: formatDate(stat.date),
@@ -306,7 +293,9 @@ export class WebController {
   }
 
   private buildChartData(
-    stats: Array<Awaited<ReturnType<StatsService['getLatestStats']>>[number] & { dateLabel: string }>,
+    stats: Array<
+      Awaited<ReturnType<StatsService['getLatestStats']>>[number] & { dateLabel: string }
+    >,
     assetStats: Array<
       Awaited<ReturnType<StatsService['getAssetStatsRange']>>[number] & {
         assetLabel?: string;
@@ -347,10 +336,7 @@ export class WebController {
     };
   }
 
-  private normalizeAssetLabel(
-    label?: string | null,
-    fallback?: string | null
-  ): string {
+  private normalizeAssetLabel(label?: string | null, fallback?: string | null): string {
     const value = (label ?? fallback ?? '').trim();
     if (!value) {
       return 'Unknown';
@@ -360,7 +346,7 @@ export class WebController {
   }
 
   private async buildAssetLabelMap(
-    assets: Array<string | null | undefined>
+    assets: Array<string | null | undefined>,
   ): Promise<Map<string, string>> {
     const labels = new Map<string, string>();
     const uniqueAssets = new Set<string>();
@@ -378,7 +364,7 @@ export class WebController {
         (async () => {
           const label = await this.resolveAssetLabel(asset);
           labels.set(asset, label);
-        })()
+        })(),
       );
     }
 
@@ -386,10 +372,7 @@ export class WebController {
     return labels;
   }
 
-  private getAssetLabel(
-    asset: string | null | undefined,
-    labels: Map<string, string>
-  ): string {
+  private getAssetLabel(asset: string | null | undefined, labels: Map<string, string>): string {
     if (!asset) {
       return '';
     }
@@ -408,9 +391,14 @@ export class WebController {
         return resolved;
       }
 
-      console.debug(`Asset label resolution returned no value for asset "${asset}", falling back to asset hash.`);
+      console.debug(
+        `Asset label resolution returned no value for asset "${asset}", falling back to asset hash.`,
+      );
     } catch (error) {
-      console.warn(`Failed to resolve asset label for asset "${asset}", falling back to asset hash.`, error);
+      console.warn(
+        `Failed to resolve asset label for asset "${asset}", falling back to asset hash.`,
+        error,
+      );
       return asset;
     }
 

@@ -17,7 +17,7 @@
   --surface-1: rgba(10, 31, 20, 0.04);
   --surface-2: rgba(10, 31, 20, 0.06);
   --surface-3: rgba(10, 31, 20, 0.08);
-  --stroke: rgba(10, 31, 20, 0.10);
+  --stroke: rgba(10, 31, 20, 0.1);
   --chart-border: rgba(10, 31, 20, 0.12);
   --tooltip-bg: rgba(10, 31, 20, 0.92);
   --tooltip-ink: #ffffff;
@@ -33,8 +33,9 @@
 
 body {
   margin: 0;
-  background: radial-gradient(circle at top left, rgba(var(--accent-rgb), 0.12), transparent 45%),
-    radial-gradient(circle at top right, rgba(var(--accent-2-rgb), 0.10), transparent 52%),
+  background:
+    radial-gradient(circle at top left, rgba(var(--accent-rgb), 0.12), transparent 45%),
+    radial-gradient(circle at top right, rgba(var(--accent-2-rgb), 0.1), transparent 52%),
     linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 74%);
   min-height: 100vh;
 }
@@ -43,7 +44,8 @@ body::before {
   content: "";
   position: fixed;
   inset: -10% -5%;
-  background: radial-gradient(circle at 20% 20%, rgba(var(--accent-rgb), 0.08), transparent 35%),
+  background:
+    radial-gradient(circle at 20% 20%, rgba(var(--accent-rgb), 0.08), transparent 35%),
     radial-gradient(circle at 80% 15%, rgba(var(--accent-2-rgb), 0.08), transparent 40%),
     radial-gradient(circle at 50% 80%, rgba(var(--accent-3-rgb), 0.08), transparent 45%);
   pointer-events: none;
@@ -85,7 +87,11 @@ body::before {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.85), rgba(var(--accent-2-rgb), 0.85));
+  background: linear-gradient(
+    135deg,
+    rgba(var(--accent-rgb), 0.85),
+    rgba(var(--accent-2-rgb), 0.85)
+  );
   color: #fff;
   font-weight: 700;
   font-size: 0.9rem;
@@ -126,7 +132,10 @@ body::before {
   font-weight: 600;
   padding: 6px 14px;
   border-radius: 999px;
-  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease;
 }
 
 .nav-link:hover {
@@ -308,7 +317,9 @@ h3 {
   font-weight: 600;
   border: none;
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
   box-shadow: 0 12px 24px rgba(var(--accent-rgb), 0.24);
 }
 
@@ -817,7 +828,11 @@ h3 {
 }
 
 .faq-cta {
-  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.12), rgba(var(--accent-2-rgb), 0.12));
+  background: linear-gradient(
+    135deg,
+    rgba(var(--accent-rgb), 0.12),
+    rgba(var(--accent-2-rgb), 0.12)
+  );
   border-radius: var(--radius);
   border: 1px solid var(--stroke);
   padding: 20px 24px;

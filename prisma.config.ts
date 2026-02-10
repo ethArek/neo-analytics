@@ -10,4 +10,3 @@ export default defineConfig({
     url: process.env['NEO_DATABASE_URL'],
   },
 });
-
