@@ -51,6 +51,20 @@ export type StatsRange = {
   range?: { from: Date; to: Date };
 };
 
+export type DayDetailsOptions = {
+  page: number;
+  pageSize: number;
+};
+
+export type DayDetailsPagination = {
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+  hasPreviousPage: boolean;
+  hasNextPage: boolean;
+};
+
 @Injectable()
 export class StatsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -280,18 +294,34 @@ export class StatsService {
     };
   }
 
-  async getDayDetails(date: string) {
+  async getDayDetails(
+    date: string,
+    options: DayDetailsOptions = {
+      page: 1,
+      pageSize: 50,
+    },
+  ) {
     const day = parseDate(date);
-    const [stat, transactions, assetStats, methodStats, contractStats] = await Promise.all([
+    const safePage = Number.isFinite(options.page) ? Math.max(1, Math.floor(options.page)) : 1;
+    const safePageSize = Number.isFinite(options.pageSize)
+      ? Math.max(1, Math.floor(options.pageSize))
+      : 50;
+    const [stat, totalItems, assetStats, methodStats, contractStats] = await Promise.all([
       this.prisma.dailyStat.findUnique({ where: { date: day } }),
-      this.prisma.dailyTx.findMany({
-        where: { date: day },
-        orderBy: { timestamp: 'asc' },
-      }),
+      this.prisma.dailyTx.count({ where: { date: day } }),
       this.prisma.dailyAssetStat.findMany({ where: { date: day } }),
       this.prisma.dailyMethodStat.findMany({ where: { date: day } }),
       this.prisma.dailyContractStat.findMany({ where: { date: day } }),
     ]);
+    const totalPages = Math.max(1, Math.ceil(totalItems / safePageSize));
+    const page = Math.min(safePage, totalPages);
+    const skip = (page - 1) * safePageSize;
+    const transactions = await this.prisma.dailyTx.findMany({
+      where: { date: day },
+      orderBy: [{ timestamp: 'desc' }, { id: 'desc' }],
+      skip,
+      take: safePageSize,
+    });
 
     const normalizedStat = stat ? this.mapDailyStat(stat) : null;
     const normalizedTransactions: DailyTxWithBigInt[] = transactions.map((transaction) => ({
@@ -309,6 +339,14 @@ export class StatsService {
       assetStats: normalizedAssetStats,
       methodStats,
       contractStats,
+      pagination: {
+        page,
+        pageSize: safePageSize,
+        totalItems,
+        totalPages,
+        hasPreviousPage: page > 1,
+        hasNextPage: page < totalPages,
+      } satisfies DayDetailsPagination,
     };
   }
 

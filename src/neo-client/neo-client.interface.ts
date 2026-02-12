@@ -35,4 +35,5 @@ export interface NeoClient {
     cursor?: string,
   ): Promise<NeoPagedResponse>;
   resolveAssetLabel?(asset: string): Promise<string | null>;
+  resolveAssetDecimals?(asset: string): Promise<number | null>;
 }

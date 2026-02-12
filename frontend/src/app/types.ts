@@ -19,6 +19,12 @@ export type DashboardAddress = {
   transferCount: string;
 };
 
+export type DashboardAssetBreakdown = {
+  assetLabel: string;
+  transferCount: string;
+  volumeLabel: string;
+};
+
 export type DashboardChartData = {
   labels: string[];
   series: {
@@ -47,6 +53,7 @@ export type DashboardData = {
   rangeTo?: string;
   topSenders?: DashboardAddress[];
   topReceivers?: DashboardAddress[];
+  assetBreakdown?: DashboardAssetBreakdown[];
 };
 
 export type DaysStat = {
@@ -78,6 +85,7 @@ export type DayStat = {
 };
 
 export type DayTransaction = {
+  txid?: string;
   timestampLabel: string;
   shortTxid: string;
   type: string;
@@ -104,11 +112,22 @@ export type DayContractStat = {
   txCount: number;
 };
 
+export type DayPagination = {
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+  hasPreviousPage: boolean;
+  hasNextPage: boolean;
+  pageSizeOptions?: number[];
+};
+
 export type DayData = {
   nav?: NavState;
   date?: string;
   stat?: DayStat | null;
   transactions?: DayTransaction[];
+  pagination?: DayPagination;
   assetStats?: DayAssetStat[];
   methodStats?: DayMethodStat[];
   contractStats?: DayContractStat[];

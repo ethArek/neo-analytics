@@ -79,6 +79,8 @@ export class RpcNeoClient implements NeoClient {
   private clientIndex = 0;
   private readonly assetLabelCache = new Map<string, string>();
   private readonly assetLabelInFlight = new Map<string, Promise<string>>();
+  private readonly assetDecimalsCache = new Map<string, number>();
+  private readonly assetDecimalsInFlight = new Map<string, Promise<number | null>>();
 
   constructor(private readonly configService: ConfigService) {
     const endpoints = this.configService.get<string[]>('app.rpcEndpoints') ?? [];
@@ -146,6 +148,44 @@ export class RpcNeoClient implements NeoClient {
       this.assetLabelInFlight.delete(normalized);
     });
     this.assetLabelInFlight.set(normalized, promise);
+
+    return promise;
+  }
+
+  async resolveAssetDecimals(asset: string): Promise<number | null> {
+    const trimmed = asset.trim();
+    if (!trimmed) {
+      return null;
+    }
+
+    const upper = trimmed.toUpperCase();
+    if (upper === 'NEO') {
+      return 0;
+    }
+
+    if (upper === 'GAS') {
+      return 8;
+    }
+
+    const normalized = this.normalizeHash(trimmed);
+    if (!this.isHash(normalized)) {
+      return null;
+    }
+
+    const cached = this.assetDecimalsCache.get(normalized);
+    if (cached !== undefined) {
+      return cached;
+    }
+
+    const inFlight = this.assetDecimalsInFlight.get(normalized);
+    if (inFlight) {
+      return inFlight;
+    }
+
+    const promise = this.fetchAssetDecimals(normalized).finally(() => {
+      this.assetDecimalsInFlight.delete(normalized);
+    });
+    this.assetDecimalsInFlight.set(normalized, promise);
 
     return promise;
   }
@@ -224,6 +264,27 @@ export class RpcNeoClient implements NeoClient {
     this.assetLabelCache.set(assetHash, assetHash);
 
     return assetHash;
+  }
+
+  private async fetchAssetDecimals(assetHash: string): Promise<number | null> {
+    try {
+      const result = await this.withRpc((client) => client.invokeFunction(assetHash, 'decimals'));
+      const typed = result as RpcInvokeResult;
+      if (typed.state && typed.state.toUpperCase().includes('FAULT')) {
+        return null;
+      }
+
+      const decimals = this.readStackInteger(typed.stack?.[0]);
+      if (decimals === null || decimals < 0 || decimals > 30) {
+        return null;
+      }
+
+      this.assetDecimalsCache.set(assetHash, decimals);
+
+      return decimals;
+    } catch (error) {
+      return null;
+    }
   }
 
   private async fetchTokenSymbol(assetHash: string): Promise<string | null> {
@@ -609,6 +670,28 @@ export class RpcNeoClient implements NeoClient {
     }
 
     return String(item.value);
+  }
+
+  private readStackInteger(item?: RpcStackItem): number | null {
+    if (!item) {
+      return null;
+    }
+
+    if (item.type === 'Integer') {
+      const value = item.value;
+      if (typeof value !== 'string' && typeof value !== 'number') {
+        return null;
+      }
+
+      const parsed = Number.parseInt(String(value), 10);
+      if (!Number.isFinite(parsed)) {
+        return null;
+      }
+
+      return parsed;
+    }
+
+    return null;
   }
 
   private isHash(value: string): boolean {

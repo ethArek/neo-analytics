@@ -41,6 +41,7 @@ describe('DayPage', () => {
       ],
       transactions: [
         {
+          txid: '0x123',
           timestampLabel: '2024-01-01T00:00:00Z',
           shortTxid: 'tx-1',
           type: 'transfer',
@@ -51,6 +52,15 @@ describe('DayPage', () => {
           method: 'transfer',
         },
       ],
+      pagination: {
+        page: 1,
+        pageSize: 1,
+        totalItems: 3,
+        totalPages: 3,
+        hasPreviousPage: false,
+        hasNextPage: true,
+        pageSizeOptions: [1, 25, 50],
+      },
     };
 
     window.__PAGE_DATA__ = data;
@@ -58,7 +68,14 @@ describe('DayPage', () => {
     render(<DayPage />);
 
     expect(screen.getByText('Day details: 2024-01-01')).toBeInTheDocument();
-    expect(screen.getByText('Asset breakdown')).toBeInTheDocument();
+    expect(screen.getByText('Asset transfer volume')).toBeInTheDocument();
+    expect(screen.getByText('Transaction explorer')).toBeInTheDocument();
+    expect(screen.getByText('Showing 1-1 of 3 transactions')).toBeInTheDocument();
+    expect(screen.getByText('Page 1 of 3')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Next' })).toHaveAttribute(
+      'href',
+      '/day/2024-01-01?page=2&pageSize=1',
+    );
     expect(screen.getByText('tx-1')).toBeInTheDocument();
   });
 
