@@ -245,7 +245,11 @@ export class WebController {
       shortTxid: this.shortenAddress(tx.txid),
       type: tx.type,
       assetLabel: this.getAssetLabel(tx.asset, assetLabelMap),
-      amountLabel: this.formatAmount(tx.asset, tx.amountRaw ?? 0n, this.getAssetDecimals(tx.asset, assetDecimalsMap)),
+      amountLabel: this.formatAmount(
+        tx.asset,
+        tx.amountRaw ?? 0n,
+        this.getAssetDecimals(tx.asset, assetDecimalsMap),
+      ),
       from: tx.from,
       to: tx.to,
       method: tx.method,
@@ -500,7 +504,10 @@ export class WebController {
     try {
       return await this.neoClient.resolveAssetDecimals(asset);
     } catch (error) {
-      console.warn(`Failed to resolve asset decimals for "${asset}", falling back to defaults.`, error);
+      console.warn(
+        `Failed to resolve asset decimals for "${asset}", falling back to defaults.`,
+        error,
+      );
 
       return null;
     }

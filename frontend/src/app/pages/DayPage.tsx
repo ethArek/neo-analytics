@@ -72,7 +72,7 @@ export const DayPage: React.FC = () => {
   const pageSizeOptions: number[] =
     Array.isArray(pagination.pageSizeOptions) && pagination.pageSizeOptions.length > 0
       ? pagination.pageSizeOptions
-    : DEFAULT_PAGE_SIZE_OPTIONS;
+      : DEFAULT_PAGE_SIZE_OPTIONS;
   const totalItems = pagination.totalItems;
   const startItem = totalItems === 0 ? 0 : (pagination.page - 1) * pagination.pageSize + 1;
   const endItem = totalItems === 0 ? 0 : Math.min(totalItems, startItem + transactions.length - 1);
