@@ -12,6 +12,7 @@ export const DashboardPage: React.FC = () => {
   const rangeLabel = data.rangeLabel ?? '';
   const topSenders = ensureArray(data.topSenders);
   const topReceivers = ensureArray(data.topReceivers);
+  const assetBreakdown = ensureArray(data.assetBreakdown);
 
   useEffect(() => {
     if (data.chartData) {
@@ -141,6 +142,23 @@ export const DashboardPage: React.FC = () => {
           <div className="chart-area">
             <canvas id="chart-assets" className="chart-canvas"></canvas>
           </div>
+        </div>
+      </section>
+
+      <section className="list-grid">
+        <div className="list-card" data-animate style={delayStyle('0.35s')}>
+          <h3>Asset transfer volume</h3>
+          <ul className="asset-breakdown-list">
+            {assetBreakdown.map((asset) => (
+              <li key={asset.assetLabel}>
+                <div>
+                  <div className="mono">{asset.assetLabel}</div>
+                  <small>{asset.transferCount} transfers</small>
+                </div>
+                <strong>{asset.volumeLabel}</strong>
+              </li>
+            ))}
+          </ul>
         </div>
       </section>
 

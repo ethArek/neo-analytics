@@ -64,6 +64,13 @@ describe('DashboardPage', () => {
           transferCount: '12',
         },
       ],
+      assetBreakdown: [
+        {
+          assetLabel: 'NEO',
+          transferCount: '33',
+          volumeLabel: '1234',
+        },
+      ],
     };
 
     window.__PAGE_DATA__ = data;
@@ -79,5 +86,7 @@ describe('DashboardPage', () => {
     expect(screen.getByText('sender-1')).toBeInTheDocument();
     expect(screen.getByText('Top receivers')).toBeInTheDocument();
     expect(screen.getByText('receiver-1')).toBeInTheDocument();
+    expect(screen.getByText('Asset transfer volume')).toBeInTheDocument();
+    expect(screen.getByText('33 transfers')).toBeInTheDocument();
   });
 });

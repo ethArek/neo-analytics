@@ -563,6 +563,11 @@ h3 {
   gap: 10px;
 }
 
+.list-card .asset-breakdown-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
 .list-card li {
   display: flex;
   align-items: center;
@@ -584,6 +589,50 @@ h3 {
 
 .table {
   overflow-x: auto;
+}
+
+.day-table {
+  overflow-x: visible;
+}
+
+.day-table .table-scroll {
+  overflow-x: auto;
+}
+
+.table-toolbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.pager-form {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.pager-form label {
+  color: var(--muted);
+  font-size: 0.82rem;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pager-form select {
+  border: 1px solid var(--stroke);
+  border-radius: 10px;
+  padding: 6px 10px;
+  font: inherit;
+  background: var(--surface-1);
+  color: var(--ink);
+}
+
+.pager-form .button {
+  box-shadow: none;
 }
 
 .table table {
@@ -630,6 +679,50 @@ h3 {
 
 .table tbody tr:hover td {
   background: var(--surface-3);
+}
+
+.pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+.day-table .pagination-bar {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.pagination-links {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.day-table .pagination-links {
+  justify-content: center;
+}
+
+.pagination-link {
+  min-width: 52px;
+  padding: 6px 12px;
+  box-shadow: none;
+}
+
+.pagination-link.is-current {
+  background: rgba(var(--accent-rgb), 0.18);
+  border-color: rgba(var(--accent-rgb), 0.26);
+  color: var(--accent);
+}
+
+.pagination-link.is-disabled {
+  opacity: 0.48;
+  pointer-events: none;
 }
 
 .mono {
@@ -917,6 +1010,19 @@ input:focus-visible {
     align-items: flex-start;
   }
 
+  .table-toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .pagination-bar {
+    align-items: flex-start;
+  }
+
+  .day-table .pagination-bar {
+    align-items: center;
+  }
+
   .chart-grid {
     grid-template-columns: repeat(1, 1fr);
   }
@@ -932,5 +1038,9 @@ input:focus-visible {
 @media (max-width: 680px) {
   .summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .list-card .asset-breakdown-list {
+    grid-template-columns: repeat(1, minmax(0, 1fr));
   }
 }

@@ -40,6 +40,18 @@ const dashboardSeed: PageSeed<DashboardData> = {
         transferCount: '98',
       },
     ],
+    assetBreakdown: [
+      {
+        assetLabel: 'NEO',
+        transferCount: '320',
+        volumeLabel: '2400',
+      },
+      {
+        assetLabel: 'GAS',
+        transferCount: '280',
+        volumeLabel: '900.1234',
+      },
+    ],
   },
 };
 
@@ -206,7 +218,7 @@ test.describe('frontend rendering', () => {
   test('day detail renders breakdowns and table', async ({ page }, testInfo) => {
     await seedAppPage(page, daySeed);
     await expect(page.getByText('Day details: 2026-01-02')).toBeVisible();
-    await expect(page.getByText('Asset breakdown')).toBeVisible();
+    await expect(page.getByText('Asset transfer volume')).toBeVisible();
     await expect(page.getByRole('cell', { name: '0xabc123' })).toBeVisible();
     await captureScreenshot(page, testInfo, 'day.png');
   });

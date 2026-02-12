@@ -27,6 +27,12 @@ type StatTotals = {
 @ApiExcludeController()
 @Controller()
 export class WebController {
+  private readonly dayPageSizeOptions = [25, 50, 100, 200];
+
+  private readonly defaultDayPageSize = 50;
+
+  private readonly maxDayPageSize = 200;
+
   constructor(
     private readonly statsService: StatsService,
     @Inject(NEO_CLIENT) private readonly neoClient: NeoClient,
@@ -95,6 +101,7 @@ export class WebController {
             rangeTo: '',
             topSenders: [],
             topReceivers: [],
+            assetBreakdown: [],
           },
         }),
       );
@@ -107,11 +114,26 @@ export class WebController {
       this.statsService.getTopAddresses(rangeFrom, rangeTo, 'from', 6),
       this.statsService.getTopAddresses(rangeFrom, rangeTo, 'to', 6),
     ]);
-    const assetLabelMap = await this.buildAssetLabelMap(assetStats.map((asset) => asset.asset));
+    const [assetLabelMap, assetDecimalsMap] = await Promise.all([
+      this.buildAssetLabelMap(assetStats.map((asset) => asset.asset)),
+      this.buildAssetDecimalsMap(assetStats.map((asset) => asset.asset)),
+    ]);
     const labeledAssetStats = assetStats.map((asset) => ({
       ...asset,
       assetLabel: this.normalizeAssetLabel(assetLabelMap.get(asset.asset), asset.asset),
     }));
+    const assetBreakdown = [...labeledAssetStats]
+      .sort((a, b) => b.transferCount - a.transferCount)
+      .slice(0, 10)
+      .map((asset) => ({
+        assetLabel: this.normalizeAssetLabel(asset.assetLabel, asset.asset),
+        transferCount: formatNumber(asset.transferCount),
+        volumeLabel: this.formatAmount(
+          asset.asset,
+          asset.volumeRaw,
+          this.getAssetDecimals(asset.asset, assetDecimalsMap),
+        ),
+      }));
     const chartData = this.buildChartData(labeledStats, labeledAssetStats);
 
     return res.send(
@@ -137,6 +159,7 @@ export class WebController {
             shortAddress: this.shortenAddress(entry.address),
             transferCount: formatNumber(entry.transferCount),
           })),
+          assetBreakdown,
         },
       }),
     );
@@ -194,20 +217,39 @@ export class WebController {
   }
 
   @Get('/day/:date')
-  async day(@Res() res: Response, @Param('date') date: string) {
-    const { stat, transactions, assetStats, methodStats, contractStats } =
-      await this.statsService.getDayDetails(date);
-    const assetLabelMap = await this.buildAssetLabelMap([
+  async day(
+    @Res() res: Response,
+    @Param('date') date: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
+    const requestedPage = this.parsePositiveInt(page, 1);
+    const requestedPageSize = this.resolveDayPageSize(pageSize);
+    const { stat, transactions, assetStats, methodStats, contractStats, pagination } =
+      await this.statsService.getDayDetails(date, {
+        page: requestedPage,
+        pageSize: requestedPageSize,
+      });
+    const dayAssets = [
       ...assetStats.map((asset) => asset.asset),
       ...transactions.map((transaction) => transaction.asset),
+    ];
+    const [assetLabelMap, assetDecimalsMap] = await Promise.all([
+      this.buildAssetLabelMap(dayAssets),
+      this.buildAssetDecimalsMap(dayAssets),
     ]);
 
     const formattedTransactions = transactions.map((tx) => ({
+      txid: tx.txid,
       timestampLabel: new Date(tx.timestamp).toISOString(),
       shortTxid: this.shortenAddress(tx.txid),
       type: tx.type,
       assetLabel: this.getAssetLabel(tx.asset, assetLabelMap),
-      amountLabel: this.formatAmount(tx.asset, tx.amountRaw ?? 0n),
+      amountLabel: this.formatAmount(
+        tx.asset,
+        tx.amountRaw ?? 0n,
+        this.getAssetDecimals(tx.asset, assetDecimalsMap),
+      ),
       from: tx.from,
       to: tx.to,
       method: tx.method,
@@ -224,10 +266,18 @@ export class WebController {
           date,
           stat: stat ? this.formatStat(stat) : null,
           transactions: formattedTransactions,
+          pagination: {
+            ...pagination,
+            pageSizeOptions: this.dayPageSizeOptions,
+          },
           assetStats: assetStats.map((asset) => ({
             assetLabel: this.getAssetLabel(asset.asset, assetLabelMap),
             transferCount: asset.transferCount,
-            volumeLabel: this.formatAmount(asset.asset, asset.volumeRaw),
+            volumeLabel: this.formatAmount(
+              asset.asset,
+              asset.volumeRaw,
+              this.getAssetDecimals(asset.asset, assetDecimalsMap),
+            ),
           })),
           methodStats: methodStats
             .sort((a, b) => b.txCount - a.txCount)
@@ -372,12 +422,53 @@ export class WebController {
     return labels;
   }
 
+  private async buildAssetDecimalsMap(
+    assets: Array<string | null | undefined>,
+  ): Promise<Map<string, number>> {
+    const decimals = new Map<string, number>();
+    const uniqueAssets = new Set<string>();
+    for (const asset of assets) {
+      if (!asset) {
+        continue;
+      }
+
+      uniqueAssets.add(asset);
+    }
+
+    const resolutionPromises: Array<Promise<void>> = [];
+    for (const asset of uniqueAssets) {
+      resolutionPromises.push(
+        (async () => {
+          const resolved = await this.resolveAssetDecimals(asset);
+          if (resolved !== null) {
+            decimals.set(asset, resolved);
+          }
+        })(),
+      );
+    }
+
+    await Promise.all(resolutionPromises);
+
+    return decimals;
+  }
+
   private getAssetLabel(asset: string | null | undefined, labels: Map<string, string>): string {
     if (!asset) {
       return '';
     }
 
     return labels.get(asset) ?? asset;
+  }
+
+  private getAssetDecimals(
+    asset: string | null | undefined,
+    decimalsMap: Map<string, number>,
+  ): number | null {
+    if (!asset) {
+      return null;
+    }
+
+    return decimalsMap.get(asset) ?? null;
   }
 
   private async resolveAssetLabel(asset: string): Promise<string> {
@@ -405,6 +496,42 @@ export class WebController {
     return asset;
   }
 
+  private async resolveAssetDecimals(asset: string): Promise<number | null> {
+    if (!this.neoClient.resolveAssetDecimals) {
+      return null;
+    }
+
+    try {
+      return await this.neoClient.resolveAssetDecimals(asset);
+    } catch (error) {
+      console.warn(
+        `Failed to resolve asset decimals for "${asset}", falling back to defaults.`,
+        error,
+      );
+
+      return null;
+    }
+  }
+
+  private resolveDayPageSize(value?: string): number {
+    const requested = this.parsePositiveInt(value, this.defaultDayPageSize);
+    const clamped = Math.min(Math.max(requested, 1), this.maxDayPageSize);
+    if (this.dayPageSizeOptions.includes(clamped)) {
+      return clamped;
+    }
+
+    return this.defaultDayPageSize;
+  }
+
+  private parsePositiveInt(value: string | undefined, fallback: number): number {
+    const parsed = Number.parseInt(value ?? '', 10);
+    if (Number.isNaN(parsed) || parsed < 1) {
+      return fallback;
+    }
+
+    return parsed;
+  }
+
   private shortenAddress(value?: string) {
     if (!value) {
       return '';
@@ -417,12 +544,16 @@ export class WebController {
     return `${value.slice(0, 6)}...${value.slice(-4)}`;
   }
 
-  private formatAmount(asset: string | null | undefined, value: bigint) {
+  private formatAmount(asset: string | null | undefined, value: bigint, decimals?: number | null) {
+    if (typeof decimals === 'number') {
+      return formatUnits(value, decimals);
+    }
+
     if (!asset) {
       return formatUnits(value, 0);
     }
 
-    if (asset === 'GAS') {
+    if (asset.trim().toUpperCase() === 'GAS') {
       return formatUnits(value, 8);
     }
 
