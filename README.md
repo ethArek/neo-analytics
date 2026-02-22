@@ -4,7 +4,7 @@ Neo Analytics is a NestJS + React (Vite) dashboard that tracks Neo N3 daily acti
 
 ## Project overview
 
-- **Data ingestion**: Pulls Neo N3 block data via JSON-RPC, extracts NEP-17 transfer activity, and stores per-transaction/per-transfer records plus daily aggregates in PostgreSQL (via Prisma).
+- **Data ingestion**: Pulls Neo N3 block data via Dora REST API, extracts NEP-17 transfer activity, and stores per-transaction/per-transfer records plus daily aggregates in PostgreSQL (via Prisma).
 - **Classification**: Deterministic rules classify transactions into swaps, gas claims, normal transfers, or ignored (self/zero), using swap method allowlists, known swap contracts, and DEX notifications.
 - **Presentation**: NestJS renders the HTML shell + page data, React (Vite) hydrates the UI, and a JSON API exposes analytics for external consumers.
 
@@ -12,7 +12,7 @@ Neo Analytics is a NestJS + React (Vite) dashboard that tracks Neo N3 daily acti
 
 ```mermaid
 flowchart LR
-  RPC[Neo RPC endpoints] -->|JSON-RPC| NeoClient[RpcNeoClient]
+  Dora[Dora API endpoints] -->|REST| NeoClient[RpcNeoClient]
   NeoClient --> Ingest[IngestionService]
   Cron[Cron schedules] --> Ingest
   Admin[Admin UI + job API] -->|manual ingest/backfill| Ingest
@@ -36,8 +36,7 @@ The React app renders from `window.__PAGE_DATA__` injected by the server; the JS
 ```bash
 NEO_DATABASE_URL="postgresql://user:password@localhost:5432/neo_usage"
 NEO_NETWORK=MainNet
-RPC_ENDPOINT_1="https://mainnet1.neo.coz.io"
-RPC_ENDPOINT_2="https://mainnet2.neo.coz.io"
+DORA_API_URL="https://api.coz.io"
 ADMIN_TOKEN="change-me"
 ```
 
@@ -119,21 +118,19 @@ Classification is handled in `src/classifier/classifier.ts` and is deterministic
 
 Precedence order: **swap > gas claim > ignored > normal transfer**.
 
-## Neo RPC provider
+## Neo data provider
 
 The provider is abstracted behind the `NeoClient` interface (`src/neo-client/neo-client.interface.ts`).
-The RPC implementation uses JSON-RPC calls to scan blocks by date and extract NEP-17 `Transfer`
+The implementation uses Dora REST endpoints to scan blocks by date and extract NEP-17 `Transfer`
 notifications for transactions (`src/neo-client/neo-client.service.ts`).
 
 It relies on:
 
-- `getblockcount`
-- `getblock`
-- `getblockheader`
-- `getapplicationlog`
-- `getnativecontracts`
-- `invokefunction`
-- `getcontractstate`
+- `height`
+- `block`
+- `log`
+- `asset`
+- `contract`
 
 ## Analytics API
 
