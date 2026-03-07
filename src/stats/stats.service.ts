@@ -31,14 +31,16 @@ export type UniqueAddressStats = {
 };
 
 type DailyStatRow = Awaited<ReturnType<PrismaService['dailyStat']['findMany']>>[number];
-export type DailyStatWithBigInt = Omit<DailyStatRow, 'neoVolumeRaw' | 'gasVolumeRaw'> & {
+export type DailyStatWithBigInt = Omit<DailyStatRow, 'neoVolumeRaw' | 'gasVolumeRaw' | 'swapsUsdValue'> & {
   neoVolumeRaw: bigint;
   gasVolumeRaw: bigint;
+  swapsUsdValue: string;
 };
 
 type DailyTxRow = Awaited<ReturnType<PrismaService['dailyTx']['findMany']>>[number];
-export type DailyTxWithBigInt = Omit<DailyTxRow, 'amountRaw'> & {
+export type DailyTxWithBigInt = Omit<DailyTxRow, 'amountRaw' | 'swapUsdValue'> & {
   amountRaw: bigint | null;
+  swapUsdValue: string | null;
 };
 
 type DailyAssetStatRow = Awaited<ReturnType<PrismaService['dailyAssetStat']['findMany']>>[number];
@@ -327,6 +329,7 @@ export class StatsService {
     const normalizedTransactions: DailyTxWithBigInt[] = transactions.map((transaction) => ({
       ...transaction,
       amountRaw: transaction.amountRaw === null ? null : decimalToBigInt(transaction.amountRaw),
+      swapUsdValue: transaction.swapUsdValue === null ? null : transaction.swapUsdValue.toString(),
     }));
     const normalizedAssetStats: DailyAssetStatWithBigInt[] = assetStats.map((assetStat) => ({
       ...assetStat,
@@ -397,6 +400,7 @@ export class StatsService {
       ...stat,
       neoVolumeRaw: decimalToBigInt(stat.neoVolumeRaw),
       gasVolumeRaw: decimalToBigInt(stat.gasVolumeRaw),
+      swapsUsdValue: stat.swapsUsdValue.toString(),
     };
   }
 }

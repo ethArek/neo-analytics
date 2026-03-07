@@ -177,6 +177,7 @@ class FakePrismaService implements IngestionPrismaClient {
       date,
       totalTxCount: record.totalTxCount,
       swapsCount: record.swapsCount,
+      swapsUsdValue: new Prisma.Decimal(record.swapsUsdValue),
       transfersCount: record.transfersCount,
       gasClaimsCount: record.gasClaimsCount,
       othersCount: record.othersCount,
@@ -282,6 +283,74 @@ describe('IngestionService', () => {
     expect(prisma.dailyContractStatData).toHaveLength(1);
     expect(prisma.dailyContractStatData[0].contract).toBe('0xanycontract');
     expect(prisma.dailyContractStatData[0].txCount).toBe(1);
+  });
+
+  it('computes and persists swap USD values from Flamingo pricing data', async () => {
+    const fetchSpy = jest.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify([
+          {
+            symbol: 'NEO',
+            hash: '0xef4073a0f2b305a38ec4050e4d3d28bc40ea63f5',
+            usd_price: 2.5,
+          },
+          {
+            symbol: 'GAS',
+            hash: '0xd2a4cff31913016155e38e474a2c06d08be276cf',
+            usd_price: 1.25,
+          },
+        ]),
+        {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        },
+      ),
+    );
+
+    const neoClient: NeoClient = {
+      fetchTransactionsForDay: async () => ({
+        transactions: [
+          {
+            txid: 'swap-usd-1',
+            timestamp: new Date().toISOString(),
+            blockIndex: 1,
+            invocation: { contract: '0xanycontract', method: 'swap' },
+            transfers: [
+              { from: 'a', to: 'b', asset: 'NEO', amount: '2' },
+              { from: 'b', to: 'a', asset: 'GAS', amount: '300000000' },
+            ],
+            raw: {},
+          },
+        ],
+      }),
+    };
+    const prisma = new FakePrismaService();
+    const configService = new ConfigService({
+      app: {
+        neoNetwork: 'MainNet',
+        flamingoPriceApiUrl: 'https://prices.local/latest',
+      },
+    });
+    const service = new IngestionService(neoClient, prisma, configService);
+    try {
+      await service.ingestDay('2024-05-01');
+
+      expect(fetchSpy).toHaveBeenCalledWith('https://prices.local/latest', {
+        signal: expect.any(AbortSignal),
+        headers: {
+          Accept: 'application/json',
+        },
+      });
+      expect(prisma.dailyTxData).toHaveLength(1);
+      expect(prisma.dailyTxData[0].swapUsdValue).toBe('8.75000000');
+
+      const stat = prisma.dailyStatData[new Date(Date.UTC(2024, 4, 1)).toISOString()];
+      expect(stat.swapsUsdValue).toBe('8.75000000');
+    } finally {
+      fetchSpy.mockRestore();
+    }
   });
 
   it('persists values exceeding int64 safely', async () => {

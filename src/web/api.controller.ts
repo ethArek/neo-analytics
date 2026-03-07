@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Headers, Logger, Post, Query } from '@nestjs/common';
 import { ApiExcludeEndpoint, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
+import { Prisma } from '@prisma/client';
 import { formatDate, parseDate, yesterdayInTimeZone } from '../ingestion/date-utils';
 import { IngestionService } from '../ingestion/ingestion.service';
 import { StatsService } from '../stats/stats.service';
@@ -245,6 +246,7 @@ export class ApiController {
         ...acc,
         totalTxCount: acc.totalTxCount + stat.totalTxCount,
         swapsCount: acc.swapsCount + stat.swapsCount,
+        swapsUsdValue: this.addDecimalStrings(acc.swapsUsdValue, stat.swapsUsdValue),
         transfersCount: acc.transfersCount + stat.transfersCount,
         gasClaimsCount: acc.gasClaimsCount + stat.gasClaimsCount,
         othersCount: acc.othersCount + stat.othersCount,
@@ -261,6 +263,7 @@ export class ApiController {
         date: stats[0]?.date ?? new Date(),
         totalTxCount: 0,
         swapsCount: 0,
+        swapsUsdValue: '0',
         transfersCount: 0,
         gasClaimsCount: 0,
         othersCount: 0,
@@ -280,6 +283,7 @@ export class ApiController {
     date: Date;
     totalTxCount: number;
     swapsCount: number;
+    swapsUsdValue: string;
     transfersCount: number;
     gasClaimsCount: number;
     othersCount: number;
@@ -331,6 +335,13 @@ export class ApiController {
     }
 
     return Math.floor(parsed);
+  }
+
+  private addDecimalStrings(left: string, right: string): string {
+    const leftDecimal = new Prisma.Decimal(left);
+    const rightDecimal = new Prisma.Decimal(right);
+
+    return leftDecimal.add(rightDecimal).toString();
   }
 
   private buildDateRange(from: string, to: string): string[] {

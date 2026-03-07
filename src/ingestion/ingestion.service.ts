@@ -43,6 +43,18 @@ type TransactionBatch = {
   blockRange?: { start: number; end: number };
 };
 
+type SwapPricingContext = {
+  usdPricesByAsset: Map<string, Prisma.Decimal>;
+  decimalsByAsset: Map<string, number | null>;
+};
+
+type SwapPriceApiRow = {
+  symbol?: unknown;
+  unwrappedSymbol?: unknown;
+  hash?: unknown;
+  usd_price?: unknown;
+};
+
 type DailySummary = {
   dailyTx: DailyTxRecord[];
   dailyTransfers: DailyTransferRecord[];
@@ -63,6 +75,7 @@ type StreamState = {
   receivers: Set<string>;
   addresses: Set<string>;
   swapsCount: number;
+  swapsUsdValue: Prisma.Decimal;
   transfersCount: number;
   gasClaimsCount: number;
   othersCount: number;
@@ -81,6 +94,7 @@ export class IngestionService {
   private readonly logger = new Logger(IngestionService.name);
   private readonly txBatchSize = 1000;
   private readonly transferBatchSize = 5000;
+  private readonly flamingoPriceTimeoutMs = 8000;
 
   constructor(
     @Inject(NEO_CLIENT) private readonly neoClient: NeoClient,
@@ -105,6 +119,7 @@ export class IngestionService {
       receivers: new Set<string>(),
       addresses: new Set<string>(),
       swapsCount: 0,
+      swapsUsdValue: new Prisma.Decimal(0),
       transfersCount: 0,
       gasClaimsCount: 0,
       othersCount: 0,
@@ -113,6 +128,7 @@ export class IngestionService {
       totalTxCount: 0,
       totalTransfers: 0,
     };
+    const pricingContext = await this.createSwapPricingContext();
 
     let cursor: string | undefined;
     let blockRange: { start: number; end: number } | undefined;
@@ -125,7 +141,7 @@ export class IngestionService {
         blockRange = { start: response.blockStart, end: response.blockEnd };
       }
 
-      await this.processTransactionBatch(response.transactions, state);
+      await this.processTransactionBatch(response.transactions, state, pricingContext);
     } while (cursor);
 
     await this.flushBuffers(state);
@@ -163,6 +179,7 @@ export class IngestionService {
       date: day,
       totalTxCount: state.totalTxCount,
       swapsCount: state.swapsCount,
+      swapsUsdValue: this.toUsdStorageValue(state.swapsUsdValue),
       transfersCount: state.transfersCount,
       gasClaimsCount: state.gasClaimsCount,
       othersCount: state.othersCount,
@@ -237,7 +254,7 @@ export class IngestionService {
     const { transactions, blockRange } = await this.fetchAllTransactionsForRange(start, end);
     const dateLabel = formatDate(start, 'UTC');
     const day = parseDate(dateLabel);
-    const summary = this.buildDailySummary(transactions, day, blockRange);
+    const summary = await this.buildDailySummary(transactions, day, blockRange);
 
     await this.saveDailySummary(day, summary);
 
@@ -250,11 +267,11 @@ export class IngestionService {
     );
   }
 
-  private buildDailySummary(
+  private async buildDailySummary(
     transactions: NeoTransaction[],
     day: Date,
     blockRange?: { start: number; end: number },
-  ): DailySummary {
+  ): Promise<DailySummary> {
     const dailyTx: DailyTxRecord[] = [];
     const dailyTransfers: DailyTransferRecord[] = [];
     const assetMap = new Map<string, AssetAggregate>();
@@ -264,6 +281,7 @@ export class IngestionService {
     const receivers = new Set<string>();
     const addresses = new Set<string>();
     let swapsCount = 0;
+    let swapsUsdValue = new Prisma.Decimal(0);
     let transfersCount = 0;
     let gasClaimsCount = 0;
     let othersCount = 0;
@@ -271,6 +289,7 @@ export class IngestionService {
     let gasVolumeRaw = 0n;
     let minBlockIndex: number | undefined;
     let maxBlockIndex: number | undefined;
+    const pricingContext = await this.createSwapPricingContext();
 
     for (const transaction of transactions) {
       if (typeof transaction.blockIndex === 'number') {
@@ -296,6 +315,10 @@ export class IngestionService {
       const normalizedTo = this.normalizeAddress(classification.to);
       const method = this.normalizeMethod(transaction.invocation?.method);
       const contract = this.normalizeContract(transaction.invocation?.contract);
+      const swapUsdValue =
+        classification.type === ClassifiedType.SWAP
+          ? await this.calculateSwapUsdValue(transfers, pricingContext)
+          : null;
 
       dailyTx.push({
         date: day,
@@ -305,6 +328,7 @@ export class IngestionService {
         to: normalizedTo,
         asset: primaryAsset,
         amountRaw: primaryAmountRaw ?? undefined,
+        swapUsdValue: swapUsdValue ? this.toUsdStorageValue(swapUsdValue) : undefined,
         transferCount,
         method,
         contract,
@@ -316,6 +340,7 @@ export class IngestionService {
       switch (classification.type) {
         case ClassifiedType.SWAP: {
           swapsCount += 1;
+          swapsUsdValue = swapsUsdValue.add(swapUsdValue ?? 0);
           break;
         }
         case ClassifiedType.NORMAL_TRANSFER: {
@@ -457,6 +482,7 @@ export class IngestionService {
       date: day,
       totalTxCount: transactions.length,
       swapsCount,
+      swapsUsdValue: this.toUsdStorageValue(swapsUsdValue),
       transfersCount,
       gasClaimsCount,
       othersCount,
@@ -603,6 +629,7 @@ export class IngestionService {
   private async processTransactionBatch(
     transactions: NeoTransaction[],
     state: StreamState,
+    pricingContext: SwapPricingContext,
   ): Promise<void> {
     for (const transaction of transactions) {
       state.totalTxCount += 1;
@@ -633,6 +660,10 @@ export class IngestionService {
       const normalizedTo = this.normalizeAddress(classification.to);
       const method = this.normalizeMethod(transaction.invocation?.method);
       const contract = this.normalizeContract(transaction.invocation?.contract);
+      const swapUsdValue =
+        classification.type === ClassifiedType.SWAP
+          ? await this.calculateSwapUsdValue(transfers, pricingContext)
+          : null;
 
       state.txBuffer.push({
         date: state.day,
@@ -642,6 +673,7 @@ export class IngestionService {
         to: normalizedTo,
         asset: primaryAsset,
         amountRaw: primaryAmountRaw?.toString(),
+        swapUsdValue: swapUsdValue ? this.toUsdStorageValue(swapUsdValue) : undefined,
         transferCount,
         method,
         contract,
@@ -657,6 +689,7 @@ export class IngestionService {
       switch (classification.type) {
         case ClassifiedType.SWAP: {
           state.swapsCount += 1;
+          state.swapsUsdValue = state.swapsUsdValue.add(swapUsdValue ?? 0);
           break;
         }
         case ClassifiedType.NORMAL_TRANSFER: {
@@ -939,6 +972,226 @@ export class IngestionService {
     } catch (error) {
       return null;
     }
+  }
+
+  private async createSwapPricingContext(): Promise<SwapPricingContext> {
+    const usdPricesByAsset = await this.fetchSwapUsdPrices();
+
+    return {
+      usdPricesByAsset,
+      decimalsByAsset: new Map<string, number | null>(),
+    };
+  }
+
+  private async fetchSwapUsdPrices(): Promise<Map<string, Prisma.Decimal>> {
+    const endpoint = this.configService.get<string>('app.flamingoPriceApiUrl')?.trim();
+    if (!endpoint) {
+      return new Map();
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => {
+      controller.abort();
+    }, this.flamingoPriceTimeoutMs);
+
+    try {
+      const response = await fetch(endpoint, {
+        signal: controller.signal,
+        headers: {
+          Accept: 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        this.logger.warn(
+          `Failed to fetch swap USD prices (HTTP ${response.status}). Continuing without USD pricing.`,
+        );
+
+        return new Map();
+      }
+
+      const payload: unknown = await response.json();
+      if (!Array.isArray(payload)) {
+        this.logger.warn('Swap USD prices response is not an array. Continuing without USD pricing.');
+
+        return new Map();
+      }
+
+      const prices = new Map<string, Prisma.Decimal>();
+      for (const row of payload) {
+        if (!this.isSwapPriceApiRow(row)) {
+          continue;
+        }
+
+        const usdPrice = this.parseUsdPrice(row.usd_price);
+        if (!usdPrice || usdPrice.lessThan(0)) {
+          continue;
+        }
+
+        this.addSwapPriceEntries(prices, row, usdPrice);
+      }
+
+      return prices;
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Failed to fetch swap USD prices (${reason}). Continuing without USD pricing.`,
+      );
+
+      return new Map();
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  private isSwapPriceApiRow(value: unknown): value is SwapPriceApiRow {
+    if (!value || typeof value !== 'object') {
+      return false;
+    }
+
+    return true;
+  }
+
+  private parseUsdPrice(value: unknown): Prisma.Decimal | null {
+    if (typeof value === 'number') {
+      if (!Number.isFinite(value)) {
+        return null;
+      }
+
+      return new Prisma.Decimal(value);
+    }
+
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed) {
+        return null;
+      }
+
+      try {
+        return new Prisma.Decimal(trimmed);
+      } catch (error) {
+        return null;
+      }
+    }
+
+    return null;
+  }
+
+  private addSwapPriceEntries(
+    prices: Map<string, Prisma.Decimal>,
+    row: SwapPriceApiRow,
+    usdPrice: Prisma.Decimal,
+  ): void {
+    if (typeof row.hash === 'string') {
+      const normalizedHash = this.normalizeAsset(row.hash);
+      if (normalizedHash) {
+        prices.set(normalizedHash, usdPrice);
+      }
+    }
+
+    const symbols = [row.symbol, row.unwrappedSymbol];
+    for (const symbol of symbols) {
+      if (typeof symbol !== 'string') {
+        continue;
+      }
+
+      const trimmed = symbol.trim();
+      if (!trimmed) {
+        continue;
+      }
+
+      prices.set(trimmed.toUpperCase(), usdPrice);
+    }
+  }
+
+  private async calculateSwapUsdValue(
+    transfers: NeoTransfer[],
+    pricingContext: SwapPricingContext,
+  ): Promise<Prisma.Decimal> {
+    let total = new Prisma.Decimal(0);
+
+    for (const transfer of transfers) {
+      const asset = this.normalizeAsset(transfer.asset);
+      const amountRaw = this.toBigInt(transfer.amount);
+      if (!asset || amountRaw === null || amountRaw <= 0n) {
+        continue;
+      }
+
+      const price = this.resolveUsdPrice(asset, pricingContext.usdPricesByAsset);
+      if (!price) {
+        continue;
+      }
+
+      const decimals = await this.resolveAssetDecimalsForPricing(asset, pricingContext);
+      if (decimals === null || decimals < 0) {
+        continue;
+      }
+
+      const scaledAmount = this.scaleAmountRaw(amountRaw, decimals);
+      total = total.add(scaledAmount.mul(price));
+    }
+
+    return total;
+  }
+
+  private resolveUsdPrice(
+    asset: string,
+    usdPricesByAsset: Map<string, Prisma.Decimal>,
+  ): Prisma.Decimal | null {
+    const direct = usdPricesByAsset.get(asset);
+    if (direct) {
+      return direct;
+    }
+
+    if (asset.startsWith('0x')) {
+      return usdPricesByAsset.get(asset.toLowerCase()) ?? null;
+    }
+
+    return usdPricesByAsset.get(asset.toUpperCase()) ?? null;
+  }
+
+  private async resolveAssetDecimalsForPricing(
+    asset: string,
+    pricingContext: SwapPricingContext,
+  ): Promise<number | null> {
+    const cached = pricingContext.decimalsByAsset.get(asset);
+    if (cached !== undefined) {
+      return cached;
+    }
+
+    let resolved: number | null = null;
+    if (asset === 'NEO') {
+      resolved = 0;
+    } else if (asset === 'GAS') {
+      resolved = 8;
+    } else if (this.neoClient.resolveAssetDecimals) {
+      try {
+        resolved = await this.neoClient.resolveAssetDecimals(asset);
+      } catch (error) {
+        resolved = null;
+      }
+    }
+
+    pricingContext.decimalsByAsset.set(asset, resolved);
+
+    return resolved;
+  }
+
+  private scaleAmountRaw(amountRaw: bigint, decimals: number): Prisma.Decimal {
+    const amount = new Prisma.Decimal(amountRaw.toString());
+    if (decimals === 0) {
+      return amount;
+    }
+
+    const divisor = new Prisma.Decimal(10).pow(decimals);
+
+    return amount.div(divisor);
+  }
+
+  private toUsdStorageValue(value: Prisma.Decimal): string {
+    const rounded = value.toDecimalPlaces(8);
+
+    return rounded.toFixed(8);
   }
 
   private toJsonValue(value: unknown): Prisma.InputJsonValue {
