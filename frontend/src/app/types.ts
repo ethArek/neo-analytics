@@ -1,5 +1,6 @@
 export type NavState = {
   dashboard?: boolean;
+  defi?: boolean;
   faq?: boolean;
   specialThanks?: boolean;
 };
@@ -11,6 +12,12 @@ export type DashboardTotals = {
   neoVolume: string;
   gasVolume: string;
   blocks: string;
+};
+
+export type DashboardDefiCard = {
+  href: string;
+  headline: string;
+  description: string;
 };
 
 export type DashboardAddress = {
@@ -47,6 +54,7 @@ export type DashboardChartData = {
 export type DashboardData = {
   nav?: NavState;
   totals?: DashboardTotals;
+  defiCard?: DashboardDefiCard;
   chartData?: DashboardChartData;
   rangeLabel?: string;
   rangeFrom?: string;
@@ -54,6 +62,53 @@ export type DashboardData = {
   topSenders?: DashboardAddress[];
   topReceivers?: DashboardAddress[];
   assetBreakdown?: DashboardAssetBreakdown[];
+};
+
+export type DefiTotals = {
+  estimatedSwapUsdValue: string;
+  swaps: string;
+  averageSwapUsdValue: string;
+  coveredDays: string;
+  requestedDays: string;
+};
+
+export type DefiChartData = {
+  labels: string[];
+  series: {
+    swapUsdValue: number[];
+    swaps: number[];
+  };
+};
+
+export type DefiDailyStat = {
+  dateLabel: string;
+  swapsLabel: string;
+  swapUsdValue: string;
+};
+
+export type DefiBanner = {
+  tone: 'neutral' | 'warning' | 'danger';
+  statusLabel: string;
+  title: string;
+  body: string;
+};
+
+export type DefiData = {
+  nav?: NavState;
+  status?: 'ready' | 'partial' | 'unavailable' | 'not-configured' | 'invalid';
+  availabilityFrom?: string;
+  requestedFrom?: string;
+  requestedTo?: string;
+  effectiveFrom?: string;
+  effectiveTo?: string;
+  requestedRangeLabel?: string;
+  effectiveRangeLabel?: string;
+  coverageNote?: string;
+  banner?: DefiBanner;
+  totals?: DefiTotals;
+  chartData?: DefiChartData;
+  dailyStats?: DefiDailyStat[];
+  methodology?: string[];
 };
 
 export type DaysStat = {
@@ -146,6 +201,7 @@ export type AdminLoginData = {
 };
 
 export type PageData = DashboardData &
+  DefiData &
   DaysData &
   DayData &
   AdminData &

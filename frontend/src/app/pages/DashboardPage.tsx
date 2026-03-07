@@ -1,18 +1,22 @@
 import React, { useEffect } from 'react';
+import { DateRangeForm } from '../components/DateRangeForm';
 import { Navbar } from '../components/Navbar';
-import { delayStyle, ensureArray, getPageData } from '../utils';
+import { buildPageHref, delayStyle, ensureArray, getPageData } from '../utils';
 import type { DashboardData } from '../types';
 import { initDashboardCharts } from '../../charts/dashboard';
 
 export const DashboardPage: React.FC = () => {
   const data = getPageData<DashboardData>();
   const totals = data.totals;
+  const defiCard = data.defiCard;
   const rangeFrom = data.rangeFrom ?? '';
   const rangeTo = data.rangeTo ?? '';
   const rangeLabel = data.rangeLabel ?? '';
   const topSenders = ensureArray(data.topSenders);
   const topReceivers = ensureArray(data.topReceivers);
   const assetBreakdown = ensureArray(data.assetBreakdown);
+  const daysHref = buildPageHref('/days', { from: rangeFrom, to: rangeTo });
+  const defiHref = defiCard?.href ?? buildPageHref('/defi', { from: rangeFrom, to: rangeTo });
 
   useEffect(() => {
     if (data.chartData) {
@@ -41,19 +45,27 @@ export const DashboardPage: React.FC = () => {
             <small>Swaps + transfers</small>
           </div>
           <div className="card" data-animate style={delayStyle('0.15s')}>
+            <span>DeFi metrics</span>
+            <strong>{defiCard?.headline}</strong>
+            <small>{defiCard?.description}</small>
+            <a className="card-link" href={defiHref}>
+              Open DeFi page
+            </a>
+          </div>
+          <div className="card" data-animate style={delayStyle('0.2s')}>
             <span>Active addresses</span>
             <strong>{totals?.activeAddresses}</strong>
             <small>Unique senders + receivers</small>
           </div>
-          <div className="card" data-animate style={delayStyle('0.2s')}>
+          <div className="card" data-animate style={delayStyle('0.25s')}>
             <span>NEO volume</span>
             <strong>{totals?.neoVolume} NEO</strong>
           </div>
-          <div className="card" data-animate style={delayStyle('0.25s')}>
+          <div className="card" data-animate style={delayStyle('0.3s')}>
             <span>GAS volume</span>
             <strong>{totals?.gasVolume} GAS</strong>
           </div>
-          <div className="card" data-animate style={delayStyle('0.35s')}>
+          <div className="card" data-animate style={delayStyle('0.4s')}>
             <span>Blocks scanned</span>
             <strong>{totals?.blocks}</strong>
           </div>
@@ -67,25 +79,16 @@ export const DashboardPage: React.FC = () => {
             <p className="summary-subtitle">Charts reflect the selected range.</p>
           </div>
           <div className="hero-links">
-            <a className="button secondary" href={`/days?from=${rangeFrom}&to=${rangeTo}`}>
+            <a className="button secondary" href={daysHref}>
               Daily table
+            </a>
+            <a className="button secondary" href={defiHref}>
+              DeFi page
             </a>
             <span className="pill">{rangeLabel}</span>
           </div>
         </div>
-        <form className="range-form" method="get" data-animate style={delayStyle('0.34s')}>
-          <label>
-            From
-            <input type="date" name="from" defaultValue={rangeFrom} />
-          </label>
-          <label>
-            To
-            <input type="date" name="to" defaultValue={rangeTo} />
-          </label>
-          <button className="button" type="submit">
-            Apply
-          </button>
-        </form>
+        <DateRangeForm from={rangeFrom} to={rangeTo} animateDelay="0.34s" />
       </section>
 
       <section className="chart-grid">

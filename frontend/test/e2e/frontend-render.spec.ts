@@ -1,6 +1,12 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { join } from 'path';
-import type { AdminLoginData, DashboardData, DayData, DaysData } from '../../src/app/types';
+import type {
+  AdminLoginData,
+  DashboardData,
+  DayData,
+  DaysData,
+  DefiData,
+} from '../../src/app/types';
 
 type PageSeed<T> = {
   page: string;
@@ -22,6 +28,11 @@ const dashboardSeed: PageSeed<DashboardData> = {
       neoVolume: '1,234',
       gasVolume: '567',
       blocks: '1,440',
+    },
+    defiCard: {
+      href: '/defi?from=2026-01-01&to=2026-01-07',
+      headline: 'Since 2026-03-07',
+      description: 'Estimated swap USD metrics live on a separate page.',
     },
     rangeLabel: 'Jan 01, 2026 - Jan 07, 2026',
     rangeFrom: '2026-01-01',
@@ -51,6 +62,61 @@ const dashboardSeed: PageSeed<DashboardData> = {
         transferCount: '280',
         volumeLabel: '900.1234',
       },
+    ],
+  },
+};
+
+const defiSeed: PageSeed<DefiData> = {
+  page: 'defi',
+  data: {
+    nav: {
+      defi: true,
+    },
+    status: 'partial',
+    availabilityFrom: '2026-03-07',
+    requestedFrom: '2026-03-01',
+    requestedTo: '2026-03-10',
+    effectiveFrom: '2026-03-07',
+    effectiveTo: '2026-03-10',
+    requestedRangeLabel: '2026-03-01 to 2026-03-10',
+    effectiveRangeLabel: '2026-03-07 to 2026-03-10',
+    coverageNote: 'Requested 10 days. Using 4 published days starting 2026-03-07.',
+    banner: {
+      tone: 'warning',
+      statusLabel: 'Partial coverage',
+      title: 'The selected range was clamped to the DeFi launch date.',
+      body: 'Charts and totals begin on 2026-03-07 for this deployment.',
+    },
+    totals: {
+      estimatedSwapUsdValue: '$45,123.90',
+      swaps: '321',
+      averageSwapUsdValue: '$140.57',
+      coveredDays: '4',
+      requestedDays: '10',
+    },
+    chartData: {
+      labels: ['2026-03-07', '2026-03-08', '2026-03-09', '2026-03-10'],
+      series: {
+        swapUsdValue: [12000, 9800, 11123.9, 12200],
+        swaps: [80, 75, 82, 84],
+      },
+    },
+    dailyStats: [
+      {
+        dateLabel: '2026-03-07',
+        swapsLabel: '80',
+        swapUsdValue: '$12,000.00',
+      },
+      {
+        dateLabel: '2026-03-08',
+        swapsLabel: '75',
+        swapUsdValue: '$9,800.00',
+      },
+    ],
+    methodology: [
+      'Trustworthy coverage for this deployment begins on 2026-03-07.',
+      'Estimated swap USD value sums priced transfer legs.',
+      'No retroactive repricing or historical backfill is applied.',
     ],
   },
 };
@@ -205,9 +271,23 @@ test.describe('frontend rendering', () => {
     await expect(
       page.locator('.summary-grid').getByText('Transactions excluding Gas Claims'),
     ).toBeVisible();
+    await expect(page.getByText('DeFi metrics')).toBeVisible();
     await expect(page.getByText('Top senders')).toBeVisible();
     await captureScreenshot(page, testInfo, 'dashboard.png');
   });
+
+  test('defi page renders boundary and table', async ({ page }, testInfo) => {
+    await seedAppPage(page, defiSeed);
+    await expect(
+      page.getByRole('heading', {
+        name: 'Estimated swap USD metrics with a clear historical boundary.',
+      }),
+    ).toBeVisible();
+    await expect(page.getByText('Partial coverage')).toBeVisible();
+    await expect(page.getByRole('cell', { name: '$12,000.00' })).toBeVisible();
+    await captureScreenshot(page, testInfo, 'defi.png');
+  });
+
   test('days table renders range rows', async ({ page }, testInfo) => {
     await seedAppPage(page, daysSeed);
     await expect(page.getByText('Daily activity table')).toBeVisible();
@@ -215,6 +295,7 @@ test.describe('frontend rendering', () => {
     await expect(page.getByRole('cell', { name: '2026-01-02' })).toBeVisible();
     await captureScreenshot(page, testInfo, 'days.png');
   });
+
   test('day detail renders breakdowns and table', async ({ page }, testInfo) => {
     await seedAppPage(page, daySeed);
     await expect(page.getByText('Day details: 2026-01-02')).toBeVisible();
@@ -222,6 +303,7 @@ test.describe('frontend rendering', () => {
     await expect(page.getByRole('cell', { name: '0xabc123' })).toBeVisible();
     await captureScreenshot(page, testInfo, 'day.png');
   });
+
   test('faq renders accordion and call to action', async ({ page }, testInfo) => {
     await seedAppPage(page, faqSeed);
     await expect(
@@ -231,6 +313,7 @@ test.describe('frontend rendering', () => {
     await expect(page.getByRole('link', { name: 'Open dashboard' })).toBeVisible();
     await captureScreenshot(page, testInfo, 'faq.png');
   });
+
   test('admin login renders form fields', async ({ page }, testInfo) => {
     await seedAppPage(page, adminLoginSeed);
     await expect(page.getByRole('heading', { name: 'Admin access' })).toBeVisible();

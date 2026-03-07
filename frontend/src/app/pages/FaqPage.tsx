@@ -70,6 +70,14 @@ export const FaqPage: React.FC = () => {
             </p>
           </details>
           <details>
+            <summary>Are DeFi metrics fully historical?</summary>
+            <p>
+              No. DeFi metrics live on their own page and begin on the published availability date
+              for the current deployment. Earlier periods are intentionally not backfilled when the
+              methodology would not match.
+            </p>
+          </details>
+          <details>
             <summary>Is this open source?</summary>
             <p>The codebase is maintained privately for now.</p>
           </details>

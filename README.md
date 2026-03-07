@@ -37,6 +37,8 @@ The React app renders from `window.__PAGE_DATA__` injected by the server; the JS
 NEO_DATABASE_URL="postgresql://user:password@localhost:5432/neo_usage"
 NEO_NETWORK=MainNet
 DORA_API_URL="https://api.coz.io"
+FLAMINGO_PRICE_API_URL="https://neo-api.b-cdn.net/flamingo/live-data/prices/latest"
+DEFI_METRICS_AVAILABLE_FROM="2026-03-07"
 ADMIN_TOKEN="change-me"
 ```
 
@@ -76,10 +78,12 @@ npm run dev:client
 ```
 
 Visit http://localhost:3000/dashboard to see the dashboard.
+The separate DeFi metrics page is available at http://localhost:3000/defi.
 The FAQ is available at http://localhost:3000/faq.
 Swagger docs are available at http://localhost:3000/api/docs (stats endpoints only).
 
-The dashboard supports date range filters via `?from=YYYY-MM-DD&to=YYYY-MM-DD`.
+The dashboard and DeFi page support date range filters via `?from=YYYY-MM-DD&to=YYYY-MM-DD`.
+The DeFi page intentionally starts at `DEFI_METRICS_AVAILABLE_FROM` and does not backfill earlier periods.
 
 ## Build + deployment
 

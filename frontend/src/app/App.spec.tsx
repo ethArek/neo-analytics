@@ -6,6 +6,10 @@ jest.mock('../charts/dashboard', () => ({
   initDashboardCharts: jest.fn(),
 }));
 
+jest.mock('../charts/defi', () => ({
+  initDefiCharts: jest.fn(),
+}));
+
 describe('App', () => {
   beforeEach(() => {
     delete window.__PAGE__;

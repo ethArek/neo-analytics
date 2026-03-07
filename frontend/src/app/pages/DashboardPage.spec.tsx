@@ -36,7 +36,7 @@ describe('DashboardPage', () => {
     jest.clearAllMocks();
   });
 
-  it('initializes charts and renders top lists', async () => {
+  it('initializes charts and renders the DeFi entry point', async () => {
     const data: DashboardData = {
       totals: {
         totalTxs: '100',
@@ -45,6 +45,11 @@ describe('DashboardPage', () => {
         neoVolume: '200',
         gasVolume: '300',
         blocks: '400',
+      },
+      defiCard: {
+        href: '/defi?from=2024-01-01&to=2024-01-01',
+        headline: 'Since 2026-03-07',
+        description: 'Estimated swap USD metrics live on a separate page.',
       },
       chartData,
       rangeLabel: '2024-01-01 to 2024-01-01',
@@ -88,5 +93,18 @@ describe('DashboardPage', () => {
     expect(screen.getByText('receiver-1')).toBeInTheDocument();
     expect(screen.getByText('Asset transfer volume')).toBeInTheDocument();
     expect(screen.getByText('33 transfers')).toBeInTheDocument();
+    expect(screen.getByText('DeFi metrics')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Open DeFi page' })).toHaveAttribute(
+      'href',
+      '/defi?from=2024-01-01&to=2024-01-01',
+    );
+    expect(screen.getByRole('link', { name: 'Daily table' })).toHaveAttribute(
+      'href',
+      '/days?from=2024-01-01&to=2024-01-01',
+    );
+    expect(screen.getByRole('link', { name: 'DeFi page' })).toHaveAttribute(
+      'href',
+      '/defi?from=2024-01-01&to=2024-01-01',
+    );
   });
 });

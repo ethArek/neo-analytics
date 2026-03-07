@@ -20,6 +20,9 @@ export const Navbar: React.FC<NavbarProps> = ({ nav }) => (
       <a className={navClass(nav?.dashboard)} href="/dashboard">
         Dashboard
       </a>
+      <a className={navClass(nav?.defi)} href="/defi">
+        DeFi
+      </a>
       <a className={navClass(nav?.faq)} href="/faq">
         FAQ
       </a>
