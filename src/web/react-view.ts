@@ -1,10 +1,6 @@
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
-import type {
-  ClientAssets,
-  ReactPageOptions,
-  ViteManifest,
-} from './react-view.types';
+import type { ClientAssets, ReactPageOptions, ViteManifest } from './react-view.types';
 
 const escapeHtml = (value: string): string => {
   return value

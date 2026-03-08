@@ -1,9 +1,4 @@
-export type DefiWindowStatus =
-  | 'ready'
-  | 'partial'
-  | 'unavailable'
-  | 'not-configured'
-  | 'invalid';
+export type DefiWindowStatus = 'ready' | 'partial' | 'unavailable' | 'not-configured' | 'invalid';
 
 export type ResolvedDefiWindow = {
   status: DefiWindowStatus;

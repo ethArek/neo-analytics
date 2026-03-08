@@ -57,7 +57,9 @@ export class RpcNeoClient implements NeoClient {
       return;
     }
 
-    this.rpcClients = endpoints.map((endpoint) => new api.NeoRESTApi(this.toDoraRestConfig(endpoint)));
+    this.rpcClients = endpoints.map(
+      (endpoint) => new api.NeoRESTApi(this.toDoraRestConfig(endpoint)),
+    );
   }
 
   async fetchTransactionsForDay(date: string, cursor?: string): Promise<NeoPagedResponse> {
@@ -609,12 +611,20 @@ export class RpcNeoClient implements NeoClient {
     }
 
     const hexCandidate = trimmed.startsWith('0x') ? trimmed.slice(2) : trimmed;
-    if (hexCandidate.length > 0 && hexCandidate.length % 2 === 0 && /^[0-9a-f]+$/i.test(hexCandidate)) {
+    if (
+      hexCandidate.length > 0 &&
+      hexCandidate.length % 2 === 0 &&
+      /^[0-9a-f]+$/i.test(hexCandidate)
+    ) {
       return Buffer.from(hexCandidate, 'hex');
     }
 
     const base64Candidate = trimmed.replace(/\s+/g, '');
-    if (base64Candidate.length > 0 && base64Candidate.length % 4 === 0 && /^[A-Za-z0-9+/]+=*$/.test(base64Candidate)) {
+    if (
+      base64Candidate.length > 0 &&
+      base64Candidate.length % 4 === 0 &&
+      /^[A-Za-z0-9+/]+=*$/.test(base64Candidate)
+    ) {
       const decoded = Buffer.from(base64Candidate, 'base64');
       if (decoded.length > 0) {
         return decoded;

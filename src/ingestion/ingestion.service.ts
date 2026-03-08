@@ -955,7 +955,9 @@ export class IngestionService {
 
       const payload: unknown = await response.json();
       if (!Array.isArray(payload)) {
-        this.logger.warn('Swap USD prices response is not an array. Continuing without USD pricing.');
+        this.logger.warn(
+          'Swap USD prices response is not an array. Continuing without USD pricing.',
+        );
 
         return new Map();
       }

@@ -25,7 +25,9 @@ const dayCsvHeader = [
 ];
 
 const doraApiUrls = Array.from(
-  new Set([process.env.DORA_API_URL, 'https://api.coz.io'].filter((url): url is string => Boolean(url))),
+  new Set(
+    [process.env.DORA_API_URL, 'https://api.coz.io'].filter((url): url is string => Boolean(url)),
+  ),
 );
 
 const doraClients = doraApiUrls.map((url) => new api.NeoRESTApi({ url, endpoint: '/api/v2/neo3' }));
@@ -75,7 +77,10 @@ const withRetry = async <T>(action: () => Promise<T>): Promise<T> => {
   throw lastError;
 };
 
-const fetchBlockWithRetry = async (client: api.NeoRESTApi, blockIndex: number): Promise<DoraBlock> => {
+const fetchBlockWithRetry = async (
+  client: api.NeoRESTApi,
+  blockIndex: number,
+): Promise<DoraBlock> => {
   const block = await withRetry(async () => {
     return (await client.block(blockIndex, network)) as DoraBlock;
   });
@@ -400,8 +405,7 @@ describeDoraCsv('Dora API integration with one-day CSV export', () => {
 
       const hasEventName = log.notifications.some((notification) => {
         return (
-          typeof notification.event_name === 'string' ||
-          typeof notification.eventname === 'string'
+          typeof notification.event_name === 'string' || typeof notification.eventname === 'string'
         );
       });
       expect(hasEventName).toBe(true);
