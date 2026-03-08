@@ -2,11 +2,11 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ClassifiedType, classifyTransaction, defaultSwapMethods } from '../classifier/classifier';
 import { PrismaService } from '../common/prisma.service';
-import { NeoClient, NeoTransaction, NeoTransfer } from '../neo-client/neo-client.interface';
+import type { NeoClient, NeoTransaction, NeoTransfer } from '../neo-client/neo-client.interface';
 import { NEO_CLIENT } from '../neo-client/neo-client.provider';
 import { Prisma } from '@prisma/client';
 import { formatDate, parseDate } from './date-utils';
-import {
+import type {
   DailyAssetStatRecord,
   DailyAssetStatCreateRecord,
   DailyContractStatRecord,
@@ -19,75 +19,18 @@ import {
   DailyTxCreateRecord,
   IngestionPrismaClient,
 } from './ingestion.types';
-
-type AssetAggregate = {
-  transferCount: number;
-  txCount: number;
-  senders: Set<string>;
-  receivers: Set<string>;
-  volumeRaw: bigint;
-};
-
-type MethodAggregate = {
-  key: string;
-  count: number;
-};
-
-type ContractAggregate = {
-  key: string;
-  count: number;
-};
-
-type TransactionBatch = {
-  transactions: NeoTransaction[];
-  blockRange?: { start: number; end: number };
-};
-
-type SwapPricingContext = {
-  usdPricesByAsset: Map<string, Prisma.Decimal>;
-  decimalsByAsset: Map<string, number | null>;
-};
-
-type SwapPriceApiRow = {
-  symbol?: unknown;
-  unwrappedSymbol?: unknown;
-  hash?: unknown;
-  usd_price?: unknown;
-};
-
-type DailySummary = {
-  dailyTx: DailyTxRecord[];
-  dailyTransfers: DailyTransferRecord[];
-  dailyAssetStats: DailyAssetStatRecord[];
-  dailyMethodStats: DailyMethodStatRecord[];
-  dailyContractStats: DailyContractStatRecord[];
-  dailyStat: DailyStatRecord;
-};
-
-type StreamState = {
-  day: Date;
-  txBuffer: DailyTxCreateRecord[];
-  transferBuffer: DailyTransferCreateRecord[];
-  assetMap: Map<string, AssetAggregate>;
-  methodMap: Map<string, MethodAggregate>;
-  contractMap: Map<string, ContractAggregate>;
-  senders: Set<string>;
-  receivers: Set<string>;
-  addresses: Set<string>;
-  swapsCount: number;
-  swapsUsdValue: Prisma.Decimal;
-  transfersCount: number;
-  gasClaimsCount: number;
-  othersCount: number;
-  neoVolumeRaw: bigint;
-  gasVolumeRaw: bigint;
-  totalTxCount: number;
-  totalTransfers: number;
-  minBlockIndex?: number;
-  maxBlockIndex?: number;
-  lastProcessedBlock?: number;
-  lastProcessedTimestamp?: Date;
-};
+import type {
+  AssetAggregate,
+  BlockIndexState,
+  BlockRange,
+  ContractAggregate,
+  DailySummary,
+  MethodAggregate,
+  StreamState,
+  SwapPriceApiRow,
+  SwapPricingContext,
+  TransactionBatch,
+} from './ingestion.service.types';
 
 @Injectable()
 export class IngestionService {
@@ -131,7 +74,7 @@ export class IngestionService {
     const pricingContext = await this.createSwapPricingContext();
 
     let cursor: string | undefined;
-    let blockRange: { start: number; end: number } | undefined;
+    let blockRange: BlockRange | undefined;
 
     do {
       const response = await this.neoClient.fetchTransactionsForDay(date, cursor);
@@ -270,7 +213,7 @@ export class IngestionService {
   private async buildDailySummary(
     transactions: NeoTransaction[],
     day: Date,
-    blockRange?: { start: number; end: number },
+    blockRange?: BlockRange,
   ): Promise<DailySummary> {
     const dailyTx: DailyTxRecord[] = [];
     const dailyTransfers: DailyTransferRecord[] = [];
@@ -842,7 +785,7 @@ export class IngestionService {
     const transactions: NeoTransaction[] = [];
     let cursor: string | undefined;
     let nextCursor: string | undefined;
-    let blockRange: { start: number; end: number } | undefined;
+    let blockRange: BlockRange | undefined;
 
     do {
       const response = await this.neoClient.fetchTransactionsForRange(start, end, cursor);
@@ -862,7 +805,7 @@ export class IngestionService {
     const transactions: NeoTransaction[] = [];
     let cursor: string | undefined;
     let nextCursor: string | undefined;
-    let blockRange: { start: number; end: number } | undefined;
+    let blockRange: BlockRange | undefined;
 
     do {
       const response = await this.neoClient.fetchTransactionsForDay(date, cursor);
@@ -1287,8 +1230,8 @@ export class IngestionService {
   }
 
   private resolveBlockCount(
-    blockRange: { start: number; end: number } | undefined,
-    state: { minBlockIndex?: number; maxBlockIndex?: number } | undefined,
+    blockRange: BlockRange | undefined,
+    state: BlockIndexState | undefined,
   ): number {
     if (blockRange) {
       return blockRange.end - blockRange.start + 1;

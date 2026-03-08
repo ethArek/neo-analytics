@@ -7,11 +7,7 @@ import type {
   DaysData,
   DefiData,
 } from '../../src/app/types';
-
-type PageSeed<T> = {
-  page: string;
-  data: T;
-};
+import type { PageSeed } from './frontend-render.types';
 
 const stylesPath = join(process.cwd(), 'public', 'css', 'styles.css');
 

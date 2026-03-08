@@ -10,36 +10,14 @@ import { StatsService } from '../stats/stats.service';
 import { formatNumber, formatUnits, toNumber } from '../stats/stats.utils';
 import { countInclusiveDays, normalizeIsoDate, resolveDefiWindow } from './defi-metrics';
 import { renderReactPage } from './react-view';
-
-type StatTotals = {
-  totalTxCount: number;
-  swapsCount: number;
-  swapsUsdValue: string;
-  transfersCount: number;
-  gasClaimsCount: number;
-  othersCount: number;
-  realUsageTotal: number;
-  totalTransfers: number;
-  uniqueSenders: number;
-  uniqueReceivers: number;
-  uniqueAddresses: number;
-  neoVolumeRaw: bigint;
-  gasVolumeRaw: bigint;
-  blockCount: number;
-};
-
-type DashboardDefiCard = {
-  href: string;
-  headline: string;
-  description: string;
-};
-
-type DefiBanner = {
-  tone: 'neutral' | 'warning' | 'danger';
-  statusLabel: string;
-  title: string;
-  body: string;
-};
+import type { DefiWindowStatus } from './defi-metrics.types';
+import type {
+  DashboardDefiCard,
+  DefiBanner,
+  DefiBannerWindow,
+  DefiCoverageWindow,
+  StatTotals,
+} from './web.controller.types';
 
 @ApiExcludeController()
 @Controller()
@@ -436,13 +414,10 @@ export class WebController {
   }
 
   private buildDefiCoverageNote(
-    status: 'ready' | 'partial' | 'unavailable' | 'not-configured' | 'invalid',
+    status: DefiWindowStatus,
     requestedDays: number,
     coveredDays: number,
-    window: {
-      availableFrom: string | null;
-      effectiveFrom: string | null;
-    },
+    window: DefiCoverageWindow,
   ): string {
     if (status === 'partial' && window.effectiveFrom) {
       return `Requested ${formatNumber(requestedDays)} days. Using ${formatNumber(coveredDays)} published days starting ${window.effectiveFrom}.`;
@@ -464,13 +439,9 @@ export class WebController {
   }
 
   private buildDefiBanner(
-    status: 'ready' | 'partial' | 'unavailable' | 'not-configured' | 'invalid',
+    status: DefiWindowStatus,
     hasStats: boolean,
-    window: {
-      availableFrom: string | null;
-      effectiveFrom: string | null;
-      effectiveTo: string | null;
-    },
+    window: DefiBannerWindow,
   ): DefiBanner {
     if (status === 'invalid') {
       return {

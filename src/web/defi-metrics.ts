@@ -1,26 +1,11 @@
 import { formatDate, parseDate } from '../ingestion/date-utils';
+import type {
+  ResolveDefiWindowOptions,
+  ResolvedDefiWindow,
+} from './defi-metrics.types';
 
 const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
 const millisecondsPerDay = 24 * 60 * 60 * 1000;
-
-export type DefiWindowStatus = 'ready' | 'partial' | 'unavailable' | 'not-configured' | 'invalid';
-
-export type ResolvedDefiWindow = {
-  status: DefiWindowStatus;
-  availableFrom: string | null;
-  requestedFrom: string | null;
-  requestedTo: string | null;
-  effectiveFrom: string | null;
-  effectiveTo: string | null;
-};
-
-type ResolveDefiWindowOptions = {
-  availableFrom?: string | null;
-  requestedFrom?: string | null;
-  requestedTo?: string | null;
-  fallbackFrom?: string | null;
-  fallbackTo?: string | null;
-};
 
 export const normalizeIsoDate = (value?: string | null): string | null => {
   if (!value) {

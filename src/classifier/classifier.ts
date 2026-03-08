@@ -1,4 +1,5 @@
-import { NeoTransaction } from '../neo-client/neo-client.interface';
+import type { NeoTransaction } from '../neo-client/neo-client.interface';
+import type { ClassifiedResult, ClassifierConfig } from './classifier.types';
 
 export enum ClassifiedType {
   SWAP = 'SWAP',
@@ -6,17 +7,6 @@ export enum ClassifiedType {
   GAS_CLAIM = 'GAS_CLAIM',
   IGNORED = 'IGNORED',
 }
-
-export type ClassifierConfig = {
-  swapMethodAllowlist: string[];
-};
-
-export type ClassifiedResult = {
-  type: ClassifiedType;
-  from?: string;
-  to?: string;
-  reason: string;
-};
 
 const normalize = (value?: string) => value?.trim().toLowerCase() ?? '';
 

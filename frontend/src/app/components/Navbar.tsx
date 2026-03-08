@@ -1,10 +1,6 @@
 import React from 'react';
-import type { NavState } from '../types';
+import type { NavbarProps } from './Navbar.types';
 import { delayStyle } from '../utils';
-
-type NavbarProps = {
-  nav?: NavState;
-};
 
 const navClass = (isActive?: boolean) => (isActive ? 'nav-link is-active' : 'nav-link');
 

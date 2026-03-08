@@ -2,47 +2,16 @@ import * as dotenv from 'dotenv';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { api } from '@cityofzion/dora-ts';
+import type {
+  CsvTxRow,
+  DoraBlock,
+  DoraLog,
+  DoraTransaction,
+  DoraTransactionDetails,
+  RecentTransactionSample,
+} from './rpc.integration.types';
 
 dotenv.config();
-
-type DoraTransaction = {
-  hash: string;
-  script?: string;
-};
-
-type DoraTransactionDetails = {
-  hash: string;
-  script?: string;
-  block: number | string;
-};
-
-type DoraBlock = {
-  index: number | string;
-  tx?: DoraTransaction[];
-  transactions?: DoraTransaction[];
-};
-
-type DoraNotification = {
-  eventname?: string;
-  event_name?: string;
-  state?: unknown;
-};
-
-type DoraLog = {
-  txid: string;
-  notifications: DoraNotification[];
-};
-
-type CsvTxRow = {
-  dayLabel: string;
-  txid: string;
-  blockIndex: number | null;
-  transferCount: number;
-  timestampUtc: string;
-  type: string;
-  method: string;
-  contract: string;
-};
 
 const dayCsvHeader = [
   'day_label',
@@ -248,7 +217,7 @@ const deterministicSample = <T>(rows: T[], targetCount: number): T[] => {
 const findRecentTransactionWithScript = async (
   client: api.NeoRESTApi,
   latestIndex: number,
-): Promise<{ block: DoraBlock; tx: DoraTransaction } | null> => {
+): Promise<RecentTransactionSample | null> => {
   for (let offset = 0; offset < 80; offset += 1) {
     const index = latestIndex - offset;
     if (index < 0) {

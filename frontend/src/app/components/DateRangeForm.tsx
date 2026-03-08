@@ -1,11 +1,6 @@
 import React from 'react';
+import type { DateRangeFormProps } from './DateRangeForm.types';
 import { delayStyle } from '../utils';
-
-type DateRangeFormProps = {
-  from?: string;
-  to?: string;
-  animateDelay?: string;
-};
 
 export const DateRangeForm: React.FC<DateRangeFormProps> = ({
   from = '',

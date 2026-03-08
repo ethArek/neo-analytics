@@ -8,73 +8,25 @@ import {
   NeoTransaction,
   NeoTransfer,
 } from './neo-client.interface';
+import type {
+  BlockRange,
+  DoraAssetResponse,
+  DoraHeightResponse,
+  DoraRestConfig,
+  RpcApplicationLog,
+  RpcBlock,
+  RpcBlockHeader,
+  RpcBlocksResponse,
+  RpcBlockSummary,
+  RpcClient,
+  RpcContractState,
+  RpcStackItem,
+} from './neo-client.service.types';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const NEO_HASH = '0xef4073a0f2b305a38ec4050e4d3d28bc40ea63f5';
 const GAS_HASH = '0xd2a4cff31913016155e38e474a2c06d08be276cf';
-
-type RpcClient = InstanceType<typeof api.NeoRESTApi>;
-
-type RpcBlock = {
-  index: number | string;
-  time: number | string;
-  tx?: RpcTransaction[];
-  transactions?: RpcTransaction[];
-};
-
-type RpcBlockSummary = {
-  index: number | string;
-  time: number | string;
-};
-
-type RpcBlocksResponse = {
-  items?: RpcBlockSummary[];
-};
-
-type RpcBlockHeader = {
-  index: number | string;
-  time: number | string;
-};
-
-type RpcTransaction = {
-  hash: string;
-  script?: string;
-};
-
-type RpcApplicationLog = {
-  executions?: RpcExecution[];
-  notifications?: RpcNotification[];
-};
-
-type RpcExecution = {
-  notifications?: RpcNotification[];
-};
-
-type RpcNotification = {
-  contract: string;
-  eventname?: string;
-  event_name?: string;
-  state?: RpcStackItem | RpcStackItem[];
-};
-
-type RpcStackItem = {
-  type: string;
-  value?: unknown;
-};
-
-type RpcContractState = {
-  manifest?: { name?: string };
-};
-
-type DoraHeightResponse = {
-  height?: number | string;
-};
-
-type DoraAssetResponse = {
-  symbol?: string;
-  decimals?: number | string;
-};
 
 @Injectable()
 export class RpcNeoClient implements NeoClient {
@@ -85,7 +37,7 @@ export class RpcNeoClient implements NeoClient {
   private readonly maxRetries = 3;
   private readonly pageSize = 8;
   private readonly blocksDefaultPageSize = 15;
-  private readonly dateBlockRangeCache = new Map<string, { start: number; end: number }>();
+  private readonly dateBlockRangeCache = new Map<string, BlockRange>();
   private readonly blockTimeCache = new Map<number, number>();
   private readonly blocksPageCache = new Map<number, RpcBlockSummary[]>();
   private nativeAssetMap?: Map<string, string>;
@@ -208,7 +160,7 @@ export class RpcNeoClient implements NeoClient {
   }
 
   private async fetchTransactionsForBlockRange(
-    range: { start: number; end: number },
+    range: BlockRange,
     label: string,
     cursor?: string,
   ): Promise<NeoPagedResponse> {
@@ -338,7 +290,7 @@ export class RpcNeoClient implements NeoClient {
     }
   }
 
-  private async getBlockRangeForDate(date: string): Promise<{ start: number; end: number } | null> {
+  private async getBlockRangeForDate(date: string): Promise<BlockRange | null> {
     const cached = this.dateBlockRangeCache.get(date);
     if (cached) {
       return cached;
@@ -359,7 +311,7 @@ export class RpcNeoClient implements NeoClient {
   private async getBlockRangeForTimeRange(
     startTime: number,
     endTime: number,
-  ): Promise<{ start: number; end: number } | null> {
+  ): Promise<BlockRange | null> {
     if (startTime > endTime) {
       return null;
     }
@@ -853,7 +805,7 @@ export class RpcNeoClient implements NeoClient {
     return 'mainnet';
   }
 
-  private toDoraRestConfig(endpoint: string): { url: string; endpoint: string } {
+  private toDoraRestConfig(endpoint: string): DoraRestConfig {
     const normalized = endpoint.trim().replace(/\/+$/, '');
     if (!normalized) {
       return { url: 'https://api.coz.io', endpoint: '/api/v2/neo3' };
