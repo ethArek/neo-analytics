@@ -3,67 +3,19 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { decimalToBigInt } from '../common/prisma-decimal';
 import { parseDate } from '../ingestion/date-utils';
-
-export type AggregatedAssetStat = {
-  asset: string;
-  transferCount: number;
-  txCount: number;
-  uniqueSenders: number;
-  uniqueReceivers: number;
-  volumeRaw: bigint;
-};
-
-export type AggregatedCount = {
-  key: string;
-  count: number;
-};
-
-export type TopAddress = {
-  address: string;
-  transferCount: number;
-  volumeRaw: bigint;
-};
-
-export type UniqueAddressStats = {
-  uniqueSenders: number;
-  uniqueReceivers: number;
-  uniqueAddresses: number;
-};
-
-type DailyStatRow = Awaited<ReturnType<PrismaService['dailyStat']['findMany']>>[number];
-export type DailyStatWithBigInt = Omit<DailyStatRow, 'neoVolumeRaw' | 'gasVolumeRaw'> & {
-  neoVolumeRaw: bigint;
-  gasVolumeRaw: bigint;
-};
-
-type DailyTxRow = Awaited<ReturnType<PrismaService['dailyTx']['findMany']>>[number];
-export type DailyTxWithBigInt = Omit<DailyTxRow, 'amountRaw'> & {
-  amountRaw: bigint | null;
-};
-
-type DailyAssetStatRow = Awaited<ReturnType<PrismaService['dailyAssetStat']['findMany']>>[number];
-export type DailyAssetStatWithBigInt = Omit<DailyAssetStatRow, 'volumeRaw'> & {
-  volumeRaw: bigint;
-};
-
-export type StatsRange = {
-  stats: DailyStatWithBigInt[];
-  range?: { from: Date; to: Date };
-};
-
-export type DayDetailsOptions = {
-  page: number;
-  pageSize: number;
-};
-
-export type DayDetailsPagination = {
-  page: number;
-  pageSize: number;
-  totalItems: number;
-  totalPages: number;
-  hasPreviousPage: boolean;
-  hasNextPage: boolean;
-};
+import type {
+  AggregatedAssetStat,
+  AggregatedCount,
+  DailyAssetStatWithBigInt,
+  DailyStatRow,
+  DailyStatWithBigInt,
+  DailyTxWithBigInt,
+  DayDetailsOptions,
+  DayDetailsPagination,
+  StatsRange,
+  TopAddress,
+  UniqueAddressStats,
+} from './stats.service.types';
 
 @Injectable()
 export class StatsService {
@@ -327,6 +279,7 @@ export class StatsService {
     const normalizedTransactions: DailyTxWithBigInt[] = transactions.map((transaction) => ({
       ...transaction,
       amountRaw: transaction.amountRaw === null ? null : decimalToBigInt(transaction.amountRaw),
+      swapUsdValue: transaction.swapUsdValue === null ? null : transaction.swapUsdValue.toString(),
     }));
     const normalizedAssetStats: DailyAssetStatWithBigInt[] = assetStats.map((assetStat) => ({
       ...assetStat,
@@ -397,6 +350,7 @@ export class StatsService {
       ...stat,
       neoVolumeRaw: decimalToBigInt(stat.neoVolumeRaw),
       gasVolumeRaw: decimalToBigInt(stat.gasVolumeRaw),
+      swapsUsdValue: stat.swapsUsdValue.toString(),
     };
   }
 }

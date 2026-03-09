@@ -9,6 +9,7 @@ export type DailyTxRecord = {
   to?: string;
   asset?: string;
   amountRaw?: bigint;
+  swapUsdValue?: string;
   transferCount: number;
   method?: string;
   contract?: string;
@@ -66,6 +67,7 @@ export type DailyStatRecord = {
   date: Date;
   totalTxCount: number;
   swapsCount: number;
+  swapsUsdValue: string;
   transfersCount: number;
   gasClaimsCount: number;
   othersCount: number;

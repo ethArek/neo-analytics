@@ -1,11 +1,6 @@
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
-
-type ReactPageOptions = {
-  title: string;
-  page: string;
-  data: Record<string, unknown>;
-};
+import type { ClientAssets, ReactPageOptions, ViteManifest } from './react-view.types';
 
 const escapeHtml = (value: string): string => {
   return value
@@ -46,14 +41,11 @@ const manifestCandidates = [
   join(process.cwd(), 'public', 'app', '.vite', 'manifest.json'),
 ];
 
-const loadManifest = (): Record<string, { file: string; css?: string[] }> | null => {
+const loadManifest = (): ViteManifest | null => {
   for (const candidate of manifestCandidates) {
     if (existsSync(candidate)) {
       try {
-        return JSON.parse(readFileSync(candidate, 'utf-8')) as Record<
-          string,
-          { file: string; css?: string[] }
-        >;
+        return JSON.parse(readFileSync(candidate, 'utf-8')) as ViteManifest;
       } catch (error) {
         console.warn(
           `Unable to read Vite manifest from "${candidate}". Trying next candidate.`,
@@ -66,7 +58,7 @@ const loadManifest = (): Record<string, { file: string; css?: string[] }> | null
   return null;
 };
 
-const resolveClientAssets = () => {
+const resolveClientAssets = (): ClientAssets => {
   const devServerUrl = process.env.VITE_DEV_SERVER_URL;
   if (devServerUrl) {
     return {

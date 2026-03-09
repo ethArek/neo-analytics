@@ -119,6 +119,7 @@ body::before {
 .nav-links {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
   padding: 6px;
   border-radius: 999px;
@@ -336,6 +337,18 @@ h3 {
 
 .button:hover {
   transform: translateY(-1px);
+}
+
+.card-link {
+  display: inline-flex;
+  margin-top: 14px;
+  color: var(--accent);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.card-link:hover {
+  text-decoration: underline;
 }
 
 .summary-grid {
@@ -762,6 +775,93 @@ h3 {
   border: 1px solid rgba(var(--accent-rgb), 0.25);
 }
 
+.signal-banner {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 28px;
+  padding: 20px 24px;
+  border-radius: var(--radius);
+  border: 1px solid var(--stroke);
+  box-shadow: var(--shadow);
+}
+
+.signal-banner.is-neutral {
+  background: linear-gradient(
+    135deg,
+    rgba(var(--accent-rgb), 0.12),
+    rgba(var(--accent-2-rgb), 0.1)
+  );
+}
+
+.signal-banner.is-warning {
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.14), rgba(var(--accent-rgb), 0.08));
+}
+
+.signal-banner.is-danger {
+  background: linear-gradient(135deg, rgba(185, 28, 28, 0.14), rgba(249, 115, 22, 0.08));
+}
+
+.signal-banner-copy {
+  flex: 1;
+}
+
+.signal-banner-copy h2 {
+  margin: 8px 0 6px;
+}
+
+.signal-banner-copy p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.signal-banner-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  min-width: 380px;
+}
+
+.signal-banner-meta div {
+  background: rgba(255, 255, 255, 0.62);
+  border: 1px solid var(--stroke);
+  border-radius: 16px;
+  padding: 12px 14px;
+}
+
+.signal-banner-meta span {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.signal-banner-meta strong {
+  display: block;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.empty-state {
+  margin-bottom: 32px;
+  padding: 22px 24px;
+  border-radius: var(--radius);
+  border: 1px solid var(--stroke);
+  background: var(--card);
+  box-shadow: var(--shadow);
+}
+
+.empty-state p {
+  margin: 10px 0 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
 .faq-hero {
   align-items: stretch;
 }
@@ -787,6 +887,10 @@ h3 {
   inset: 0;
   background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.12), transparent 55%);
   pointer-events: none;
+}
+
+.defi-hero-card::after {
+  background: linear-gradient(135deg, rgba(var(--accent-2-rgb), 0.16), transparent 58%);
 }
 
 .faq-stat .faq-label {
@@ -936,6 +1040,28 @@ h3 {
   box-shadow: var(--shadow);
 }
 
+.defi-list-card {
+  min-height: 100%;
+}
+
+.defi-method-list {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+  display: grid;
+  gap: 12px;
+}
+
+.defi-method-list li {
+  display: block;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--surface-1);
+  border: 1px solid rgba(var(--accent-rgb), 0.08);
+  color: var(--ink);
+  line-height: 1.55;
+}
+
 [data-animate] {
   opacity: 0;
   animation: rise 0.6s ease forwards;
@@ -986,6 +1112,16 @@ input:focus-visible {
   .faq-cta {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .signal-banner {
+    flex-direction: column;
+  }
+
+  .signal-banner-meta {
+    min-width: 0;
+    width: 100%;
+    grid-template-columns: repeat(1, minmax(0, 1fr));
   }
 
   .faq-hero-card {

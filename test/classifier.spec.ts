@@ -54,6 +54,29 @@ describe('classifier', () => {
   });
 
   it.each([
+    'OrderUpdated',
+    'OrderUpserted',
+  ])('classifies swap from Dora-style top-level notifications (%s)', (eventName) => {
+    const tx: NeoTransaction = {
+      txid: `dora-order-notification-${eventName}`,
+      timestamp: new Date().toISOString(),
+      transfers: [],
+      raw: {
+        applicationLog: {
+          notifications: [
+            {
+              event_name: eventName,
+            },
+          ],
+        },
+      },
+    };
+
+    const result = classifyTransaction(tx, config);
+    expect(result.type).toBe(ClassifiedType.SWAP);
+  });
+
+  it.each([
     '0xec268e9c642b7d09d10fe658bcb1cc63c0895d4d',
     '0xca2d20610d7982ebe0bed124ee7e9b2d580a6efc',
     '0x3244fcadcccff190c329f7b3083e4da2af60fbce',
@@ -87,6 +110,28 @@ describe('classifier', () => {
                   eventname: 'AccountUpdated',
                 },
               ],
+            },
+          ],
+        },
+      },
+    };
+
+    const result = classifyTransaction(tx, config);
+    expect(result.type).toBe(ClassifiedType.SWAP);
+  });
+
+  it('classifies swap when Dora-style known swap contract notification is present', () => {
+    const contract = '0xec268e9c642b7d09d10fe658bcb1cc63c0895d4d';
+    const tx: NeoTransaction = {
+      txid: 'dora-swap-contract-notification',
+      timestamp: new Date().toISOString(),
+      transfers: [],
+      raw: {
+        applicationLog: {
+          notifications: [
+            {
+              contract,
+              event_name: 'Transfer',
             },
           ],
         },

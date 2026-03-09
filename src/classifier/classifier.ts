@@ -1,4 +1,5 @@
-import { NeoTransaction } from '../neo-client/neo-client.interface';
+import type { NeoTransaction } from '../neo-client/neo-client.interface';
+import type { ClassifiedResult, ClassifierConfig } from './classifier.types';
 
 export enum ClassifiedType {
   SWAP = 'SWAP',
@@ -6,17 +7,6 @@ export enum ClassifiedType {
   GAS_CLAIM = 'GAS_CLAIM',
   IGNORED = 'IGNORED',
 }
-
-export type ClassifierConfig = {
-  swapMethodAllowlist: string[];
-};
-
-export type ClassifiedResult = {
-  type: ClassifiedType;
-  from?: string;
-  to?: string;
-  reason: string;
-};
 
 const normalize = (value?: string) => value?.trim().toLowerCase() ?? '';
 
@@ -61,40 +51,59 @@ const isAllowlistedSwapContract = (contract?: string): boolean => {
   return swapContractAllowlist.has(normalizeHash(contract));
 };
 
+const getNotifications = (applicationLog: Record<string, unknown>): Record<string, unknown>[] => {
+  const notifications: Record<string, unknown>[] = [];
+  const executions = applicationLog.executions;
+  if (Array.isArray(executions)) {
+    for (const execution of executions) {
+      if (!isRecord(execution)) {
+        continue;
+      }
+
+      const nestedNotifications = execution.notifications;
+      if (!Array.isArray(nestedNotifications)) {
+        continue;
+      }
+
+      for (const notification of nestedNotifications) {
+        if (!isRecord(notification)) {
+          continue;
+        }
+
+        notifications.push(notification);
+      }
+    }
+  }
+
+  const topLevelNotifications = applicationLog.notifications;
+  if (Array.isArray(topLevelNotifications)) {
+    for (const notification of topLevelNotifications) {
+      if (!isRecord(notification)) {
+        continue;
+      }
+
+      notifications.push(notification);
+    }
+  }
+
+  return notifications;
+};
+
 const getSwapContractNotification = (raw: Record<string, unknown>): string | null => {
   const applicationLog = raw.applicationLog;
   if (!isRecord(applicationLog)) {
     return null;
   }
 
-  const executions = applicationLog.executions;
-  if (!Array.isArray(executions)) {
-    return null;
-  }
-
-  for (const execution of executions) {
-    if (!isRecord(execution)) {
+  const notifications = getNotifications(applicationLog);
+  for (const notification of notifications) {
+    const contract = notification.contract;
+    if (typeof contract !== 'string') {
       continue;
     }
 
-    const notifications = execution.notifications;
-    if (!Array.isArray(notifications)) {
-      continue;
-    }
-
-    for (const notification of notifications) {
-      if (!isRecord(notification)) {
-        continue;
-      }
-
-      const contract = notification.contract;
-      if (typeof contract !== 'string') {
-        continue;
-      }
-
-      if (isAllowlistedSwapContract(contract)) {
-        return contract;
-      }
+    if (isAllowlistedSwapContract(contract)) {
+      return contract;
     }
   }
 
@@ -107,39 +116,27 @@ const getDexNotificationName = (raw: Record<string, unknown>): string | null => 
     return null;
   }
 
-  const executions = applicationLog.executions;
-  if (!Array.isArray(executions)) {
-    return null;
-  }
-
-  for (const execution of executions) {
-    if (!isRecord(execution)) {
+  const notifications = getNotifications(applicationLog);
+  for (const notification of notifications) {
+    const legacyEventName = notification.eventname;
+    const doraEventName = notification.event_name;
+    const eventName =
+      typeof legacyEventName === 'string'
+        ? legacyEventName
+        : typeof doraEventName === 'string'
+          ? doraEventName
+          : null;
+    if (!eventName) {
       continue;
     }
 
-    const notifications = execution.notifications;
-    if (!Array.isArray(notifications)) {
-      continue;
-    }
-
-    for (const notification of notifications) {
-      if (!isRecord(notification)) {
-        continue;
-      }
-
-      const eventName = notification.eventname;
-      if (typeof eventName !== 'string') {
-        continue;
-      }
-
-      const normalized = normalize(eventName);
-      if (
-        normalized === 'swapped' ||
-        normalized === 'orderupdated' ||
-        normalized === 'orderupserted'
-      ) {
-        return eventName;
-      }
+    const normalized = normalize(eventName);
+    if (
+      normalized === 'swapped' ||
+      normalized === 'orderupdated' ||
+      normalized === 'orderupserted'
+    ) {
+      return eventName;
     }
   }
 

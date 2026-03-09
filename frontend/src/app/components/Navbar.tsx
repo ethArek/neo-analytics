@@ -1,10 +1,6 @@
 import React from 'react';
-import type { NavState } from '../types';
+import type { NavbarProps } from './Navbar.types';
 import { delayStyle } from '../utils';
-
-type NavbarProps = {
-  nav?: NavState;
-};
 
 const navClass = (isActive?: boolean) => (isActive ? 'nav-link is-active' : 'nav-link');
 
@@ -19,6 +15,9 @@ export const Navbar: React.FC<NavbarProps> = ({ nav }) => (
     <div className="nav-links">
       <a className={navClass(nav?.dashboard)} href="/dashboard">
         Dashboard
+      </a>
+      <a className={navClass(nav?.defi)} href="/defi">
+        DeFi
       </a>
       <a className={navClass(nav?.faq)} href="/faq">
         FAQ

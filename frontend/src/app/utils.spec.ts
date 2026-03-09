@@ -1,4 +1,4 @@
-import { delayStyle, ensureArray, getPageData, getPageName } from './utils';
+import { buildPageHref, delayStyle, ensureArray, getPageData, getPageName } from './utils';
 import type { PageData } from './types';
 
 describe('utils', () => {
@@ -37,5 +37,29 @@ describe('utils', () => {
 
   it('builds the delay style object', () => {
     expect(delayStyle('0.1s')).toEqual({ '--delay': '0.1s' });
+  });
+
+  it('builds page hrefs from range params', () => {
+    expect(
+      buildPageHref('/dashboard', {
+        from: '2024-01-01',
+        to: '2024-01-02',
+      }),
+    ).toBe('/dashboard?from=2024-01-01&to=2024-01-02');
+    expect(
+      buildPageHref('/dashboard', {
+        to: '2024-01-02',
+      }),
+    ).toBe('/dashboard?to=2024-01-02');
+  });
+
+  it('returns the base path when range params are empty', () => {
+    expect(buildPageHref('/dashboard')).toBe('/dashboard');
+    expect(
+      buildPageHref('/dashboard', {
+        from: '',
+        to: '',
+      }),
+    ).toBe('/dashboard');
   });
 });

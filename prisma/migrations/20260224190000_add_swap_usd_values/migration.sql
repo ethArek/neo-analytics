@@ -1,0 +1,5 @@
+ALTER TABLE "DailyTx"
+ADD COLUMN "swapUsdValue" DECIMAL(65, 8);
+
+ALTER TABLE "DailyStat"
+ADD COLUMN "swapsUsdValue" DECIMAL(65, 8) NOT NULL DEFAULT 0;

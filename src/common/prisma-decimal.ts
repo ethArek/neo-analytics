@@ -1,6 +1,4 @@
-import { Prisma } from '@prisma/client';
-
-export type DecimalLike = Prisma.Decimal | bigint | number | string;
+import type { DecimalLike } from './prisma-decimal.types';
 
 export const decimalToBigInt = (value: DecimalLike | null | undefined): bigint => {
   if (value === null || value === undefined) {

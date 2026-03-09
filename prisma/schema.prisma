@@ -19,6 +19,7 @@ model DailyStat {
   date            DateTime @unique
   totalTxCount    Int      @default(0)
   swapsCount      Int      @default(0)
+  swapsUsdValue   Decimal  @default(0) @db.Decimal(65, 8)
   transfersCount  Int      @default(0)
   gasClaimsCount  Int      @default(0)
   othersCount     Int      @default(0)
@@ -35,21 +36,22 @@ model DailyStat {
 }
 
 model DailyTx {
-  id        Int      @id @default(autoincrement())
-  date      DateTime
-  txid      String   @unique
-  type      TxType
-  from      String?
-  to        String?
-  asset     String?
-  amountRaw Decimal? @db.Decimal(78, 0)
-  transferCount Int @default(0)
-  method    String?
-  contract  String?
-  timestamp DateTime
-  blockIndex Int?
-  rawJson   Json
-  createdAt DateTime @default(now())
+  id           Int      @id @default(autoincrement())
+  date         DateTime
+  txid         String   @unique
+  type         TxType
+  from         String?
+  to           String?
+  asset        String?
+  amountRaw    Decimal? @db.Decimal(78, 0)
+  swapUsdValue Decimal? @db.Decimal(65, 8)
+  transferCount Int     @default(0)
+  method       String?
+  contract     String?
+  timestamp    DateTime
+  blockIndex   Int?
+  rawJson      Json
+  createdAt    DateTime @default(now())
 
   @@index([date])
 }

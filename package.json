@@ -39,9 +39,11 @@
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:report": "playwright show-report",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev"
+    "prisma:migrate": "prisma migrate dev",
+    "export:dora-csv": "node scripts/export-dora-transactions-csv.js"
   },
   "dependencies": {
+    "@cityofzion/dora-ts": "^0.6.2",
     "@cityofzion/neon-js": "^5.7.0",
     "@nestjs/common": "^10.3.2",
     "@nestjs/config": "^3.2.3",

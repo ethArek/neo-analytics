@@ -1,6 +1,7 @@
 import React from 'react';
+import { DateRangeForm } from '../components/DateRangeForm';
 import { Navbar } from '../components/Navbar';
-import { delayStyle, ensureArray, getPageData } from '../utils';
+import { buildPageHref, delayStyle, ensureArray, getPageData } from '../utils';
 import type { DaysData } from '../types';
 
 export const DaysPage: React.FC = () => {
@@ -9,6 +10,7 @@ export const DaysPage: React.FC = () => {
   const rangeFrom = data.rangeFrom ?? '';
   const rangeTo = data.rangeTo ?? '';
   const rangeLabel = data.rangeLabel ?? '';
+  const dashboardHref = buildPageHref('/dashboard', { from: rangeFrom, to: rangeTo });
 
   return (
     <main className="container">
@@ -23,21 +25,9 @@ export const DaysPage: React.FC = () => {
           </p>
         </div>
         <div className="hero-actions">
-          <form className="range-form" method="get">
-            <label>
-              From
-              <input type="date" name="from" defaultValue={rangeFrom} />
-            </label>
-            <label>
-              To
-              <input type="date" name="to" defaultValue={rangeTo} />
-            </label>
-            <button className="button" type="submit">
-              Apply
-            </button>
-          </form>
+          <DateRangeForm from={rangeFrom} to={rangeTo} />
           <div className="hero-links">
-            <a className="button secondary" href={`/dashboard?from=${rangeFrom}&to=${rangeTo}`}>
+            <a className="button secondary" href={dashboardHref}>
               Back to dashboard
             </a>
             <span className="pill">{rangeLabel}</span>

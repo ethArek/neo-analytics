@@ -33,6 +33,9 @@ describe('DaysPage', () => {
     expect(screen.getByText('Daily activity table')).toBeInTheDocument();
     expect(screen.getByText('2024-01-01')).toBeInTheDocument();
     expect(screen.getByText('10')).toBeInTheDocument();
-    expect(screen.getByText('Back to dashboard')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Back to dashboard' })).toHaveAttribute(
+      'href',
+      '/dashboard?from=2024-01-01&to=2024-01-02',
+    );
   });
 });

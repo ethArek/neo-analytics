@@ -1,4 +1,4 @@
-import { rpc } from '@cityofzion/neon-js';
+import { api } from '@cityofzion/dora-ts';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -8,87 +8,58 @@ import {
   NeoTransaction,
   NeoTransfer,
 } from './neo-client.interface';
+import type {
+  BlockRange,
+  DoraAssetResponse,
+  DoraHeightResponse,
+  DoraRestConfig,
+  RpcApplicationLog,
+  RpcBlock,
+  RpcBlockHeader,
+  RpcBlocksResponse,
+  RpcBlockSummary,
+  RpcClient,
+  RpcContractState,
+  RpcStackItem,
+} from './neo-client.service.types';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const NEO_HASH = '0xef4073a0f2b305a38ec4050e4d3d28bc40ea63f5';
 const GAS_HASH = '0xd2a4cff31913016155e38e474a2c06d08be276cf';
 
-type RpcClient = InstanceType<typeof rpc.RPCClient>;
-
-type RpcBlock = {
-  index: number | string;
-  time: number | string;
-  tx?: RpcTransaction[];
-  transactions?: RpcTransaction[];
-};
-
-type RpcBlockHeader = {
-  index: number | string;
-  time: number | string;
-};
-
-type RpcTransaction = {
-  hash: string;
-  script?: string;
-};
-
-type RpcApplicationLog = {
-  executions?: RpcExecution[];
-};
-
-type RpcExecution = {
-  notifications?: RpcNotification[];
-};
-
-type RpcNotification = {
-  contract: string;
-  eventname: string;
-  state: RpcStackItem;
-};
-
-type RpcStackItem = {
-  type: string;
-  value?: unknown;
-};
-
-type RpcInvokeResult = {
-  stack?: RpcStackItem[];
-  state?: string;
-  exception?: string;
-};
-
-type RpcContractState = {
-  manifest?: { name?: string };
-};
-
-type RpcNativeContract = {
-  name?: string;
-  hash?: string;
-};
-
 @Injectable()
 export class RpcNeoClient implements NeoClient {
   private readonly logger = new Logger(RpcNeoClient.name);
   private readonly rpcClients: RpcClient[];
+  private readonly doraNetwork: 'mainnet' | 'testnet';
   private readonly rateLimitMs = 50;
   private readonly maxRetries = 3;
   private readonly pageSize = 8;
-  private readonly dateBlockRangeCache = new Map<string, { start: number; end: number }>();
+  private readonly blocksDefaultPageSize = 15;
+  private readonly dateBlockRangeCache = new Map<string, BlockRange>();
+  private readonly blockTimeCache = new Map<number, number>();
+  private readonly blocksPageCache = new Map<number, RpcBlockSummary[]>();
   private nativeAssetMap?: Map<string, string>;
   private clientIndex = 0;
+  private blocksPageSize = this.blocksDefaultPageSize;
+  private blocksPageSizeResolved = false;
   private readonly assetLabelCache = new Map<string, string>();
   private readonly assetLabelInFlight = new Map<string, Promise<string>>();
   private readonly assetDecimalsCache = new Map<string, number>();
   private readonly assetDecimalsInFlight = new Map<string, Promise<number | null>>();
 
   constructor(private readonly configService: ConfigService) {
-    const endpoints = this.configService.get<string[]>('app.rpcEndpoints') ?? [];
+    this.doraNetwork = this.resolveDoraNetwork(this.configService.get<string>('app.neoNetwork'));
+    const endpoints = this.configService.get<string[]>('app.doraApiUrls') ?? [];
     if (endpoints.length === 0) {
-      throw new Error('RPC_ENDPOINT_1 or RPC_ENDPOINT_2 is not configured');
+      this.rpcClients = [new api.NeoRESTApi()];
+      return;
     }
 
-    this.rpcClients = endpoints.map((endpoint) => new rpc.RPCClient(endpoint));
+    this.rpcClients = endpoints.map(
+      (endpoint) => new api.NeoRESTApi(this.toDoraRestConfig(endpoint)),
+    );
   }
 
   async fetchTransactionsForDay(date: string, cursor?: string): Promise<NeoPagedResponse> {
@@ -191,7 +162,7 @@ export class RpcNeoClient implements NeoClient {
   }
 
   private async fetchTransactionsForBlockRange(
-    range: { start: number; end: number },
+    range: BlockRange,
     label: string,
     cursor?: string,
   ): Promise<NeoPagedResponse> {
@@ -268,14 +239,10 @@ export class RpcNeoClient implements NeoClient {
 
   private async fetchAssetDecimals(assetHash: string): Promise<number | null> {
     try {
-      const result = await this.withRpc((client) => client.invokeFunction(assetHash, 'decimals'));
-      const typed = result as RpcInvokeResult;
-      if (typed.state && typed.state.toUpperCase().includes('FAULT')) {
-        return null;
-      }
-
-      const decimals = this.readStackInteger(typed.stack?.[0]);
-      if (decimals === null || decimals < 0 || decimals > 30) {
+      const asset = await this.withRpc((client) => client.asset(assetHash, this.doraNetwork));
+      const raw = (asset as DoraAssetResponse).decimals;
+      const decimals = typeof raw === 'number' ? Math.floor(raw) : Number.parseInt(String(raw), 10);
+      if (!Number.isFinite(decimals) || decimals < 0 || decimals > 30) {
         return null;
       }
 
@@ -289,14 +256,9 @@ export class RpcNeoClient implements NeoClient {
 
   private async fetchTokenSymbol(assetHash: string): Promise<string | null> {
     try {
-      const result = await this.withRpc((client) => client.invokeFunction(assetHash, 'symbol'));
-      const typed = result as RpcInvokeResult;
-      if (typed.state && typed.state.toUpperCase().includes('FAULT')) {
-        return null;
-      }
-
-      const symbol = this.readStackString(typed.stack?.[0]);
-      if (!symbol) {
+      const asset = await this.withRpc((client) => client.asset(assetHash, this.doraNetwork));
+      const symbol = (asset as DoraAssetResponse).symbol;
+      if (typeof symbol !== 'string') {
         return null;
       }
 
@@ -313,7 +275,7 @@ export class RpcNeoClient implements NeoClient {
 
   private async fetchContractName(assetHash: string): Promise<string | null> {
     try {
-      const state = await this.withRpc((client) => client.getContractState(assetHash));
+      const state = await this.withRpc((client) => client.contract(assetHash, this.doraNetwork));
       const name = (state as RpcContractState)?.manifest?.name;
       if (typeof name !== 'string') {
         return null;
@@ -330,50 +292,7 @@ export class RpcNeoClient implements NeoClient {
     }
   }
 
-  private readStackString(item?: RpcStackItem): string | null {
-    if (!item) {
-      return null;
-    }
-
-    if (item.type === 'String') {
-      if (typeof item.value !== 'string') {
-        return null;
-      }
-
-      return item.value;
-    }
-
-    if (item.type === 'ByteString') {
-      if (typeof item.value !== 'string') {
-        return null;
-      }
-
-      const raw = item.value;
-      const decodedBase64 = this.decodeAscii(Buffer.from(raw, 'base64'));
-      if (decodedBase64) {
-        return decodedBase64;
-      }
-
-      const hexCandidate = raw.startsWith('0x') ? raw.slice(2) : raw;
-      if (/^[0-9a-f]+$/i.test(hexCandidate)) {
-        const decodedHex = this.decodeAscii(Buffer.from(hexCandidate, 'hex'));
-        if (decodedHex) {
-          return decodedHex;
-        }
-      }
-
-      const trimmed = raw.trim();
-      if (!trimmed) {
-        return null;
-      }
-
-      return trimmed;
-    }
-
-    return null;
-  }
-
-  private async getBlockRangeForDate(date: string): Promise<{ start: number; end: number } | null> {
+  private async getBlockRangeForDate(date: string): Promise<BlockRange | null> {
     const cached = this.dateBlockRangeCache.get(date);
     if (cached) {
       return cached;
@@ -394,7 +313,7 @@ export class RpcNeoClient implements NeoClient {
   private async getBlockRangeForTimeRange(
     startTime: number,
     endTime: number,
-  ): Promise<{ start: number; end: number } | null> {
+  ): Promise<BlockRange | null> {
     if (startTime > endTime) {
       return null;
     }
@@ -405,8 +324,9 @@ export class RpcNeoClient implements NeoClient {
     }
 
     const latestIndex = blockCount - 1;
-    const startIndex = await this.findFirstBlockAtOrAfter(startTime, 0, latestIndex);
-    const endIndex = await this.findLastBlockAtOrBefore(endTime, 0, latestIndex);
+    await this.ensureBlocksPageSize();
+    const startIndex = await this.findFirstBlockAtOrAfter(startTime, 0, latestIndex, latestIndex);
+    const endIndex = await this.findLastBlockAtOrBefore(endTime, 0, latestIndex, latestIndex);
 
     if (startIndex === null || endIndex === null || startIndex > endIndex) {
       return null;
@@ -419,12 +339,13 @@ export class RpcNeoClient implements NeoClient {
     targetTime: number,
     low: number,
     high: number,
+    latestIndex: number,
   ): Promise<number | null> {
     let result: number | null = null;
 
     while (low <= high) {
       const mid = Math.floor((low + high) / 2);
-      const time = await this.getBlockTime(mid);
+      const time = await this.getBlockTime(mid, latestIndex);
 
       if (time >= targetTime) {
         result = mid;
@@ -441,12 +362,13 @@ export class RpcNeoClient implements NeoClient {
     targetTime: number,
     low: number,
     high: number,
+    latestIndex: number,
   ): Promise<number | null> {
     let result: number | null = null;
 
     while (low <= high) {
       const mid = Math.floor((low + high) / 2);
-      const time = await this.getBlockTime(mid);
+      const time = await this.getBlockTime(mid, latestIndex);
 
       if (time <= targetTime) {
         result = mid;
@@ -459,49 +381,144 @@ export class RpcNeoClient implements NeoClient {
     return result;
   }
 
-  private async getBlockTime(index: number): Promise<number> {
+  private async getBlockTime(index: number, latestIndex: number): Promise<number> {
+    const cached = this.blockTimeCache.get(index);
+    if (cached !== undefined) {
+      return cached;
+    }
+
+    const summaryTime = await this.getBlockTimeFromBlocks(index, latestIndex);
+    if (summaryTime !== null) {
+      this.blockTimeCache.set(index, summaryTime);
+      return summaryTime;
+    }
+
     const header = await this.getBlockHeader(index);
 
     const headerTime = this.toTimestampMs(header.time);
+    this.blockTimeCache.set(index, headerTime);
 
     return headerTime;
   }
 
-  private async getBlockHeader(index: number): Promise<RpcBlockHeader> {
-    const header = await this.withRpc((client) => client.getBlockHeader(index, 1));
+  private async ensureBlocksPageSize(): Promise<void> {
+    if (this.blocksPageSizeResolved) {
+      return;
+    }
 
-    return header as RpcBlockHeader;
+    const firstPage = await this.getBlocksPage(1);
+    if (firstPage.length > 0) {
+      this.blocksPageSize = firstPage.length;
+    }
+
+    this.blocksPageSizeResolved = true;
+  }
+
+  private async getBlockTimeFromBlocks(index: number, latestIndex: number): Promise<number | null> {
+    if (index < 0 || index > latestIndex) {
+      return null;
+    }
+
+    try {
+      const pageNumber = this.getBlocksPageNumberForIndex(index, latestIndex);
+      const page = await this.getBlocksPage(pageNumber);
+      const block = page.find((item) => this.toNumber(item.index) === index);
+      if (!block) {
+        return null;
+      }
+
+      const blockTime = this.toTimestampMs(block.time);
+
+      return blockTime;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  private getBlocksPageNumberForIndex(index: number, latestIndex: number): number {
+    const blocksFromTip = latestIndex - index;
+    if (blocksFromTip <= 0) {
+      return 1;
+    }
+
+    return Math.floor(blocksFromTip / this.blocksPageSize) + 1;
+  }
+
+  private async getBlocksPage(pageNumber: number): Promise<RpcBlockSummary[]> {
+    const cached = this.blocksPageCache.get(pageNumber);
+    if (cached) {
+      return cached;
+    }
+
+    const response = await this.withRpc((client) => client.blocks(pageNumber, this.doraNetwork));
+    const items = (response as RpcBlocksResponse).items;
+    const page: RpcBlockSummary[] = [];
+    if (Array.isArray(items)) {
+      for (const item of items) {
+        page.push(item);
+        const index = this.toNumber(item.index);
+        if (Number.isFinite(index)) {
+          const blockTime = this.toTimestampMs(item.time);
+          this.blockTimeCache.set(index, blockTime);
+        }
+      }
+    }
+
+    this.blocksPageCache.set(pageNumber, page);
+
+    return page;
+  }
+
+  private async getBlockHeader(index: number): Promise<RpcBlockHeader> {
+    const block = await this.getBlock(index);
+
+    return {
+      index: block.index,
+      time: block.time,
+    };
   }
 
   private async getBlock(index: number): Promise<RpcBlock> {
-    const block = await this.withRpc((client) => client.getBlock(index, 1));
+    const block = await this.withRpc((client) => client.block(index, this.doraNetwork));
 
     return block as RpcBlock;
   }
 
   private async getBlockCount(): Promise<number> {
-    const count = await this.withRpc((client) => client.getBlockCount());
+    const response = await this.withRpc((client) => client.height(this.doraNetwork));
+    const count = this.toNumber((response as DoraHeightResponse).height ?? 0);
+    if (!Number.isFinite(count) || count < 0) {
+      return 0;
+    }
 
-    return count as number;
+    return Math.floor(count);
   }
 
   private async getApplicationLog(txid: string): Promise<RpcApplicationLog> {
-    const log = await this.withRpc((client) => client.getApplicationLog(txid));
+    const log = await this.withRpc((client) => client.log(txid, this.doraNetwork));
 
-    return log as RpcApplicationLog;
+    return log as unknown as RpcApplicationLog;
   }
 
   private extractTransfers(log: RpcApplicationLog, assetMap: Map<string, string>): NeoTransfer[] {
     const executions = log.executions ?? [];
-    const notifications = executions.flatMap((execution) => execution.notifications ?? []);
+    const executionNotifications = executions.flatMap((execution) => execution.notifications ?? []);
+    const notifications =
+      executionNotifications.length > 0 ? executionNotifications : (log.notifications ?? []);
     const transfers: NeoTransfer[] = [];
 
     for (const notification of notifications) {
-      if (notification.eventname !== 'Transfer') {
+      const eventName = notification.eventname ?? notification.event_name;
+      if (eventName !== 'Transfer') {
         continue;
       }
 
-      const items = this.readArray(notification.state);
+      if (!notification.state) {
+        continue;
+      }
+
+      const state = this.toStackItem(notification.state);
+      const items = this.readArray(state);
       if (!items || items.length < 3) {
         continue;
       }
@@ -537,7 +554,11 @@ export class RpcNeoClient implements NeoClient {
   }
 
   private extractInvocationFromScript(script: string): NeoInvocation | undefined {
-    const bytes = Buffer.from(script, 'hex');
+    const bytes = this.decodeScriptBytes(script);
+    if (!bytes || bytes.length === 0) {
+      return undefined;
+    }
+
     let offset = 0;
     let lastString: string | undefined;
     let lastContract: string | undefined;
@@ -581,6 +602,47 @@ export class RpcNeoClient implements NeoClient {
     }
 
     return undefined;
+  }
+
+  private decodeScriptBytes(script: string): Buffer | null {
+    const trimmed = script.trim();
+    if (!trimmed) {
+      return null;
+    }
+
+    const hexCandidate = trimmed.startsWith('0x') ? trimmed.slice(2) : trimmed;
+    if (
+      hexCandidate.length > 0 &&
+      hexCandidate.length % 2 === 0 &&
+      /^[0-9a-f]+$/i.test(hexCandidate)
+    ) {
+      return Buffer.from(hexCandidate, 'hex');
+    }
+
+    const base64Candidate = trimmed.replace(/\s+/g, '');
+    if (
+      base64Candidate.length > 0 &&
+      base64Candidate.length % 4 === 0 &&
+      /^[A-Za-z0-9+/]+=*$/.test(base64Candidate)
+    ) {
+      const decoded = Buffer.from(base64Candidate, 'base64');
+      if (decoded.length > 0) {
+        return decoded;
+      }
+    }
+
+    return null;
+  }
+
+  private toStackItem(value: RpcStackItem | RpcStackItem[]): RpcStackItem {
+    if (Array.isArray(value)) {
+      return {
+        type: 'Array',
+        value,
+      };
+    }
+
+    return value;
   }
 
   private readPushDataLength(
@@ -632,11 +694,34 @@ export class RpcNeoClient implements NeoClient {
   private readArray(item: RpcStackItem): RpcStackItem[] | null {
     if (item.type === 'Array' || item.type === 'Struct') {
       if (Array.isArray(item.value)) {
-        return item.value as RpcStackItem[];
+        const result: RpcStackItem[] = [];
+        for (const stackItem of item.value) {
+          if (!this.isStackItem(stackItem)) {
+            return null;
+          }
+
+          result.push(stackItem);
+        }
+
+        return result;
       }
     }
 
     return null;
+  }
+
+  private isStackItem(value: unknown): value is RpcStackItem {
+    if (!value || typeof value !== 'object') {
+      return false;
+    }
+
+    if (!('type' in value)) {
+      return false;
+    }
+
+    const candidate = value as { type?: unknown };
+
+    return typeof candidate.type === 'string';
   }
 
   private readAddress(item: RpcStackItem): string | undefined {
@@ -670,28 +755,6 @@ export class RpcNeoClient implements NeoClient {
     }
 
     return String(item.value);
-  }
-
-  private readStackInteger(item?: RpcStackItem): number | null {
-    if (!item) {
-      return null;
-    }
-
-    if (item.type === 'Integer') {
-      const value = item.value;
-      if (typeof value !== 'string' && typeof value !== 'number') {
-        return null;
-      }
-
-      const parsed = Number.parseInt(String(value), 10);
-      if (!Number.isFinite(parsed)) {
-        return null;
-      }
-
-      return parsed;
-    }
-
-    return null;
   }
 
   private isHash(value: string): boolean {
@@ -738,31 +801,51 @@ export class RpcNeoClient implements NeoClient {
       [GAS_HASH, 'GAS'],
     ]);
 
-    const contracts = await this.withRpc((client) => client.getNativeContracts());
-
-    if (Array.isArray(contracts)) {
-      for (const contract of contracts) {
-        const typed = contract as RpcNativeContract;
-        const name = typed.name?.toLowerCase();
-        const hash = typed.hash ? this.normalizeHash(typed.hash) : undefined;
-
-        if (!hash || !name) {
-          continue;
-        }
-
-        if (name === 'neotoken') {
-          map.set(hash, 'NEO');
-        }
-
-        if (name === 'gastoken') {
-          map.set(hash, 'GAS');
-        }
-      }
-    }
-
     this.nativeAssetMap = map;
 
     return map;
+  }
+
+  private resolveDoraNetwork(network?: string): 'mainnet' | 'testnet' {
+    const normalized = network?.trim().toLowerCase() ?? '';
+    if (normalized.includes('test')) {
+      return 'testnet';
+    }
+
+    return 'mainnet';
+  }
+
+  private toDoraRestConfig(endpoint: string): DoraRestConfig {
+    const normalized = endpoint.trim().replace(/\/+$/, '');
+    if (!normalized) {
+      return { url: 'https://api.coz.io', endpoint: '/api/v2/neo3' };
+    }
+
+    if (normalized.endsWith('/api/v2/neo3')) {
+      return {
+        url: normalized.slice(0, -'/api/v2/neo3'.length),
+        endpoint: '/api/v2/neo3',
+      };
+    }
+
+    if (normalized.endsWith('/api/v2')) {
+      return {
+        url: normalized.slice(0, -'/api/v2'.length),
+        endpoint: '/api/v2/neo3',
+      };
+    }
+
+    if (normalized.endsWith('/api')) {
+      return {
+        url: normalized.slice(0, -'/api'.length),
+        endpoint: '/api/v2/neo3',
+      };
+    }
+
+    return {
+      url: normalized,
+      endpoint: '/api/v2/neo3',
+    };
   }
 
   private async withRpc<T>(action: (client: RpcClient) => Promise<T>): Promise<T> {
@@ -787,11 +870,11 @@ export class RpcNeoClient implements NeoClient {
       }
 
       const wait = Math.pow(2, attempt) * 200;
-      this.logger.warn(`RPC call failed (attempt ${attempt + 1}). Retrying in ${wait}ms.`);
+      this.logger.warn(`Dora API call failed (attempt ${attempt + 1}). Retrying in ${wait}ms.`);
       await sleep(wait);
       attempt += 1;
     }
 
-    throw lastError ?? new Error('RPC request failed');
+    throw lastError ?? new Error('Dora API request failed');
   }
 }
