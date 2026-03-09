@@ -1,4 +1,4 @@
-import React from 'react';
+import type React from 'react';
 import type { DateRangeFormProps } from './DateRangeForm.types';
 import { delayStyle } from '../utils';
 

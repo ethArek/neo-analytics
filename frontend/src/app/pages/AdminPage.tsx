@@ -1,4 +1,4 @@
-import React from 'react';
+import type React from 'react';
 import { delayStyle, getPageData } from '../utils';
 import type { AdminData } from '../types';
 

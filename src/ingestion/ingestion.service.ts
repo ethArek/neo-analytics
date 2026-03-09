@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import type { ConfigService } from '@nestjs/config';
 import { ClassifiedType, classifyTransaction, defaultSwapMethods } from '../classifier/classifier';
 import { PrismaService } from '../common/prisma.service';
 import type { NeoClient, NeoTransaction, NeoTransfer } from '../neo-client/neo-client.interface';
@@ -912,7 +912,7 @@ export class IngestionService {
 
     try {
       return BigInt(value);
-    } catch (error) {
+    } catch (_error) {
       return null;
     }
   }
@@ -1014,7 +1014,7 @@ export class IngestionService {
 
       try {
         return new Prisma.Decimal(trimmed);
-      } catch (error) {
+      } catch (_error) {
         return null;
       }
     }
@@ -1112,7 +1112,7 @@ export class IngestionService {
     } else if (this.neoClient.resolveAssetDecimals) {
       try {
         resolved = await this.neoClient.resolveAssetDecimals(asset);
-      } catch (error) {
+      } catch (_error) {
         resolved = null;
       }
     }

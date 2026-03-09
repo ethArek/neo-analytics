@@ -1,6 +1,6 @@
 import { wallet, u } from '@cityofzion/neon-js';
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../common/prisma.service';
+import type { PrismaService } from '../common/prisma.service';
 import { decimalToBigInt } from '../common/prisma-decimal';
 import { parseDate } from '../ingestion/date-utils';
 import type {
@@ -336,7 +336,7 @@ export class StatsService {
   private safeGetAddressFromScriptHash(scriptHash: string): string | null {
     try {
       return wallet.getAddressFromScriptHash(scriptHash);
-    } catch (error) {
+    } catch (_error) {
       return null;
     }
   }

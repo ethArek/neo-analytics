@@ -1,4 +1,4 @@
-import React from 'react';
+import type React from 'react';
 import type { NavbarProps } from './Navbar.types';
 import { delayStyle } from '../utils';
 
@@ -17,7 +17,8 @@ export const Navbar: React.FC<NavbarProps> = ({ nav }) => (
         Dashboard
       </a>
       <a className={navClass(nav?.defi)} href="/defi">
-        DeFi
+        <span>DeFi</span>
+        <span className="nav-badge">new</span>
       </a>
       <a className={navClass(nav?.faq)} href="/faq">
         FAQ

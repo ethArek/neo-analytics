@@ -1,7 +1,7 @@
 import { api } from '@cityofzion/dora-ts';
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import {
+import type { ConfigService } from '@nestjs/config';
+import type {
   NeoClient,
   NeoInvocation,
   NeoPagedResponse,
@@ -249,7 +249,7 @@ export class RpcNeoClient implements NeoClient {
       this.assetDecimalsCache.set(assetHash, decimals);
 
       return decimals;
-    } catch (error) {
+    } catch (_error) {
       return null;
     }
   }
@@ -268,7 +268,7 @@ export class RpcNeoClient implements NeoClient {
       }
 
       return trimmed;
-    } catch (error) {
+    } catch (_error) {
       return null;
     }
   }
@@ -287,7 +287,7 @@ export class RpcNeoClient implements NeoClient {
       }
 
       return trimmed;
-    } catch (error) {
+    } catch (_error) {
       return null;
     }
   }
@@ -430,7 +430,7 @@ export class RpcNeoClient implements NeoClient {
       const blockTime = this.toTimestampMs(block.time);
 
       return blockTime;
-    } catch (error) {
+    } catch (_error) {
       return null;
     }
   }
@@ -869,7 +869,7 @@ export class RpcNeoClient implements NeoClient {
         }
       }
 
-      const wait = Math.pow(2, attempt) * 200;
+      const wait = 2 ** attempt * 200;
       this.logger.warn(`Dora API call failed (attempt ${attempt + 1}). Retrying in ${wait}ms.`);
       await sleep(wait);
       attempt += 1;

@@ -1,4 +1,3 @@
-import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { AdminLoginPage } from './AdminLoginPage';
 import type { AdminLoginData } from '../types';

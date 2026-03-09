@@ -1,4 +1,3 @@
-import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import { DashboardPage } from './DashboardPage';
 import { initDashboardCharts } from '../../charts/dashboard';
@@ -93,18 +92,9 @@ describe('DashboardPage', () => {
     expect(screen.getByText('receiver-1')).toBeInTheDocument();
     expect(screen.getByText('Asset transfer volume')).toBeInTheDocument();
     expect(screen.getByText('33 transfers')).toBeInTheDocument();
-    expect(screen.getByText('DeFi metrics')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Open DeFi page' })).toHaveAttribute(
-      'href',
-      '/defi?from=2024-01-01&to=2024-01-01',
-    );
     expect(screen.getByRole('link', { name: 'Daily table' })).toHaveAttribute(
       'href',
       '/days?from=2024-01-01&to=2024-01-01',
-    );
-    expect(screen.getByRole('link', { name: 'DeFi page' })).toHaveAttribute(
-      'href',
-      '/defi?from=2024-01-01&to=2024-01-01',
     );
   });
 });

@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
-import { IngestionService } from './ingestion.service';
+import type { IngestionService } from './ingestion.service';
 import { yesterdayInTimeZone } from './date-utils';
 
 const WARSAW_TIME_ZONE = 'Europe/Warsaw';

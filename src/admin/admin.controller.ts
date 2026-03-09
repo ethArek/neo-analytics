@@ -1,8 +1,8 @@
 import { Body, Controller, Get, Post, Req, Res } from '@nestjs/common';
 import { ApiExcludeController } from '@nestjs/swagger';
-import { Request, Response } from 'express';
-import { AdminService } from './admin.service';
-import { IngestionService } from '../ingestion/ingestion.service';
+import type { Request, Response } from 'express';
+import type { AdminService } from './admin.service';
+import type { IngestionService } from '../ingestion/ingestion.service';
 import { formatDate, parseDate, yesterdayInTimeZone } from '../ingestion/date-utils';
 import { renderReactPage } from '../web/react-view';
 
@@ -113,7 +113,7 @@ export class AdminController {
           },
         }),
       );
-    } catch (error) {
+    } catch (_error) {
       res.status(500);
       return res.send(
         renderReactPage({

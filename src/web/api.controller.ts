@@ -1,10 +1,10 @@
 import { Body, Controller, Get, Headers, Logger, Post, Query } from '@nestjs/common';
 import { ApiExcludeEndpoint, ApiQuery, ApiTags } from '@nestjs/swagger';
-import { ConfigService } from '@nestjs/config';
+import type { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { formatDate, parseDate, yesterdayInTimeZone } from '../ingestion/date-utils';
-import { IngestionService } from '../ingestion/ingestion.service';
-import { StatsService } from '../stats/stats.service';
+import type { IngestionService } from '../ingestion/ingestion.service';
+import type { StatsService } from '../stats/stats.service';
 
 @ApiTags('stats')
 @Controller('api')
@@ -242,23 +242,24 @@ export class ApiController {
 
   private sumStats(stats: Array<Awaited<ReturnType<StatsService['getLatestStats']>>[number]>) {
     return stats.reduce(
-      (acc, stat) => ({
-        ...acc,
-        totalTxCount: acc.totalTxCount + stat.totalTxCount,
-        swapsCount: acc.swapsCount + stat.swapsCount,
-        swapsUsdValue: this.addDecimalStrings(acc.swapsUsdValue, stat.swapsUsdValue),
-        transfersCount: acc.transfersCount + stat.transfersCount,
-        gasClaimsCount: acc.gasClaimsCount + stat.gasClaimsCount,
-        othersCount: acc.othersCount + stat.othersCount,
-        realUsageTotal: acc.realUsageTotal + stat.realUsageTotal,
-        totalTransfers: acc.totalTransfers + stat.totalTransfers,
-        uniqueSenders: acc.uniqueSenders + stat.uniqueSenders,
-        uniqueReceivers: acc.uniqueReceivers + stat.uniqueReceivers,
-        uniqueAddresses: acc.uniqueAddresses + stat.uniqueAddresses,
-        neoVolumeRaw: acc.neoVolumeRaw + stat.neoVolumeRaw,
-        gasVolumeRaw: acc.gasVolumeRaw + stat.gasVolumeRaw,
-        blockCount: acc.blockCount + stat.blockCount,
-      }),
+      (acc, stat) => {
+        acc.totalTxCount += stat.totalTxCount;
+        acc.swapsCount += stat.swapsCount;
+        acc.swapsUsdValue = this.addDecimalStrings(acc.swapsUsdValue, stat.swapsUsdValue);
+        acc.transfersCount += stat.transfersCount;
+        acc.gasClaimsCount += stat.gasClaimsCount;
+        acc.othersCount += stat.othersCount;
+        acc.realUsageTotal += stat.realUsageTotal;
+        acc.totalTransfers += stat.totalTransfers;
+        acc.uniqueSenders += stat.uniqueSenders;
+        acc.uniqueReceivers += stat.uniqueReceivers;
+        acc.uniqueAddresses += stat.uniqueAddresses;
+        acc.neoVolumeRaw += stat.neoVolumeRaw;
+        acc.gasVolumeRaw += stat.gasVolumeRaw;
+        acc.blockCount += stat.blockCount;
+
+        return acc;
+      },
       {
         date: stats[0]?.date ?? new Date(),
         totalTxCount: 0,

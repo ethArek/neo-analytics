@@ -203,7 +203,7 @@ export const classifyTransaction = (
   const gasClaimTransfer = transfers.find(
     (transfer) => transfer.asset === 'GAS' && (!transfer.from || transfer.from.trim() === ''),
   );
-  if (gasClaimTransfer && gasClaimTransfer.to) {
+  if (gasClaimTransfer?.to) {
     return {
       type: ClassifiedType.GAS_CLAIM,
       from: gasClaimTransfer.from,

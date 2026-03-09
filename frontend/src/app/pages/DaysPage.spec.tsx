@@ -1,4 +1,3 @@
-import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { DaysPage } from './DaysPage';
 import type { DaysData } from '../types';

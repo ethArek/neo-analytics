@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 import type { NeoTransaction } from '../neo-client/neo-client.interface';
 import type {
   DailyAssetStatRecord,

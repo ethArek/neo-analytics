@@ -1,4 +1,4 @@
-import React from 'react';
+import type React from 'react';
 import { getPageName } from './utils';
 import { DashboardPage } from './pages/DashboardPage';
 import { DefiPage } from './pages/DefiPage';

@@ -1,4 +1,5 @@
-import React, { useEffect } from 'react';
+import type React from 'react';
+import { useEffect } from 'react';
 import { DateRangeForm } from '../components/DateRangeForm';
 import { Navbar } from '../components/Navbar';
 import { buildPageHref, delayStyle, ensureArray, getPageData } from '../utils';
@@ -8,7 +9,6 @@ import { initDashboardCharts } from '../../charts/dashboard';
 export const DashboardPage: React.FC = () => {
   const data = getPageData<DashboardData>();
   const totals = data.totals;
-  const defiCard = data.defiCard;
   const rangeFrom = data.rangeFrom ?? '';
   const rangeTo = data.rangeTo ?? '';
   const rangeLabel = data.rangeLabel ?? '';
@@ -16,7 +16,6 @@ export const DashboardPage: React.FC = () => {
   const topReceivers = ensureArray(data.topReceivers);
   const assetBreakdown = ensureArray(data.assetBreakdown);
   const daysHref = buildPageHref('/days', { from: rangeFrom, to: rangeTo });
-  const defiHref = defiCard?.href ?? buildPageHref('/defi', { from: rangeFrom, to: rangeTo });
 
   useEffect(() => {
     if (data.chartData) {
@@ -43,14 +42,6 @@ export const DashboardPage: React.FC = () => {
             <span>Transactions excluding Gas Claims</span>
             <strong>{totals?.realUsage}</strong>
             <small>Swaps + transfers</small>
-          </div>
-          <div className="card" data-animate style={delayStyle('0.15s')}>
-            <span>DeFi metrics</span>
-            <strong>{defiCard?.headline}</strong>
-            <small>{defiCard?.description}</small>
-            <a className="card-link" href={defiHref}>
-              Open DeFi page
-            </a>
           </div>
           <div className="card" data-animate style={delayStyle('0.2s')}>
             <span>Active addresses</span>
@@ -81,9 +72,6 @@ export const DashboardPage: React.FC = () => {
           <div className="hero-links">
             <a className="button secondary" href={daysHref}>
               Daily table
-            </a>
-            <a className="button secondary" href={defiHref}>
-              DeFi page
             </a>
             <span className="pill">{rangeLabel}</span>
           </div>

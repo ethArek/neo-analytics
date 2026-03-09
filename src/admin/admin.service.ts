@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { randomBytes, scryptSync, timingSafeEqual } from 'crypto';
-import { PrismaService } from '../common/prisma.service';
+import type { PrismaService } from '../common/prisma.service';
 
 const SESSION_TOKEN_BYTES = 32;
 const PASSWORD_HASH_LENGTH = 64;
