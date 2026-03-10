@@ -218,6 +218,33 @@ export class ApiController {
     return { status: 'ok', from, to: endDate, days: days.length };
   }
 
+  @Post('jobs/backfill-swap-usd')
+  @ApiExcludeEndpoint()
+  async backfillSwapUsd(
+    @Body('from') from: string,
+    @Body('to') to: string | undefined,
+    @Headers('x-admin-token') token?: string,
+  ) {
+    const adminToken = this.configService.get<string>('app.adminToken');
+    if (!adminToken || token !== adminToken) {
+      return { status: 'error', message: 'Unauthorized' };
+    }
+
+    if (!from) {
+      return { status: 'error', message: 'from is required' };
+    }
+
+    const result = await this.ingestionService.backfillSwapUsdValues(from, to);
+
+    return {
+      status: 'ok',
+      from,
+      to: result.to,
+      days: result.days,
+      transactions: result.transactions,
+    };
+  }
+
   @Post('jobs/backfill-10-minutes')
   @ApiExcludeEndpoint()
   async backfillTenMinutes(@Body('from') from?: string, @Headers('x-admin-token') token?: string) {

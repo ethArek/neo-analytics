@@ -1,5 +1,5 @@
+import type { DailyStat, DailyTransfer, DailyTx, IngestionCursor, Prisma } from '@prisma/client';
 import type { ClassifiedType } from '../classifier/classifier';
-import type { DailyStat, IngestionCursor, Prisma } from '@prisma/client';
 
 export type DailyTxRecord = {
   date: Date;
@@ -86,6 +86,13 @@ export type DailyStatUpsertRecord = Omit<DailyStatRecord, 'neoVolumeRaw' | 'gasV
   gasVolumeRaw: string;
 };
 
+export type DailyTxSwapUsdRecord = Pick<DailyTx, 'date' | 'txid' | 'swapUsdValue'>;
+
+export type DailyTransferPricingRecord = Pick<
+  DailyTransfer,
+  'txid' | 'transferIndex' | 'asset' | 'amountRaw' | 'from' | 'to'
+>;
+
 export type IngestionPrismaClient = {
   dailyTx: {
     createMany: (args: {
@@ -93,6 +100,19 @@ export type IngestionPrismaClient = {
       skipDuplicates?: boolean;
     }) => Promise<Prisma.BatchPayload>;
     deleteMany: (args: { where: { date: Date } }) => Promise<Prisma.BatchPayload>;
+    findMany: (args: {
+      where: {
+        date: Date;
+        type?: 'SWAP';
+      };
+      orderBy?: Array<{ txid: 'asc' }>;
+      select?: {
+        date?: boolean;
+        txid?: boolean;
+        swapUsdValue?: boolean;
+      };
+    }) => Promise<DailyTxSwapUsdRecord[]>;
+    update: (args: { where: { txid: string }; data: { swapUsdValue: string } }) => Promise<DailyTx>;
   };
   dailyTransfer: {
     createMany: (args: {
@@ -100,6 +120,13 @@ export type IngestionPrismaClient = {
       skipDuplicates?: boolean;
     }) => Promise<Prisma.BatchPayload>;
     deleteMany: (args: { where: { date: Date } }) => Promise<Prisma.BatchPayload>;
+    findMany: (args: {
+      where: {
+        date: Date;
+        txid?: { in: string[] };
+      };
+      orderBy?: Array<{ txid: 'asc' } | { transferIndex: 'asc' }>;
+    }) => Promise<DailyTransferPricingRecord[]>;
   };
   dailyAssetStat: {
     createMany: (args: { data: DailyAssetStatCreateRecord[] }) => Promise<Prisma.BatchPayload>;
@@ -115,10 +142,24 @@ export type IngestionPrismaClient = {
   };
   dailyStat: {
     findUnique: (args: { where: { date: Date } }) => Promise<DailyStat | null>;
+    findMany: (args: {
+      where: {
+        date: {
+          gte: Date;
+          lte?: Date;
+        };
+      };
+      orderBy: { date: 'asc' };
+      select?: { date?: boolean };
+    }) => Promise<Array<Pick<DailyStat, 'date'>>>;
     upsert: (args: {
       where: { date: Date };
       update: DailyStatUpsertRecord;
       create: DailyStatUpsertRecord;
+    }) => Promise<DailyStat>;
+    update: (args: {
+      where: { date: Date };
+      data: { swapsUsdValue: string };
     }) => Promise<DailyStat>;
     deleteMany: (args: { where: { date: Date } }) => Promise<Prisma.BatchPayload>;
   };

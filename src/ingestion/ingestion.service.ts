@@ -26,11 +26,14 @@ import type {
   DailyStatRecord,
   DailyStatUpsertRecord,
   DailyTransferCreateRecord,
+  DailyTransferPricingRecord,
   DailyTransferRecord,
   DailyTxCreateRecord,
   DailyTxRecord,
   IngestionPrismaClient,
 } from './ingestion.types';
+
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
 @Injectable()
 export class IngestionService {
@@ -187,6 +190,41 @@ export class IngestionService {
     await this.prisma.dailyContractStat.deleteMany({ where: { date: day } });
     await this.prisma.dailyStat.deleteMany({ where: { date: day } });
     await this.ingestDay(date);
+  }
+
+  async backfillSwapUsdValues(
+    from: string,
+    to?: string,
+  ): Promise<{ days: number; transactions: number; to: string | null }> {
+    const start = parseDate(from);
+    const end = to ? parseDate(to) : undefined;
+    const days = await this.prisma.dailyStat.findMany({
+      where: {
+        date: {
+          gte: start,
+          ...(end ? { lte: end } : {}),
+        },
+      },
+      orderBy: { date: 'asc' },
+      select: {
+        date: true,
+      },
+    });
+    let transactions = 0;
+
+    for (const entry of days) {
+      const date = formatDate(entry.date, 'UTC');
+      this.logger.log(`Backfilling swap USD values for ${date}.`);
+      transactions += await this.backfillSwapUsdValuesForDay(entry.date);
+    }
+
+    const lastDay = days[days.length - 1];
+
+    return {
+      days: days.length,
+      transactions,
+      to: lastDay ? formatDate(lastDay.date, 'UTC') : null,
+    };
   }
 
   async ingestWindow(start: Date, end: Date): Promise<void> {
@@ -569,6 +607,78 @@ export class IngestionService {
     });
   }
 
+  private async backfillSwapUsdValuesForDay(day: Date): Promise<number> {
+    const swapTransactions = await this.prisma.dailyTx.findMany({
+      where: {
+        date: day,
+        type: 'SWAP',
+      },
+      orderBy: [{ txid: 'asc' }],
+      select: {
+        date: true,
+        txid: true,
+        swapUsdValue: true,
+      },
+    });
+
+    if (swapTransactions.length === 0) {
+      await this.prisma.dailyStat.update({
+        where: { date: day },
+        data: {
+          swapsUsdValue: this.toUsdStorageValue(new Prisma.Decimal(0)),
+        },
+      });
+
+      return 0;
+    }
+
+    const txids = swapTransactions.map((transaction) => transaction.txid);
+    const transfers = await this.prisma.dailyTransfer.findMany({
+      where: {
+        date: day,
+        txid: { in: txids },
+      },
+      orderBy: [{ txid: 'asc' }, { transferIndex: 'asc' }],
+    });
+    const pricingContext = await this.createSwapPricingContextForDay(day);
+    const transfersByTx = this.groupTransfersForPricing(transfers);
+    const updates: Array<{ txid: string; swapUsdValue: string }> = [];
+    let total = new Prisma.Decimal(0);
+
+    for (const transaction of swapTransactions) {
+      const value = await this.calculateSwapUsdValue(
+        transfersByTx.get(transaction.txid) ?? [],
+        pricingContext,
+      );
+      const swapUsdValue = this.toUsdStorageValue(value);
+      updates.push({
+        txid: transaction.txid,
+        swapUsdValue,
+      });
+      total = total.add(value);
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      for (const update of updates) {
+        await tx.dailyTx.update({
+          where: { txid: update.txid },
+          data: {
+            swapUsdValue: update.swapUsdValue,
+          },
+        });
+      }
+
+      await tx.dailyStat.update({
+        where: { date: day },
+        data: {
+          swapsUsdValue: this.toUsdStorageValue(total),
+        },
+      });
+    });
+
+    return updates.length;
+  }
+
   private async processTransactionBatch(
     transactions: NeoTransaction[],
     state: StreamState,
@@ -926,19 +1036,60 @@ export class IngestionService {
     };
   }
 
+  private async createSwapPricingContextForDay(day: Date): Promise<SwapPricingContext> {
+    const usdPricesByAsset = await this.fetchSwapUsdPricesForTimestamp(day.getTime() + DAY_IN_MS);
+
+    return {
+      usdPricesByAsset,
+      decimalsByAsset: new Map<string, number | null>(),
+    };
+  }
+
   private async fetchSwapUsdPrices(): Promise<Map<string, Prisma.Decimal>> {
     const endpoint = this.configService.get<string>('app.flamingoPriceApiUrl')?.trim();
     if (!endpoint) {
       return new Map();
     }
 
+    return this.fetchSwapUsdPricesFromUrl(endpoint);
+  }
+
+  private async fetchSwapUsdPricesForTimestamp(
+    timestamp: number,
+  ): Promise<Map<string, Prisma.Decimal>> {
+    const latestUrl = this.configService.get<string>('app.flamingoPriceApiUrl')?.trim();
+    if (!latestUrl) {
+      return new Map();
+    }
+
+    const historicalUrl = this.buildHistoricalSwapUsdPriceUrl(latestUrl, timestamp);
+    if (!historicalUrl) {
+      return new Map();
+    }
+
+    return this.fetchSwapUsdPricesFromUrl(historicalUrl);
+  }
+
+  private buildHistoricalSwapUsdPriceUrl(latestUrl: string, timestamp: number): string | null {
+    if (!Number.isFinite(timestamp) || timestamp <= 0) {
+      return null;
+    }
+
+    if (latestUrl.endsWith('/latest')) {
+      return `${latestUrl.slice(0, -'/latest'.length)}/from-timestamp/${Math.floor(timestamp)}`;
+    }
+
+    return `${latestUrl}/from-timestamp/${Math.floor(timestamp)}`;
+  }
+
+  private async fetchSwapUsdPricesFromUrl(url: string): Promise<Map<string, Prisma.Decimal>> {
     const controller = new AbortController();
     const timeout = setTimeout(() => {
       controller.abort();
     }, this.flamingoPriceTimeoutMs);
 
     try {
-      const response = await fetch(endpoint, {
+      const response = await fetch(url, {
         signal: controller.signal,
         headers: {
           Accept: 'application/json',
@@ -1077,6 +1228,25 @@ export class IngestionService {
     }
 
     return total;
+  }
+
+  private groupTransfersForPricing(
+    transfers: DailyTransferPricingRecord[],
+  ): Map<string, NeoTransfer[]> {
+    const transfersByTx = new Map<string, NeoTransfer[]>();
+
+    for (const transfer of transfers) {
+      const existing = transfersByTx.get(transfer.txid) ?? [];
+      existing.push({
+        asset: transfer.asset,
+        amount: transfer.amountRaw.toString(),
+        from: transfer.from ?? undefined,
+        to: transfer.to ?? undefined,
+      });
+      transfersByTx.set(transfer.txid, existing);
+    }
+
+    return transfersByTx;
   }
 
   private resolveUsdPrice(
