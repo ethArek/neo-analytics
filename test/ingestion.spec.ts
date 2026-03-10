@@ -1,5 +1,5 @@
 import { ConfigService } from '@nestjs/config';
-import { type DailyStat, type IngestionCursor, Prisma } from '@prisma/client';
+import { type DailyStat, type DailyTx, type IngestionCursor, Prisma } from '@prisma/client';
 import { IngestionService } from '../src/ingestion/ingestion.service';
 import type {
   DailyAssetStatCreateRecord,
@@ -39,6 +39,47 @@ class FakePrismaService implements IngestionPrismaClient {
 
       return { count: before - after };
     },
+    findMany: async (args: {
+      where: {
+        date: Date;
+        type?: 'SWAP';
+      };
+      orderBy?: Array<{ txid: 'asc' }>;
+      select?: {
+        date?: boolean;
+        txid?: boolean;
+        swapUsdValue?: boolean;
+      };
+    }) => {
+      return this.dailyTxData
+        .filter((tx) => {
+          if (tx.date.getTime() !== args.where.date.getTime()) {
+            return false;
+          }
+
+          if (args.where.type && tx.type !== args.where.type) {
+            return false;
+          }
+
+          return true;
+        })
+        .map((tx) => ({
+          date: tx.date,
+          txid: tx.txid,
+          swapUsdValue:
+            tx.swapUsdValue === null ? null : new Prisma.Decimal(tx.swapUsdValue ?? '0'),
+        }));
+    },
+    update: async (args: { where: { txid: string }; data: { swapUsdValue: string } }) => {
+      const tx = this.dailyTxData.find((entry) => entry.txid === args.where.txid);
+      if (!tx) {
+        throw new Error(`Transaction not found: ${args.where.txid}`);
+      }
+
+      tx.swapUsdValue = args.data.swapUsdValue;
+
+      return this.buildDailyTx(tx);
+    },
   };
 
   dailyTransfer = {
@@ -60,6 +101,34 @@ class FakePrismaService implements IngestionPrismaClient {
       const after = this.dailyTransferData.length;
 
       return { count: before - after };
+    },
+    findMany: async (args: {
+      where: {
+        date: Date;
+        txid?: { in: string[] };
+      };
+      orderBy?: Array<{ txid: 'asc' } | { transferIndex: 'asc' }>;
+    }) => {
+      return this.dailyTransferData
+        .filter((transfer) => {
+          if (transfer.date.getTime() !== args.where.date.getTime()) {
+            return false;
+          }
+
+          if (args.where.txid && !args.where.txid.in.includes(transfer.txid)) {
+            return false;
+          }
+
+          return true;
+        })
+        .map((transfer) => ({
+          txid: transfer.txid,
+          transferIndex: transfer.transferIndex,
+          asset: transfer.asset,
+          amountRaw: new Prisma.Decimal(transfer.amountRaw),
+          from: transfer.from ?? null,
+          to: transfer.to ?? null,
+        }));
     },
   };
 
@@ -124,6 +193,33 @@ class FakePrismaService implements IngestionPrismaClient {
 
       return this.buildDailyStat(where.date, record);
     },
+    findMany: async (args: {
+      where: {
+        date: {
+          gte: Date;
+          lte?: Date;
+        };
+      };
+      orderBy: { date: 'asc' };
+      select?: { date?: boolean };
+    }) => {
+      return Object.entries(this.dailyStatData)
+        .map(([key]) => ({
+          date: new Date(key),
+        }))
+        .filter((record) => {
+          if (record.date < args.where.date.gte) {
+            return false;
+          }
+
+          if (args.where.date.lte && record.date > args.where.date.lte) {
+            return false;
+          }
+
+          return true;
+        })
+        .sort((left, right) => left.date.getTime() - right.date.getTime());
+    },
     upsert: async ({
       where,
       update,
@@ -138,6 +234,21 @@ class FakePrismaService implements IngestionPrismaClient {
       this.dailyStatData[key] = record;
 
       return this.buildDailyStat(where.date, record);
+    },
+    update: async (args: { where: { date: Date }; data: { swapsUsdValue: string } }) => {
+      const key = args.where.date.toISOString();
+      const existing = this.dailyStatData[key];
+      if (!existing) {
+        throw new Error(`Daily stat not found: ${key}`);
+      }
+
+      const nextRecord: DailyStatUpsertRecord = {
+        ...existing,
+        swapsUsdValue: args.data.swapsUsdValue,
+      };
+      this.dailyStatData[key] = nextRecord;
+
+      return this.buildDailyStat(args.where.date, nextRecord);
     },
     deleteMany: async ({ where }: { where: { date: Date } }) => {
       const key = where.date.toISOString();
@@ -169,6 +280,33 @@ class FakePrismaService implements IngestionPrismaClient {
   $transaction = async <T>(callback: (tx: IngestionPrismaClient) => Promise<T>): Promise<T> =>
     callback(this);
 
+  private buildDailyTx(record: DailyTxCreateRecord): DailyTx {
+    return {
+      id: 1,
+      date: record.date,
+      txid: record.txid,
+      timestamp: new Date(record.timestamp),
+      type: record.type,
+      from: record.from ?? null,
+      to: record.to ?? null,
+      asset: record.asset ?? null,
+      amountRaw:
+        record.amountRaw === null || record.amountRaw === undefined
+          ? null
+          : new Prisma.Decimal(record.amountRaw),
+      swapUsdValue:
+        record.swapUsdValue === null || record.swapUsdValue === undefined
+          ? null
+          : new Prisma.Decimal(record.swapUsdValue),
+      transferCount: record.transferCount,
+      method: record.method ?? null,
+      contract: record.contract ?? null,
+      blockIndex: record.blockIndex ?? null,
+      rawJson: this.toJsonValue(record.rawJson),
+      createdAt: new Date(),
+    };
+  }
+
   private buildDailyStat(date: Date, record: DailyStatUpsertRecord): DailyStat {
     const now = new Date();
 
@@ -192,6 +330,10 @@ class FakePrismaService implements IngestionPrismaClient {
       createdAt: now,
       updatedAt: now,
     };
+  }
+
+  private toJsonValue(value: Prisma.InputJsonValue | null | undefined): Prisma.JsonValue {
+    return JSON.parse(JSON.stringify(value ?? null));
   }
 
   private buildIngestionCursor(
