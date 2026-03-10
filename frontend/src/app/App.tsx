@@ -1,13 +1,14 @@
-import React from 'react';
-import { getPageName } from './utils';
+import type React from 'react';
+import { AdminLoginPage } from './pages/AdminLoginPage';
+import { AdminPage } from './pages/AdminPage';
 import { DashboardPage } from './pages/DashboardPage';
-import { DefiPage } from './pages/DefiPage';
-import { DaysPage } from './pages/DaysPage';
 import { DayPage } from './pages/DayPage';
+import { DaysPage } from './pages/DaysPage';
+import { DefiPage } from './pages/DefiPage';
 import { FaqPage } from './pages/FaqPage';
 import { SpecialThanksPage } from './pages/SpecialThanksPage';
-import { AdminPage } from './pages/AdminPage';
-import { AdminLoginPage } from './pages/AdminLoginPage';
+import { ThemeProvider } from './theme';
+import { getPageName } from './utils';
 
 const pages: Record<string, React.FC> = {
   dashboard: DashboardPage,
@@ -24,5 +25,9 @@ export const App: React.FC = () => {
   const page = getPageName();
   const PageComponent = pages[page] ?? DashboardPage;
 
-  return <PageComponent />;
+  return (
+    <ThemeProvider>
+      <PageComponent />
+    </ThemeProvider>
+  );
 };

@@ -1,5 +1,5 @@
-import { ClassifiedType } from '../classifier/classifier';
-import { DailyStat, IngestionCursor, Prisma } from '@prisma/client';
+import type { ClassifiedType } from '../classifier/classifier';
+import type { DailyStat, IngestionCursor, Prisma } from '@prisma/client';
 
 export type DailyTxRecord = {
   date: Date;

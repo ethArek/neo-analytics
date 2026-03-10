@@ -1,4 +1,4 @@
-import React from 'react';
+import type React from 'react';
 import { DateRangeForm } from '../components/DateRangeForm';
 import { Navbar } from '../components/Navbar';
 import { buildPageHref, delayStyle, ensureArray, getPageData } from '../utils';

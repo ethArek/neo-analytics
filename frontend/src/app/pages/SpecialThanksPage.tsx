@@ -1,4 +1,4 @@
-import React from 'react';
+import type React from 'react';
 import { Navbar } from '../components/Navbar';
 import { delayStyle, getPageData } from '../utils';
 import type { DashboardData } from '../types';

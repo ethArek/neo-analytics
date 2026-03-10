@@ -3,7 +3,7 @@ import {
   ClassifiedType,
   defaultSwapMethods,
 } from '../src/classifier/classifier';
-import { NeoTransaction } from '../src/neo-client/neo-client.interface';
+import type { NeoTransaction } from '../src/neo-client/neo-client.interface';
 
 describe('classifier', () => {
   const config = {

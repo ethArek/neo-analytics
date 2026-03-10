@@ -1,7 +1,7 @@
-import React from 'react';
 import { render, screen } from '@testing-library/react';
-import { DayPage } from './DayPage';
+import { ThemeProvider } from '../theme';
 import type { DayData } from '../types';
+import { DayPage } from './DayPage';
 
 describe('DayPage', () => {
   beforeEach(() => {
@@ -65,7 +65,11 @@ describe('DayPage', () => {
 
     window.__PAGE_DATA__ = data;
 
-    render(<DayPage />);
+    render(
+      <ThemeProvider>
+        <DayPage />
+      </ThemeProvider>,
+    );
 
     expect(screen.getByText('Day details: 2024-01-01')).toBeInTheDocument();
     expect(screen.getByText('Asset transfer volume')).toBeInTheDocument();
@@ -91,7 +95,11 @@ describe('DayPage', () => {
 
     window.__PAGE_DATA__ = data;
 
-    render(<DayPage />);
+    render(
+      <ThemeProvider>
+        <DayPage />
+      </ThemeProvider>,
+    );
 
     expect(screen.getByText('No stats found for this day.')).toBeInTheDocument();
   });

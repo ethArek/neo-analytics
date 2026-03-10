@@ -1,7 +1,7 @@
-import React from 'react';
 import { render, screen } from '@testing-library/react';
-import { AdminLoginPage } from './AdminLoginPage';
+import { ThemeProvider } from '../theme';
 import type { AdminLoginData } from '../types';
+import { AdminLoginPage } from './AdminLoginPage';
 
 describe('AdminLoginPage', () => {
   beforeEach(() => {
@@ -16,7 +16,11 @@ describe('AdminLoginPage', () => {
 
     window.__PAGE_DATA__ = data;
 
-    render(<AdminLoginPage />);
+    render(
+      <ThemeProvider>
+        <AdminLoginPage />
+      </ThemeProvider>,
+    );
 
     expect(screen.getByText('Admin access')).toBeInTheDocument();
     expect(screen.getByText('Invalid credentials.')).toBeInTheDocument();

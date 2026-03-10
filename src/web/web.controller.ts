@@ -2,15 +2,16 @@ import { Controller, Get, Inject, Param, Query, Redirect, Res } from '@nestjs/co
 import { ConfigService } from '@nestjs/config';
 import { ApiExcludeController } from '@nestjs/swagger';
 import { Prisma } from '@prisma/client';
-import { Response } from 'express';
+import type { Response } from 'express';
 import { formatDate } from '../ingestion/date-utils';
-import { NeoClient } from '../neo-client/neo-client.interface';
+import type { NeoClient } from '../neo-client/neo-client.interface';
 import { NEO_CLIENT } from '../neo-client/neo-client.provider';
 import { StatsService } from '../stats/stats.service';
 import { formatNumber, formatUnits, toNumber } from '../stats/stats.utils';
 import { countInclusiveDays, normalizeIsoDate, resolveDefiWindow } from './defi-metrics';
-import { renderReactPage } from './react-view';
 import type { DefiWindowStatus } from './defi-metrics.types';
+import { renderReactPage } from './react-view';
+import { TokenPerformanceService } from './token-performance.service';
 import type {
   DashboardDefiCard,
   DefiBanner,
@@ -29,9 +30,11 @@ export class WebController {
   private readonly maxDayPageSize = 200;
 
   constructor(
-    private readonly statsService: StatsService,
+    @Inject(StatsService) private readonly statsService: StatsService,
     @Inject(NEO_CLIENT) private readonly neoClient: NeoClient,
-    private readonly configService: ConfigService,
+    @Inject(ConfigService) private readonly configService: ConfigService,
+    @Inject(TokenPerformanceService)
+    private readonly tokenPerformanceService: TokenPerformanceService,
   ) {}
 
   @Get('/favicon.ico')
@@ -165,11 +168,10 @@ export class WebController {
 
   @Get('/defi')
   async defi(@Res() res: Response, @Query('from') from?: string, @Query('to') to?: string) {
-    const { stats: latestStats } = await this.statsService.getRangeOrLatest(
-      undefined,
-      undefined,
-      30,
-    );
+    const [{ stats: latestStats }, tokenPerformance] = await Promise.all([
+      this.statsService.getRangeOrLatest(undefined, undefined, 30),
+      this.tokenPerformanceService.getDashboardTokenPerformance(),
+    ]);
     const availableFrom = this.getDefiMetricsAvailableFrom();
     const defaultRange = this.buildDefaultDefiRange(latestStats, availableFrom);
     const window = resolveDefiWindow({
@@ -208,6 +210,7 @@ export class WebController {
           nav: {
             defi: true,
           },
+          tokenPerformance,
           status: window.status,
           availabilityFrom: window.availableFrom ?? '',
           requestedFrom: window.requestedFrom ?? '',
@@ -553,6 +556,7 @@ export class WebController {
 
     return 'Not available';
   }
+
   private emptyTotals(): StatTotals {
     return {
       totalTxCount: 0,
@@ -822,7 +826,7 @@ export class WebController {
     let decimalValue: Prisma.Decimal;
     try {
       decimalValue = value instanceof Prisma.Decimal ? value : new Prisma.Decimal(value);
-    } catch (error) {
+    } catch (_error) {
       return '$0.00';
     }
 

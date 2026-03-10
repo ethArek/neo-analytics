@@ -1,4 +1,4 @@
-import { api } from '@cityofzion/dora-ts';
+import type { api } from '@cityofzion/dora-ts';
 
 export type RpcClient = InstanceType<typeof api.NeoRESTApi>;
 

@@ -12,6 +12,7 @@ import { WebController } from './web/web.controller';
 import { ApiController } from './web/api.controller';
 import { AdminController } from './admin/admin.controller';
 import { AdminService } from './admin/admin.service';
+import { TokenPerformanceService } from './web/token-performance.service';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { AdminService } from './admin/admin.service';
     IngestionJob,
     StatsService,
     AdminService,
+    TokenPerformanceService,
     {
       provide: NEO_CLIENT,
       useClass: RpcNeoClient,

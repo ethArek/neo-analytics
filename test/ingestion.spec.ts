@@ -1,7 +1,7 @@
 import { ConfigService } from '@nestjs/config';
-import { DailyStat, IngestionCursor, Prisma } from '@prisma/client';
+import { type DailyStat, type IngestionCursor, Prisma } from '@prisma/client';
 import { IngestionService } from '../src/ingestion/ingestion.service';
-import {
+import type {
   DailyAssetStatCreateRecord,
   DailyContractStatRecord,
   DailyMethodStatRecord,
@@ -10,7 +10,7 @@ import {
   DailyTxCreateRecord,
   IngestionPrismaClient,
 } from '../src/ingestion/ingestion.types';
-import { NeoClient } from '../src/neo-client/neo-client.interface';
+import type { NeoClient } from '../src/neo-client/neo-client.interface';
 
 class FakePrismaService implements IngestionPrismaClient {
   dailyTxData: DailyTxCreateRecord[] = [];

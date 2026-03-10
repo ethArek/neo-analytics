@@ -20,6 +20,26 @@ export type DashboardDefiCard = {
   description: string;
 };
 
+export type DashboardTokenPerformanceEntry = {
+  symbol: string;
+  detail: string;
+  changeLabel: string;
+  tone: 'positive' | 'negative' | 'neutral';
+};
+
+export type DashboardTokenPerformancePeriod = 'last24h' | 'last7d' | 'last30d';
+
+export type DashboardTokenPerformanceWindow = {
+  label: string;
+  gainers: DashboardTokenPerformanceEntry[];
+  losers: DashboardTokenPerformanceEntry[];
+};
+
+export type DashboardTokenPerformance = Record<
+  DashboardTokenPerformancePeriod,
+  DashboardTokenPerformanceWindow
+>;
+
 export type DashboardAddress = {
   address: string;
   shortAddress: string;
@@ -96,6 +116,7 @@ export type DefiBanner = {
 export type DefiData = {
   nav?: NavState;
   status?: 'ready' | 'partial' | 'unavailable' | 'not-configured' | 'invalid';
+  tokenPerformance?: DashboardTokenPerformance;
   availabilityFrom?: string;
   requestedFrom?: string;
   requestedTo?: string;
@@ -200,11 +221,4 @@ export type AdminLoginData = {
   error?: string;
 };
 
-export type PageData = DashboardData &
-  DefiData &
-  DaysData &
-  DayData &
-  AdminData &
-  AdminLoginData & {
-    nav?: NavState;
-  };
+export type PageData = DashboardData | DefiData | DaysData | DayData | AdminData | AdminLoginData;
