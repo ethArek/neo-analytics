@@ -1,7 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
-import type { IngestionService } from './ingestion.service';
 import { yesterdayInTimeZone } from './date-utils';
+import { IngestionService } from './ingestion.service';
 
 const WARSAW_TIME_ZONE = 'Europe/Warsaw';
 
@@ -11,7 +11,10 @@ export class IngestionJob {
   private isRunning = false;
   private runningDate?: string;
 
-  constructor(private readonly ingestionService: IngestionService) {}
+  constructor(
+    @Inject(IngestionService)
+    private readonly ingestionService: IngestionService,
+  ) {}
 
   @Cron('10 1 * * *', { timeZone: WARSAW_TIME_ZONE })
   async handleCron(): Promise<void> {

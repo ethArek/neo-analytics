@@ -1,10 +1,10 @@
-import { Body, Controller, Get, Headers, Logger, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Inject, Logger, Post, Query } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { ApiExcludeEndpoint, ApiQuery, ApiTags } from '@nestjs/swagger';
-import type { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { formatDate, parseDate, yesterdayInTimeZone } from '../ingestion/date-utils';
-import type { IngestionService } from '../ingestion/ingestion.service';
-import type { StatsService } from '../stats/stats.service';
+import { IngestionService } from '../ingestion/ingestion.service';
+import { StatsService } from '../stats/stats.service';
 
 @ApiTags('stats')
 @Controller('api')
@@ -12,9 +12,9 @@ export class ApiController {
   private readonly logger = new Logger(ApiController.name);
 
   constructor(
-    private readonly statsService: StatsService,
-    private readonly ingestionService: IngestionService,
-    private readonly configService: ConfigService,
+    @Inject(StatsService) private readonly statsService: StatsService,
+    @Inject(IngestionService) private readonly ingestionService: IngestionService,
+    @Inject(ConfigService) private readonly configService: ConfigService,
   ) {}
 
   @Get('stats')

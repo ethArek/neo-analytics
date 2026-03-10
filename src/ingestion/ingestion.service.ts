@@ -1,24 +1,11 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import type { ConfigService } from '@nestjs/config';
+import { ConfigService } from '@nestjs/config';
+import { Prisma } from '@prisma/client';
 import { ClassifiedType, classifyTransaction, defaultSwapMethods } from '../classifier/classifier';
 import { PrismaService } from '../common/prisma.service';
 import type { NeoClient, NeoTransaction, NeoTransfer } from '../neo-client/neo-client.interface';
 import { NEO_CLIENT } from '../neo-client/neo-client.provider';
-import { Prisma } from '@prisma/client';
 import { formatDate, parseDate } from './date-utils';
-import type {
-  DailyAssetStatRecord,
-  DailyAssetStatCreateRecord,
-  DailyContractStatRecord,
-  DailyMethodStatRecord,
-  DailyStatRecord,
-  DailyStatUpsertRecord,
-  DailyTransferRecord,
-  DailyTransferCreateRecord,
-  DailyTxRecord,
-  DailyTxCreateRecord,
-  IngestionPrismaClient,
-} from './ingestion.types';
 import type {
   AssetAggregate,
   BlockIndexState,
@@ -31,6 +18,19 @@ import type {
   SwapPricingContext,
   TransactionBatch,
 } from './ingestion.service.types';
+import type {
+  DailyAssetStatCreateRecord,
+  DailyAssetStatRecord,
+  DailyContractStatRecord,
+  DailyMethodStatRecord,
+  DailyStatRecord,
+  DailyStatUpsertRecord,
+  DailyTransferCreateRecord,
+  DailyTransferRecord,
+  DailyTxCreateRecord,
+  DailyTxRecord,
+  IngestionPrismaClient,
+} from './ingestion.types';
 
 @Injectable()
 export class IngestionService {
@@ -42,7 +42,7 @@ export class IngestionService {
   constructor(
     @Inject(NEO_CLIENT) private readonly neoClient: NeoClient,
     @Inject(PrismaService) private readonly prisma: IngestionPrismaClient,
-    private readonly configService: ConfigService,
+    @Inject(ConfigService) private readonly configService: ConfigService,
   ) {}
 
   async ingestDay(date: string): Promise<void> {

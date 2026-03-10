@@ -1,17 +1,17 @@
 import { Controller, Get, Inject, Param, Query, Redirect, Res } from '@nestjs/common';
-import type { ConfigService } from '@nestjs/config';
+import { ConfigService } from '@nestjs/config';
 import { ApiExcludeController } from '@nestjs/swagger';
 import { Prisma } from '@prisma/client';
 import type { Response } from 'express';
 import { formatDate } from '../ingestion/date-utils';
 import type { NeoClient } from '../neo-client/neo-client.interface';
 import { NEO_CLIENT } from '../neo-client/neo-client.provider';
-import type { StatsService } from '../stats/stats.service';
+import { StatsService } from '../stats/stats.service';
 import { formatNumber, formatUnits, toNumber } from '../stats/stats.utils';
 import { countInclusiveDays, normalizeIsoDate, resolveDefiWindow } from './defi-metrics';
-import { renderReactPage } from './react-view';
-import type { TokenPerformanceService } from './token-performance.service';
 import type { DefiWindowStatus } from './defi-metrics.types';
+import { renderReactPage } from './react-view';
+import { TokenPerformanceService } from './token-performance.service';
 import type {
   DashboardDefiCard,
   DefiBanner,
@@ -30,9 +30,10 @@ export class WebController {
   private readonly maxDayPageSize = 200;
 
   constructor(
-    private readonly statsService: StatsService,
+    @Inject(StatsService) private readonly statsService: StatsService,
     @Inject(NEO_CLIENT) private readonly neoClient: NeoClient,
-    private readonly configService: ConfigService,
+    @Inject(ConfigService) private readonly configService: ConfigService,
+    @Inject(TokenPerformanceService)
     private readonly tokenPerformanceService: TokenPerformanceService,
   ) {}
 

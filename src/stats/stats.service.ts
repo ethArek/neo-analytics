@@ -1,6 +1,6 @@
-import { wallet, u } from '@cityofzion/neon-js';
-import { Injectable } from '@nestjs/common';
-import type { PrismaService } from '../common/prisma.service';
+import { u, wallet } from '@cityofzion/neon-js';
+import { Inject, Injectable } from '@nestjs/common';
+import { PrismaService } from '../common/prisma.service';
 import { decimalToBigInt } from '../common/prisma-decimal';
 import { parseDate } from '../ingestion/date-utils';
 import type {
@@ -19,7 +19,7 @@ import type {
 
 @Injectable()
 export class StatsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   async getLatestStats(limit = 30): Promise<DailyStatWithBigInt[]> {
     const stats = await this.prisma.dailyStat.findMany({

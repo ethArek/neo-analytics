@@ -1,13 +1,13 @@
-import { Injectable } from '@nestjs/common';
-import { randomBytes, scryptSync, timingSafeEqual } from 'crypto';
-import type { PrismaService } from '../common/prisma.service';
+import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
+import { Inject, Injectable } from '@nestjs/common';
+import { PrismaService } from '../common/prisma.service';
 
 const SESSION_TOKEN_BYTES = 32;
 const PASSWORD_HASH_LENGTH = 64;
 
 @Injectable()
 export class AdminService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   async authenticateAdmin(email: string, password: string) {
     const normalizedEmail = this.normalizeEmail(email);

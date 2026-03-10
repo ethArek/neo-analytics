@@ -1,6 +1,6 @@
 import { api } from '@cityofzion/dora-ts';
-import { Injectable, Logger } from '@nestjs/common';
-import type { ConfigService } from '@nestjs/config';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import type {
   NeoClient,
   NeoInvocation,
@@ -16,8 +16,8 @@ import type {
   RpcApplicationLog,
   RpcBlock,
   RpcBlockHeader,
-  RpcBlocksResponse,
   RpcBlockSummary,
+  RpcBlocksResponse,
   RpcClient,
   RpcContractState,
   RpcStackItem,
@@ -49,7 +49,7 @@ export class RpcNeoClient implements NeoClient {
   private readonly assetDecimalsCache = new Map<string, number>();
   private readonly assetDecimalsInFlight = new Map<string, Promise<number | null>>();
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(@Inject(ConfigService) private readonly configService: ConfigService) {
     this.doraNetwork = this.resolveDoraNetwork(this.configService.get<string>('app.neoNetwork'));
     const endpoints = this.configService.get<string[]>('app.doraApiUrls') ?? [];
     if (endpoints.length === 0) {

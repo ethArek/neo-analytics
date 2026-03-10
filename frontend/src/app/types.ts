@@ -221,11 +221,4 @@ export type AdminLoginData = {
   error?: string;
 };
 
-export type PageData = DashboardData &
-  DefiData &
-  DaysData &
-  DayData &
-  AdminData &
-  AdminLoginData & {
-    nav?: NavState;
-  };
+export type PageData = DashboardData | DefiData | DaysData | DayData | AdminData | AdminLoginData;

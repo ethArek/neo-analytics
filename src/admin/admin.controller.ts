@@ -1,10 +1,10 @@
-import { Body, Controller, Get, Post, Req, Res } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Post, Req, Res } from '@nestjs/common';
 import { ApiExcludeController } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
-import type { AdminService } from './admin.service';
-import type { IngestionService } from '../ingestion/ingestion.service';
 import { formatDate, parseDate, yesterdayInTimeZone } from '../ingestion/date-utils';
+import { IngestionService } from '../ingestion/ingestion.service';
 import { renderReactPage } from '../web/react-view';
+import { AdminService } from './admin.service';
 
 const SESSION_COOKIE = 'admin_session';
 const SESSION_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
@@ -13,8 +13,8 @@ const SESSION_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
 @Controller('admin')
 export class AdminController {
   constructor(
-    private readonly adminService: AdminService,
-    private readonly ingestionService: IngestionService,
+    @Inject(AdminService) private readonly adminService: AdminService,
+    @Inject(IngestionService) private readonly ingestionService: IngestionService,
   ) {}
 
   @Get()
