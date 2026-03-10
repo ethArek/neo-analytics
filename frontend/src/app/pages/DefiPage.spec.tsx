@@ -1,7 +1,8 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { DefiPage } from './DefiPage';
 import { initDefiCharts } from '../../charts/defi';
+import { ThemeProvider } from '../theme';
 import type { DefiChartData, DefiData } from '../types';
+import { DefiPage } from './DefiPage';
 
 jest.mock('../../charts/defi', () => ({
   initDefiCharts: jest.fn(),
@@ -125,11 +126,15 @@ describe('DefiPage', () => {
 
     window.__PAGE_DATA__ = data;
 
-    render(<DefiPage />);
+    render(
+      <ThemeProvider>
+        <DefiPage />
+      </ThemeProvider>,
+    );
 
     const mockedInit = jest.mocked(initDefiCharts);
     await waitFor(() => {
-      expect(mockedInit).toHaveBeenCalledWith(chartData);
+      expect(mockedInit).toHaveBeenCalledWith(chartData, 'dark');
     });
 
     expect(screen.getByRole('heading', { name: 'Estimated swap USD value' })).toBeInTheDocument();

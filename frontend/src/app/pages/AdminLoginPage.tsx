@@ -1,6 +1,7 @@
 import type React from 'react';
-import { delayStyle, getPageData } from '../utils';
+import { ThemeToggle } from '../components/ThemeToggle';
 import type { AdminLoginData } from '../types';
+import { delayStyle, getPageData } from '../utils';
 
 export const AdminLoginPage: React.FC = () => {
   const data = getPageData<AdminLoginData>();
@@ -13,6 +14,7 @@ export const AdminLoginPage: React.FC = () => {
           <p className="subtitle">Sign in to manage ingestion runs.</p>
         </div>
         <div className="hero-actions">
+          <ThemeToggle />
           <a className="button secondary" href="/dashboard">
             Back to dashboard
           </a>

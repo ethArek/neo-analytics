@@ -1,14 +1,15 @@
 import type React from 'react';
 import { useEffect, useState } from 'react';
+import { initDefiCharts } from '../../charts/defi';
 import { Navbar } from '../components/Navbar';
-import { delayStyle, ensureArray, getPageData } from '../utils';
+import { useTheme } from '../theme';
 import type {
   DashboardTokenPerformanceEntry,
   DashboardTokenPerformancePeriod,
   DashboardTokenPerformanceWindow,
   DefiData,
 } from '../types';
-import { initDefiCharts } from '../../charts/defi';
+import { delayStyle, ensureArray, getPageData } from '../utils';
 
 const TOKEN_PERFORMANCE_PERIODS: Array<{
   key: DashboardTokenPerformancePeriod;
@@ -32,7 +33,9 @@ const PerformanceCard: React.FC<{
       <div className="performance-card-header">
         <span className="performance-card-label">{title}</span>
         {entry ? (
-          <strong className={`performance-card-change is-${entry.tone}`}>{entry.changeLabel}</strong>
+          <strong className={`performance-card-change is-${entry.tone}`}>
+            {entry.changeLabel}
+          </strong>
         ) : null}
       </div>
       {entry ? (
@@ -59,19 +62,19 @@ const PerformanceWindow: React.FC<{
 };
 
 export const DefiPage: React.FC = () => {
+  const { theme } = useTheme();
   const data = getPageData<DefiData>();
   const dailyStats = ensureArray(data.dailyStats);
   const totals = data.totals;
   const tokenPerformance = data.tokenPerformance;
-  const [selectedPeriod, setSelectedPeriod] =
-    useState<DashboardTokenPerformancePeriod>('last24h');
+  const [selectedPeriod, setSelectedPeriod] = useState<DashboardTokenPerformancePeriod>('last24h');
   const selectedWindow = tokenPerformance ? tokenPerformance[selectedPeriod] : null;
 
   useEffect(() => {
     if (data.chartData && dailyStats.length > 0) {
-      initDefiCharts(data.chartData);
+      initDefiCharts(data.chartData, theme);
     }
-  }, [data.chartData, dailyStats.length]);
+  }, [data.chartData, dailyStats.length, theme]);
 
   return (
     <main className="container">
@@ -107,7 +110,11 @@ export const DefiPage: React.FC = () => {
       ) : null}
 
       {tokenPerformance ? (
-        <section className="summary-section token-performance-section" data-animate style={delayStyle('0.2s')}>
+        <section
+          className="summary-section token-performance-section"
+          data-animate
+          style={delayStyle('0.2s')}
+        >
           <div className="summary-header">
             <div>
               <h2>Token performance</h2>

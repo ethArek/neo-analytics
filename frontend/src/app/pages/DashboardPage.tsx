@@ -1,12 +1,14 @@
 import type React from 'react';
 import { useEffect } from 'react';
+import { initDashboardCharts } from '../../charts/dashboard';
 import { DateRangeForm } from '../components/DateRangeForm';
 import { Navbar } from '../components/Navbar';
-import { buildPageHref, delayStyle, ensureArray, getPageData } from '../utils';
+import { useTheme } from '../theme';
 import type { DashboardData } from '../types';
-import { initDashboardCharts } from '../../charts/dashboard';
+import { buildPageHref, delayStyle, ensureArray, getPageData } from '../utils';
 
 export const DashboardPage: React.FC = () => {
+  const { theme } = useTheme();
   const data = getPageData<DashboardData>();
   const totals = data.totals;
   const rangeFrom = data.rangeFrom ?? '';
@@ -19,9 +21,9 @@ export const DashboardPage: React.FC = () => {
 
   useEffect(() => {
     if (data.chartData) {
-      initDashboardCharts(data.chartData);
+      initDashboardCharts(data.chartData, theme);
     }
-  }, [data.chartData]);
+  }, [data.chartData, theme]);
 
   return (
     <main className="container">

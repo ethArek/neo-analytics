@@ -1,6 +1,7 @@
 import type React from 'react';
-import { delayStyle, getPageData } from '../utils';
+import { ThemeToggle } from '../components/ThemeToggle';
 import type { AdminData } from '../types';
+import { delayStyle, getPageData } from '../utils';
 
 export const AdminPage: React.FC = () => {
   const data = getPageData<AdminData>();
@@ -16,6 +17,7 @@ export const AdminPage: React.FC = () => {
           </div>
         </div>
         <div className="hero-actions">
+          <ThemeToggle />
           <a className="button secondary" href="/dashboard">
             View dashboard
           </a>

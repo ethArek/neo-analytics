@@ -1,7 +1,8 @@
 import { render, screen, waitFor } from '@testing-library/react';
-import { DashboardPage } from './DashboardPage';
 import { initDashboardCharts } from '../../charts/dashboard';
+import { ThemeProvider } from '../theme';
 import type { DashboardChartData, DashboardData } from '../types';
+import { DashboardPage } from './DashboardPage';
 
 jest.mock('../../charts/dashboard', () => ({
   initDashboardCharts: jest.fn(),
@@ -79,11 +80,15 @@ describe('DashboardPage', () => {
 
     window.__PAGE_DATA__ = data;
 
-    render(<DashboardPage />);
+    render(
+      <ThemeProvider>
+        <DashboardPage />
+      </ThemeProvider>,
+    );
 
     const mockedInit = jest.mocked(initDashboardCharts);
     await waitFor(() => {
-      expect(mockedInit).toHaveBeenCalledWith(chartData);
+      expect(mockedInit).toHaveBeenCalledWith(chartData, 'dark');
     });
 
     expect(screen.getByText('Top senders')).toBeInTheDocument();

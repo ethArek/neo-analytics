@@ -1,20 +1,21 @@
 import {
-  Chart,
   ArcElement,
-  BarElement,
   BarController,
+  BarElement,
   CategoryScale,
+  Chart,
+  type ChartConfiguration,
+  type ChartType,
   DoughnutController,
   Filler,
   Legend,
+  LinearScale,
   LineController,
   LineElement,
-  LinearScale,
   PointElement,
   Tooltip,
-  type ChartConfiguration,
-  type ChartType,
 } from 'chart.js';
+import type { Theme } from '../app/theme';
 import type { DashboardChartData } from '../app/types';
 
 Chart.register(
@@ -105,19 +106,37 @@ const createChart = <TType extends ChartType>(
   return new Chart(ctx, config);
 };
 
-export const initDashboardCharts = (data: DashboardChartData) => {
+export const initDashboardCharts = (data: DashboardChartData, theme: Theme = 'light') => {
   if (!data) {
     return;
   }
 
+  const chartInk = getCssVar('--ink', theme === 'dark' ? '#f3f6fb' : '#0a1f14');
+  const chartBorder = getCssVar(
+    '--chart-border',
+    theme === 'dark' ? 'rgba(148, 163, 184, 0.18)' : 'rgba(10, 31, 20, 0.12)',
+  );
+  const chartCard = getCssVar('--card', theme === 'dark' ? '#111827' : '#ffffff');
+  const tooltipBackground = getCssVar(
+    '--tooltip-bg',
+    theme === 'dark' ? 'rgba(2, 6, 23, 0.94)' : 'rgba(10, 31, 20, 0.92)',
+  );
+  const tooltipInk = getCssVar('--tooltip-ink', theme === 'dark' ? '#f3f6fb' : '#ffffff');
+
   Chart.defaults.font.family = '"IBM Plex Sans", "Segoe UI", sans-serif';
-  Chart.defaults.color = '#3d342a';
-  Chart.defaults.borderColor = 'rgba(31, 27, 22, 0.12)';
+  Chart.defaults.color = chartInk;
+  Chart.defaults.borderColor = chartBorder;
   Chart.defaults.elements.point.radius = 3;
   Chart.defaults.elements.point.hoverRadius = 6;
   Chart.defaults.elements.point.hitRadius = 12;
   Chart.defaults.elements.point.borderWidth = 2;
-  Chart.defaults.elements.point.backgroundColor = '#fffdfa';
+  Chart.defaults.elements.point.backgroundColor = chartCard;
+  Chart.defaults.plugins.legend.labels.color = chartInk;
+  Chart.defaults.plugins.tooltip.backgroundColor = tooltipBackground;
+  Chart.defaults.plugins.tooltip.titleColor = tooltipInk;
+  Chart.defaults.plugins.tooltip.bodyColor = tooltipInk;
+  Chart.defaults.plugins.tooltip.borderColor = chartBorder;
+  Chart.defaults.plugins.tooltip.borderWidth = 1;
 
   const accent = getCssVar('--accent', '#16a34a');
 
@@ -444,11 +463,15 @@ export const initDashboardCharts = (data: DashboardChartData) => {
           legend: {
             position: 'bottom',
             labels: {
+              color: chartInk,
               generateLabels: (chartInstance: Chart) => {
                 const baseLabels =
                   Chart.defaults.plugins.legend.labels.generateLabels(chartInstance);
                 if (baseLabels.length !== assetLabels.length) {
-                  return buildLegendItems(chartInstance);
+                  return buildLegendItems(chartInstance).map((item) => ({
+                    ...item,
+                    fontColor: chartInk,
+                  }));
                 }
 
                 return baseLabels.map((item, index) => {
@@ -460,6 +483,7 @@ export const initDashboardCharts = (data: DashboardChartData) => {
 
                   return {
                     ...item,
+                    fontColor: chartInk,
                     text: label,
                   };
                 });

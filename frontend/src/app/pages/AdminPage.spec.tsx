@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
-import { AdminPage } from './AdminPage';
+import { ThemeProvider } from '../theme';
 import type { AdminData } from '../types';
+import { AdminPage } from './AdminPage';
 
 describe('AdminPage', () => {
   beforeEach(() => {
@@ -17,7 +18,11 @@ describe('AdminPage', () => {
 
     window.__PAGE_DATA__ = data;
 
-    render(<AdminPage />);
+    render(
+      <ThemeProvider>
+        <AdminPage />
+      </ThemeProvider>,
+    );
 
     expect(screen.getByText('Admin console')).toBeInTheDocument();
     expect(screen.getByText('admin@example.com')).toBeInTheDocument();

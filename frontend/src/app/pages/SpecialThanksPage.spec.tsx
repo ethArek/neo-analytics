@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
-import { SpecialThanksPage } from './SpecialThanksPage';
+import { ThemeProvider } from '../theme';
 import type { DashboardData } from '../types';
+import { SpecialThanksPage } from './SpecialThanksPage';
 
 describe('SpecialThanksPage', () => {
   beforeEach(() => {
@@ -16,7 +17,11 @@ describe('SpecialThanksPage', () => {
 
     window.__PAGE_DATA__ = data;
 
-    render(<SpecialThanksPage />);
+    render(
+      <ThemeProvider>
+        <SpecialThanksPage />
+      </ThemeProvider>,
+    );
 
     expect(screen.getByRole('heading', { name: 'Special thanks' })).toBeInTheDocument();
     expect(screen.getByText('City of Zion (CoZ)')).toBeInTheDocument();

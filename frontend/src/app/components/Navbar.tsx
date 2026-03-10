@@ -1,6 +1,7 @@
 import type React from 'react';
-import type { NavbarProps } from './Navbar.types';
 import { delayStyle } from '../utils';
+import type { NavbarProps } from './Navbar.types';
+import { ThemeToggle } from './ThemeToggle';
 
 const navClass = (isActive?: boolean) => (isActive ? 'nav-link is-active' : 'nav-link');
 
@@ -12,20 +13,23 @@ export const Navbar: React.FC<NavbarProps> = ({ nav }) => (
         <span className="nav-title">Neo Analytics</span>
       </span>
     </a>
-    <div className="nav-links">
-      <a className={navClass(nav?.dashboard)} href="/dashboard">
-        Dashboard
-      </a>
-      <a className={navClass(nav?.defi)} href="/defi">
-        <span>DeFi</span>
-        <span className="nav-badge">new</span>
-      </a>
-      <a className={navClass(nav?.faq)} href="/faq">
-        FAQ
-      </a>
-      <a className={navClass(nav?.specialThanks)} href="/special-thanks">
-        Special thanks
-      </a>
+    <div className="nav-actions">
+      <div className="nav-links">
+        <a className={navClass(nav?.dashboard)} href="/dashboard">
+          Dashboard
+        </a>
+        <a className={navClass(nav?.defi)} href="/defi">
+          <span>DeFi</span>
+          <span className="nav-badge">new</span>
+        </a>
+        <a className={navClass(nav?.faq)} href="/faq">
+          FAQ
+        </a>
+        <a className={navClass(nav?.specialThanks)} href="/special-thanks">
+          Special thanks
+        </a>
+      </div>
+      <ThemeToggle />
     </div>
   </nav>
 );

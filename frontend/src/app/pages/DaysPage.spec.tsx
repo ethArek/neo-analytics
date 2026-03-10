@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
-import { DaysPage } from './DaysPage';
+import { ThemeProvider } from '../theme';
 import type { DaysData } from '../types';
+import { DaysPage } from './DaysPage';
 
 describe('DaysPage', () => {
   beforeEach(() => {
@@ -27,7 +28,11 @@ describe('DaysPage', () => {
 
     window.__PAGE_DATA__ = data;
 
-    render(<DaysPage />);
+    render(
+      <ThemeProvider>
+        <DaysPage />
+      </ThemeProvider>,
+    );
 
     expect(screen.getByText('Daily activity table')).toBeInTheDocument();
     expect(screen.getByText('2024-01-01')).toBeInTheDocument();
