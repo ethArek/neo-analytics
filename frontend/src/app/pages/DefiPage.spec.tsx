@@ -30,20 +30,6 @@ describe('DefiPage', () => {
       nav: {
         defi: true,
       },
-      availabilityFrom: '2026-03-07',
-      requestedFrom: '2026-03-01',
-      requestedTo: '2026-03-10',
-      effectiveFrom: '2026-03-07',
-      effectiveTo: '2026-03-10',
-      requestedRangeLabel: '2026-03-01 to 2026-03-10',
-      effectiveRangeLabel: '2026-03-07 to 2026-03-10',
-      coverageNote: 'Requested 10 days. Using the DeFi window from 2026-03-07 onward.',
-      banner: {
-        tone: 'warning',
-        statusLabel: 'Partial coverage',
-        title: 'The selected range was clamped to the DeFi launch date.',
-        body: 'Metrics start on 2026-03-07 for this deployment, so the earlier days are excluded.',
-      },
       tokenPerformance: {
         last24h: {
           label: 'Last 24h',
@@ -111,17 +97,6 @@ describe('DefiPage', () => {
         requestedDays: '10',
       },
       chartData,
-      dailyStats: [
-        {
-          dateLabel: '2026-03-07',
-          swapsLabel: '14',
-          swapUsdValue: '$1,200.50',
-        },
-      ],
-      methodology: [
-        'DeFi metrics begin on 2026-03-07 for this deployment.',
-        'Estimated swap USD value sums priced transfer legs.',
-      ],
     };
 
     window.__PAGE_DATA__ = data;

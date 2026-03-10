@@ -27,18 +27,6 @@ describe('DayPage', () => {
           volumeLabel: '20',
         },
       ],
-      methodStats: [
-        {
-          method: 'transfer',
-          txCount: 5,
-        },
-      ],
-      contractStats: [
-        {
-          contract: 'contract-1',
-          txCount: 2,
-        },
-      ],
       transactions: [
         {
           txid: '0x123',
@@ -89,8 +77,6 @@ describe('DayPage', () => {
       stat: null,
       transactions: [],
       assetStats: [],
-      methodStats: [],
-      contractStats: [],
     };
 
     window.__PAGE_DATA__ = data;

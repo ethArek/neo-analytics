@@ -14,12 +14,6 @@ export type DashboardTotals = {
   blocks: string;
 };
 
-export type DashboardDefiCard = {
-  href: string;
-  headline: string;
-  description: string;
-};
-
 export type DashboardTokenPerformanceEntry = {
   symbol: string;
   detail: string;
@@ -74,7 +68,6 @@ export type DashboardChartData = {
 export type DashboardData = {
   nav?: NavState;
   totals?: DashboardTotals;
-  defiCard?: DashboardDefiCard;
   chartData?: DashboardChartData;
   rangeLabel?: string;
   rangeFrom?: string;
@@ -100,36 +93,11 @@ export type DefiChartData = {
   };
 };
 
-export type DefiDailyStat = {
-  dateLabel: string;
-  swapsLabel: string;
-  swapUsdValue: string;
-};
-
-export type DefiBanner = {
-  tone: 'neutral' | 'warning' | 'danger';
-  statusLabel: string;
-  title: string;
-  body: string;
-};
-
 export type DefiData = {
   nav?: NavState;
-  status?: 'ready' | 'partial' | 'unavailable' | 'not-configured' | 'invalid';
   tokenPerformance?: DashboardTokenPerformance;
-  availabilityFrom?: string;
-  requestedFrom?: string;
-  requestedTo?: string;
-  effectiveFrom?: string;
-  effectiveTo?: string;
-  requestedRangeLabel?: string;
-  effectiveRangeLabel?: string;
-  coverageNote?: string;
-  banner?: DefiBanner;
   totals?: DefiTotals;
   chartData?: DefiChartData;
-  dailyStats?: DefiDailyStat[];
-  methodology?: string[];
 };
 
 export type DaysStat = {
@@ -178,16 +146,6 @@ export type DayAssetStat = {
   volumeLabel: string;
 };
 
-export type DayMethodStat = {
-  method: string;
-  txCount: number;
-};
-
-export type DayContractStat = {
-  contract: string;
-  txCount: number;
-};
-
 export type DayPagination = {
   page: number;
   pageSize: number;
@@ -205,8 +163,6 @@ export type DayData = {
   transactions?: DayTransaction[];
   pagination?: DayPagination;
   assetStats?: DayAssetStat[];
-  methodStats?: DayMethodStat[];
-  contractStats?: DayContractStat[];
 };
 
 export type AdminData = {
