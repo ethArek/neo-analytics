@@ -9,7 +9,7 @@ import type {
   DashboardTokenPerformanceWindow,
   DefiData,
 } from '../types';
-import { delayStyle, ensureArray, getPageData } from '../utils';
+import { delayStyle, getPageData } from '../utils';
 
 const TOKEN_PERFORMANCE_PERIODS: Array<{
   key: DashboardTokenPerformancePeriod;
@@ -64,17 +64,16 @@ const PerformanceWindow: React.FC<{
 export const DefiPage: React.FC = () => {
   const { theme } = useTheme();
   const data = getPageData<DefiData>();
-  const dailyStats = ensureArray(data.dailyStats);
   const totals = data.totals;
   const tokenPerformance = data.tokenPerformance;
   const [selectedPeriod, setSelectedPeriod] = useState<DashboardTokenPerformancePeriod>('last24h');
   const selectedWindow = tokenPerformance ? tokenPerformance[selectedPeriod] : null;
 
   useEffect(() => {
-    if (data.chartData && dailyStats.length > 0) {
+    if (data.chartData) {
       initDefiCharts(data.chartData, theme);
     }
-  }, [data.chartData, dailyStats.length, theme]);
+  }, [data.chartData, theme]);
 
   return (
     <main className="container">
@@ -143,7 +142,7 @@ export const DefiPage: React.FC = () => {
         </section>
       ) : null}
 
-      {dailyStats.length > 0 ? (
+      {data.chartData ? (
         <section className="chart-grid">
           <div className="chart-card wide" data-animate style={delayStyle('0.22s')}>
             <div className="chart-title">

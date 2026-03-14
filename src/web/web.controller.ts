@@ -9,16 +9,9 @@ import { NEO_CLIENT } from '../neo-client/neo-client.provider';
 import { StatsService } from '../stats/stats.service';
 import { formatNumber, formatUnits, toNumber } from '../stats/stats.utils';
 import { countInclusiveDays, normalizeIsoDate, resolveDefiWindow } from './defi-metrics';
-import type { DefiWindowStatus } from './defi-metrics.types';
 import { renderReactPage } from './react-view';
 import { TokenPerformanceService } from './token-performance.service';
-import type {
-  DashboardDefiCard,
-  DefiBanner,
-  DefiBannerWindow,
-  DefiCoverageWindow,
-  StatTotals,
-} from './web.controller.types';
+import type { StatTotals } from './web.controller.types';
 
 @ApiExcludeController()
 @Controller()
@@ -94,7 +87,6 @@ export class WebController {
               dashboard: true,
             },
             totals: this.formatTotals(totals),
-            defiCard: this.buildDashboardDefiCard(),
             chartData: this.buildChartData(labeledStats, []),
             rangeLabel: 'No data available',
             rangeFrom: '',
@@ -145,7 +137,6 @@ export class WebController {
             dashboard: true,
           },
           totals: this.formatTotals(totals),
-          defiCard: this.buildDashboardDefiCard(rangeFrom, rangeTo),
           chartData,
           rangeLabel: `${rangeFrom} to ${rangeTo}`,
           rangeFrom,
@@ -211,21 +202,6 @@ export class WebController {
             defi: true,
           },
           tokenPerformance,
-          status: window.status,
-          availabilityFrom: window.availableFrom ?? '',
-          requestedFrom: window.requestedFrom ?? '',
-          requestedTo: window.requestedTo ?? '',
-          effectiveFrom: window.effectiveFrom ?? '',
-          effectiveTo: window.effectiveTo ?? '',
-          requestedRangeLabel: this.formatIsoRangeLabel(window.requestedFrom, window.requestedTo),
-          effectiveRangeLabel: this.formatIsoRangeLabel(window.effectiveFrom, window.effectiveTo),
-          coverageNote: this.buildDefiCoverageNote(
-            window.status,
-            requestedDays,
-            coveredDays,
-            window,
-          ),
-          banner: this.buildDefiBanner(window.status, hasStats, window),
           totals: hasStats
             ? {
                 estimatedSwapUsdValue: this.formatUsd(totalSwapUsdValue),
@@ -236,14 +212,6 @@ export class WebController {
               }
             : null,
           chartData: hasStats ? this.buildDefiChartData(stats) : null,
-          dailyStats: hasStats
-            ? stats.map((stat) => ({
-                dateLabel: formatDate(stat.date),
-                swapsLabel: formatNumber(stat.swapsCount),
-                swapUsdValue: this.formatUsd(stat.swapsUsdValue),
-              }))
-            : [],
-          methodology: this.buildDefiMethodology(window.availableFrom),
         },
       }),
     );
@@ -308,11 +276,13 @@ export class WebController {
   ) {
     const requestedPage = this.parsePositiveInt(page, 1);
     const requestedPageSize = this.resolveDayPageSize(pageSize);
-    const { stat, transactions, assetStats, methodStats, contractStats, pagination } =
-      await this.statsService.getDayDetails(date, {
+    const { stat, transactions, assetStats, pagination } = await this.statsService.getDayDetails(
+      date,
+      {
         page: requestedPage,
         pageSize: requestedPageSize,
-      });
+      },
+    );
     const dayAssets = [
       ...assetStats.map((asset) => asset.asset),
       ...transactions.map((transaction) => transaction.asset),
@@ -362,33 +332,9 @@ export class WebController {
               this.getAssetDecimals(asset.asset, assetDecimalsMap),
             ),
           })),
-          methodStats: methodStats
-            .sort((a, b) => b.txCount - a.txCount)
-            .map((method) => ({
-              method: method.method,
-              txCount: method.txCount,
-            })),
-          contractStats: contractStats
-            .sort((a, b) => b.txCount - a.txCount)
-            .map((contract) => ({
-              contract: contract.contract,
-              txCount: contract.txCount,
-            })),
         },
       }),
     );
-  }
-
-  private buildDashboardDefiCard(from?: string, to?: string): DashboardDefiCard {
-    const availableFrom = this.getDefiMetricsAvailableFrom();
-
-    return {
-      href: this.buildDefiHref(from, to),
-      headline: availableFrom ? `Since ${availableFrom}` : 'Separate page',
-      description: availableFrom
-        ? 'Estimated swap USD metrics live on a separate page with an explicit launch boundary.'
-        : 'DeFi estimates live separately from the core dashboard.',
-    };
   }
 
   private getDefiMetricsAvailableFrom(): string | null {
@@ -416,99 +362,6 @@ export class WebController {
     };
   }
 
-  private buildDefiCoverageNote(
-    status: DefiWindowStatus,
-    requestedDays: number,
-    coveredDays: number,
-    window: DefiCoverageWindow,
-  ): string {
-    if (status === 'partial' && window.effectiveFrom) {
-      return `Requested ${formatNumber(requestedDays)} days. Using ${formatNumber(coveredDays)} published days starting ${window.effectiveFrom}.`;
-    }
-
-    if (status === 'ready') {
-      return `All ${formatNumber(coveredDays)} selected days fall inside the published DeFi window.`;
-    }
-
-    if (status === 'unavailable' && window.availableFrom) {
-      return `DeFi metrics start on ${window.availableFrom}. Select that date or later to view data.`;
-    }
-
-    if (status === 'invalid') {
-      return 'Choose a start date that is on or before the end date.';
-    }
-
-    return 'This page stays empty until a trustworthy DeFi launch boundary is published.';
-  }
-
-  private buildDefiBanner(
-    status: DefiWindowStatus,
-    hasStats: boolean,
-    window: DefiBannerWindow,
-  ): DefiBanner {
-    if (status === 'invalid') {
-      return {
-        tone: 'danger',
-        statusLabel: 'Invalid range',
-        title: 'The selected dates are reversed.',
-        body: 'Use a start date that is on or before the end date to render a DeFi window.',
-      };
-    }
-
-    if (status === 'not-configured') {
-      return {
-        tone: 'neutral',
-        statusLabel: 'Not published',
-        title: 'DeFi metrics are intentionally hidden until a launch date is published.',
-        body: 'The page only opens once this deployment has a trustworthy availability boundary.',
-      };
-    }
-
-    if (status === 'unavailable') {
-      return {
-        tone: 'warning',
-        statusLabel: 'Outside coverage',
-        title: 'The selected range ends before the published DeFi window.',
-        body: window.availableFrom
-          ? `DeFi metrics start on ${window.availableFrom} for this deployment, so this range stays empty.`
-          : 'The selected range is outside the published DeFi window.',
-      };
-    }
-
-    if (status === 'partial') {
-      return {
-        tone: 'warning',
-        statusLabel: 'Partial coverage',
-        title: 'The selected range was clamped to the DeFi launch date.',
-        body:
-          hasStats && window.effectiveFrom && window.effectiveTo
-            ? `Charts and totals use ${window.effectiveFrom} to ${window.effectiveTo}. Earlier requested days are intentionally excluded.`
-            : 'The page clipped the range to the published DeFi window, but no rows have been ingested in that effective range yet.',
-      };
-    }
-
-    return {
-      tone: hasStats ? 'neutral' : 'warning',
-      statusLabel: hasStats ? 'Within coverage' : 'Within coverage',
-      title: hasStats
-        ? 'The selected range is fully inside the DeFi window.'
-        : 'The selected range is valid, but no DeFi rows are available yet.',
-      body: hasStats
-        ? 'This view only includes dates inside the published DeFi window for this deployment.'
-        : 'The range is valid, but no daily DeFi rows have been ingested for it yet.',
-    };
-  }
-
-  private buildDefiMethodology(availableFrom: string | null): string[] {
-    return [
-      availableFrom
-        ? `Trustworthy coverage for this deployment begins on ${availableFrom}. Earlier dates are intentionally excluded.`
-        : 'Trustworthy coverage begins on the published launch date for this deployment.',
-      'Estimated swap USD value sums the priced transfer legs found inside swap-classified transactions.',
-      'Pricing comes from the Flamingo latest feed captured at ingestion time. No retroactive repricing or historical backfill is applied.',
-    ];
-  }
-
   private buildDefiChartData(stats: Awaited<ReturnType<StatsService['getLatestStats']>>) {
     return {
       labels: stats.map((stat) => formatDate(stat.date)),
@@ -517,44 +370,6 @@ export class WebController {
         swaps: stats.map((stat) => stat.swapsCount),
       },
     };
-  }
-
-  private buildDefiHref(from?: string | null, to?: string | null): string {
-    const params = new URLSearchParams();
-    if (from) {
-      params.set('from', from);
-    }
-
-    if (to) {
-      params.set('to', to);
-    }
-
-    const query = params.toString();
-    if (!query) {
-      return '/defi';
-    }
-
-    return `/defi?${query}`;
-  }
-
-  private formatIsoRangeLabel(from?: string | null, to?: string | null): string {
-    if (from && to) {
-      if (from === to) {
-        return from;
-      }
-
-      return `${from} to ${to}`;
-    }
-
-    if (from) {
-      return from;
-    }
-
-    if (to) {
-      return to;
-    }
-
-    return 'Not available';
   }
 
   private emptyTotals(): StatTotals {

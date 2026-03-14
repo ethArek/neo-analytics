@@ -151,6 +151,7 @@ It relies on:
 - `POST /api/jobs/rebuild` with `{ "date": "YYYY-MM-DD" }` and `x-admin-token` header.
 - `POST /api/jobs/backfill` with `{ "from": "YYYY-MM-DD", "to": "YYYY-MM-DD" }` and `x-admin-token` header.
 - `POST /api/jobs/backfill-last-30` with `x-admin-token` header (ingests yesterday + previous 29 days).
+- `POST /api/jobs/backfill-swap-usd` with `{ "from": "YYYY-MM-DD", "to": "YYYY-MM-DD" }` and `x-admin-token` header (recomputes swap USD values for already ingested days using Flamingo historical pricing).
 - `POST /api/jobs/backfill-10-minutes` with optional `{ "from": "YYYY-MM-DDTHH:mm:ssZ" }` and `x-admin-token` header (defaults to last 10 minutes).
 
 ## Admin UI

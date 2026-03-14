@@ -1,5 +1,5 @@
-import { expect, test, type Page, type TestInfo } from '@playwright/test';
-import { join } from 'path';
+import { join } from 'node:path';
+import { expect, type Page, type TestInfo, test } from '@playwright/test';
 import type {
   AdminLoginData,
   DashboardData,
@@ -24,11 +24,6 @@ const dashboardSeed: PageSeed<DashboardData> = {
       neoVolume: '1,234',
       gasVolume: '567',
       blocks: '1,440',
-    },
-    defiCard: {
-      href: '/defi?from=2026-01-01&to=2026-01-07',
-      headline: 'Since 2026-03-07',
-      description: 'Estimated swap USD metrics live on a separate page.',
     },
     rangeLabel: 'Jan 01, 2026 - Jan 07, 2026',
     rangeFrom: '2026-01-01',
@@ -68,21 +63,6 @@ const defiSeed: PageSeed<DefiData> = {
     nav: {
       defi: true,
     },
-    status: 'partial',
-    availabilityFrom: '2026-03-07',
-    requestedFrom: '2026-03-01',
-    requestedTo: '2026-03-10',
-    effectiveFrom: '2026-03-07',
-    effectiveTo: '2026-03-10',
-    requestedRangeLabel: '2026-03-01 to 2026-03-10',
-    effectiveRangeLabel: '2026-03-07 to 2026-03-10',
-    coverageNote: 'Requested 10 days. Using 4 published days starting 2026-03-07.',
-    banner: {
-      tone: 'warning',
-      statusLabel: 'Partial coverage',
-      title: 'The selected range was clamped to the DeFi launch date.',
-      body: 'Charts and totals begin on 2026-03-07 for this deployment.',
-    },
     totals: {
       estimatedSwapUsdValue: '$45,123.90',
       swaps: '321',
@@ -97,23 +77,6 @@ const defiSeed: PageSeed<DefiData> = {
         swaps: [80, 75, 82, 84],
       },
     },
-    dailyStats: [
-      {
-        dateLabel: '2026-03-07',
-        swapsLabel: '80',
-        swapUsdValue: '$12,000.00',
-      },
-      {
-        dateLabel: '2026-03-08',
-        swapsLabel: '75',
-        swapUsdValue: '$9,800.00',
-      },
-    ],
-    methodology: [
-      'Trustworthy coverage for this deployment begins on 2026-03-07.',
-      'Estimated swap USD value sums priced transfer legs.',
-      'No retroactive repricing or historical backfill is applied.',
-    ],
   },
 };
 
@@ -175,26 +138,6 @@ const daySeed: PageSeed<DayData> = {
         assetLabel: 'GAS',
         transferCount: 190,
         volumeLabel: '900',
-      },
-    ],
-    methodStats: [
-      {
-        method: 'swap',
-        txCount: 120,
-      },
-      {
-        method: 'transfer',
-        txCount: 300,
-      },
-    ],
-    contractStats: [
-      {
-        contract: '0x1a2b',
-        txCount: 140,
-      },
-      {
-        contract: '0x3c4d',
-        txCount: 110,
       },
     ],
     transactions: [
