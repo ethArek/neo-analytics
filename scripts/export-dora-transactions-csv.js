@@ -274,7 +274,9 @@ const getPrimaryTransfer = (transfers) => {
     return undefined;
   }
 
-  const primary = transfers.find((transfer) => transfer.asset === 'NEO' || transfer.asset === 'GAS');
+  const primary = transfers.find(
+    (transfer) => transfer.asset === 'NEO' || transfer.asset === 'GAS',
+  );
 
   return primary ?? transfers[0];
 };
@@ -299,7 +301,7 @@ const getNotificationSummary = (raw) => {
           : '';
     const contract =
       typeof notification.contract === 'string'
-        ? normalizeContract(notification.contract) ?? ''
+        ? (normalizeContract(notification.contract) ?? '')
         : '';
 
     if (eventName) {
@@ -544,7 +546,9 @@ const run = async () => {
       ? `Starting Dora export for UTC range ${fetchMode.from.toISOString()} -> ${fetchMode.to.toISOString()}.`
       : `Starting Dora export for UTC day ${fetchMode.day}.`,
   );
-  console.log('This can take a while for a full day because the script scans blocks and application logs.');
+  console.log(
+    'This can take a while for a full day because the script scans blocks and application logs.',
+  );
 
   const { transactions, blockStart, blockEnd } = await fetchTransactions(
     neoClient,
@@ -563,8 +567,7 @@ const run = async () => {
         progress.totalBlocks !== undefined &&
         progress.totalBlocks > 0
           ? `${progress.completedBlocks}/${progress.totalBlocks} blocks (${(
-              (progress.completedBlocks / progress.totalBlocks) *
-              100
+              (progress.completedBlocks / progress.totalBlocks) * 100
             ).toFixed(1)}%)`
           : 'progress pending';
 

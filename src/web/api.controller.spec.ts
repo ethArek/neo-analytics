@@ -84,9 +84,7 @@ describe('ApiController', () => {
         uniqueAddresses: 9,
       },
     });
-    expect(
-      Object.prototype.hasOwnProperty.call(result.totals ?? {}, 'realUsageTotal'),
-    ).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(result.totals ?? {}, 'realUsageTotal')).toBe(false);
   });
 
   it('rejects swap usd backfill when unauthorized', async () => {

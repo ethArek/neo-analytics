@@ -152,7 +152,15 @@ export const initDashboardCharts = (data: DashboardChartData, theme: Theme = 'li
   const totalTxColor = '#2563eb';
   const totalTxRgb = '37, 99, 235';
 
-  const palette = [swapColor, oracleColor, transferColor, gasColor, totalTxColor, '#d946ef', accent];
+  const palette = [
+    swapColor,
+    oracleColor,
+    transferColor,
+    gasColor,
+    totalTxColor,
+    '#d946ef',
+    accent,
+  ];
   const buildPalette = (count: number) => {
     const colors: string[] = [];
     for (let i = 0; i < count; i += 1) {
