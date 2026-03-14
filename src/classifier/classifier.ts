@@ -3,6 +3,7 @@ import type { ClassifiedResult, ClassifierConfig } from './classifier.types';
 
 export enum ClassifiedType {
   SWAP = 'SWAP',
+  ORACLE = 'ORACLE',
   NORMAL_TRANSFER = 'NORMAL_TRANSFER',
   GAS_CLAIM = 'GAS_CLAIM',
   IGNORED = 'IGNORED',
@@ -39,8 +40,16 @@ export const defaultSwapContracts = [
   '0xde3a4b093abbd07e9a69cdec88a54d9a1fe14975',
 ];
 
+export const defaultOracleContracts = [
+  '0x017520f068fd602082fe5572596185e62a4ad991',
+  '0x03013f49c42a14546c8bbe58f9d434c3517fccab',
+];
+
 const swapContractAllowlist = new Set(
   defaultSwapContracts.map((contract) => normalizeHash(contract)),
+);
+const oracleContractAllowlist = new Set(
+  defaultOracleContracts.map((contract) => normalizeHash(contract)),
 );
 
 const isRecord = (value: unknown): value is Record<string, unknown> => {
@@ -49,6 +58,24 @@ const isRecord = (value: unknown): value is Record<string, unknown> => {
 
 const isAllowlistedSwapContract = (contract?: string): boolean => {
   return swapContractAllowlist.has(normalizeHash(contract));
+};
+
+const isAllowlistedOracleContract = (contract?: string): boolean => {
+  return oracleContractAllowlist.has(normalizeHash(contract));
+};
+
+const getNotificationEventName = (notification: Record<string, unknown>): string | null => {
+  const legacyEventName = notification.eventname;
+  if (typeof legacyEventName === 'string') {
+    return legacyEventName;
+  }
+
+  const doraEventName = notification.event_name;
+  if (typeof doraEventName === 'string') {
+    return doraEventName;
+  }
+
+  return null;
 };
 
 const getNotifications = (applicationLog: Record<string, unknown>): Record<string, unknown>[] => {
@@ -118,14 +145,7 @@ const getDexNotificationName = (raw: Record<string, unknown>): string | null => 
 
   const notifications = getNotifications(applicationLog);
   for (const notification of notifications) {
-    const legacyEventName = notification.eventname;
-    const doraEventName = notification.event_name;
-    const eventName =
-      typeof legacyEventName === 'string'
-        ? legacyEventName
-        : typeof doraEventName === 'string'
-          ? doraEventName
-          : null;
+    const eventName = getNotificationEventName(notification);
     if (!eventName) {
       continue;
     }
@@ -137,6 +157,45 @@ const getDexNotificationName = (raw: Record<string, unknown>): string | null => 
       normalized === 'orderupserted'
     ) {
       return eventName;
+    }
+  }
+
+  return null;
+};
+
+const isOracleNotificationName = (eventName: string): boolean => {
+  const normalized = normalize(eventName);
+  if (normalized === 'feedupdated') {
+    return true;
+  }
+
+  return normalized.startsWith('oracle');
+};
+
+const getOracleNotification = (
+  raw: Record<string, unknown>,
+): { contract?: string; eventName?: string } | null => {
+  const applicationLog = raw.applicationLog;
+  if (!isRecord(applicationLog)) {
+    return null;
+  }
+
+  const notifications = getNotifications(applicationLog);
+  for (const notification of notifications) {
+    const eventName = getNotificationEventName(notification) ?? undefined;
+    const contract = typeof notification.contract === 'string' ? notification.contract : undefined;
+    if (eventName && isOracleNotificationName(eventName)) {
+      return {
+        contract,
+        eventName,
+      };
+    }
+
+    if (contract && isAllowlistedOracleContract(contract)) {
+      return {
+        contract,
+        eventName,
+      };
     }
   }
 
@@ -175,6 +234,15 @@ export const classifyTransaction = (
     }
   }
 
+  if (isAllowlistedOracleContract(invocation?.contract)) {
+    return {
+      type: ClassifiedType.ORACLE,
+      from: transfers[0]?.from,
+      to: transfers[0]?.to,
+      reason: `Detected oracle transaction: called known oracle contract (${invocation?.contract}).`,
+    };
+  }
+
   if (isRecord(raw)) {
     const swapContract = getSwapContractNotification(raw);
     if (swapContract) {
@@ -193,6 +261,23 @@ export const classifyTransaction = (
         from: transfers[0]?.from,
         to: transfers[0]?.to,
         reason: `Detected swap: dex notification (${dexNotification}).`,
+      };
+    }
+
+    const oracleNotification = getOracleNotification(raw);
+    if (oracleNotification) {
+      const eventLabel = oracleNotification.eventName
+        ? `${oracleNotification.eventName} notification`
+        : 'notification';
+      const contractLabel = oracleNotification.contract
+        ? ` from ${oracleNotification.contract}`
+        : '';
+
+      return {
+        type: ClassifiedType.ORACLE,
+        from: transfers[0]?.from,
+        to: transfers[0]?.to,
+        reason: `Detected oracle transaction: ${eventLabel}${contractLabel}.`,
       };
     }
   }
@@ -246,6 +331,6 @@ export const classifyTransaction = (
 
   return {
     type: ClassifiedType.IGNORED,
-    reason: 'No matching swap, gas claim, or transfer.',
+    reason: 'No matching swap, oracle, gas claim, or transfer.',
   };
 };

@@ -9,6 +9,8 @@ describe('classifier', () => {
   const config = {
     swapMethodAllowlist: defaultSwapMethods,
   };
+  const oracleContract = '0x017520f068fd602082fe5572596185e62a4ad991';
+  const oracleFeedContract = '0x03013f49c42a14546c8bbe58f9d434c3517fccab';
 
   it('classifies swap when multiple transfers with swap method', () => {
     const tx: NeoTransaction = {
@@ -156,7 +158,33 @@ describe('classifier', () => {
     expect(result.type).toBe(ClassifiedType.SWAP);
   });
 
-  it('classifies non-native token transfers as normal transfer', () => {
+  it.each([
+    ['OracleRequested', oracleContract],
+    ['OracleFulfilled', oracleContract],
+    ['FeedUpdated', oracleFeedContract],
+  ])('classifies oracle when oracle notification is present (%s)', (eventName, contract) => {
+    const tx: NeoTransaction = {
+      txid: `oracle-notification-${eventName}`,
+      timestamp: new Date().toISOString(),
+      transfers: [],
+      raw: {
+        applicationLog: {
+          notifications: [
+            {
+              event_name: eventName,
+              contract,
+            },
+          ],
+        },
+      },
+    };
+
+    const result = classifyTransaction(tx, config);
+    expect(result.type).toBe(ClassifiedType.ORACLE);
+    expect(result.reason).toContain('oracle transaction');
+  });
+
+  it('classifies non-native token transfers as transfer', () => {
     const tx: NeoTransaction = {
       txid: 'token-transfer',
       timestamp: new Date().toISOString(),
@@ -260,5 +288,26 @@ describe('classifier', () => {
 
     const result = classifyTransaction(tx, config);
     expect(result.type).toBe(ClassifiedType.SWAP);
+  });
+
+  it('gives oracle precedence over gas claim and transfer', () => {
+    const tx: NeoTransaction = {
+      txid: 'oracle-overrides-gas-claim',
+      timestamp: new Date().toISOString(),
+      transfers: [{ from: undefined, to: 'oracle-user', asset: 'GAS', amount: '1' }],
+      raw: {
+        applicationLog: {
+          notifications: [
+            {
+              event_name: 'OracleRequested',
+              contract: oracleContract,
+            },
+          ],
+        },
+      },
+    };
+
+    const result = classifyTransaction(tx, config);
+    expect(result.type).toBe(ClassifiedType.ORACLE);
   });
 });
