@@ -91,6 +91,8 @@ describe('DashboardPage', () => {
 
     expect(screen.getByText('Top senders')).toBeInTheDocument();
     expect(screen.getByText('Oracle transactions')).toBeInTheDocument();
+    expect(screen.queryByText('Others')).not.toBeInTheDocument();
+    expect(screen.queryByText('Blocks scanned')).not.toBeInTheDocument();
     expect(screen.getByText('sender-1')).toBeInTheDocument();
     expect(screen.getByText('Top receivers')).toBeInTheDocument();
     expect(screen.getByText('receiver-1')).toBeInTheDocument();

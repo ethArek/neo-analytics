@@ -51,26 +51,17 @@ export const DashboardPage: React.FC = () => {
             <small>Detected oracle and data-feed activity</small>
           </div>
           <div className="card" data-animate style={delayStyle('0.23s')}>
-            <span>Others</span>
-            <strong>{totals?.others}</strong>
-            <small>Ignored transactions only</small>
-          </div>
-          <div className="card" data-animate style={delayStyle('0.26s')}>
             <span>Active addresses</span>
             <strong>{totals?.activeAddresses}</strong>
             <small>Unique senders + receivers</small>
           </div>
-          <div className="card" data-animate style={delayStyle('0.3s')}>
+          <div className="card" data-animate style={delayStyle('0.26s')}>
             <span>NEO volume</span>
             <strong>{totals?.neoVolume} NEO</strong>
           </div>
-          <div className="card" data-animate style={delayStyle('0.35s')}>
+          <div className="card" data-animate style={delayStyle('0.3s')}>
             <span>GAS volume</span>
             <strong>{totals?.gasVolume} GAS</strong>
-          </div>
-          <div className="card" data-animate style={delayStyle('0.4s')}>
-            <span>Blocks scanned</span>
-            <strong>{totals?.blocks}</strong>
           </div>
         </div>
       </section>
