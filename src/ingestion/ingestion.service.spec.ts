@@ -39,6 +39,7 @@ type DailyTransferRow = {
 type DailyStatRow = {
   date: Date;
   swapsUsdValue: string;
+  oracleCount: number;
 };
 
 class PrismaStub {
@@ -66,6 +67,7 @@ class PrismaStub {
     {
       date: new Date('2026-03-01T00:00:00.000Z'),
       swapsUsdValue: '0.00000000',
+      oracleCount: 0,
     },
   ];
 
@@ -192,6 +194,7 @@ class PrismaStub {
         totalTxCount: 1,
         swapsCount: 1,
         swapsUsdValue: new Prisma.Decimal(args.data.swapsUsdValue),
+        oracleCount: 0,
         transfersCount: 0,
         gasClaimsCount: 0,
         othersCount: 0,

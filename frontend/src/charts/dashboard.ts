@@ -142,6 +142,8 @@ export const initDashboardCharts = (data: DashboardChartData, theme: Theme = 'li
 
   const swapColor = '#f97316';
   const swapRgb = '249, 115, 22';
+  const oracleColor = '#8b5cf6';
+  const oracleRgb = '139, 92, 246';
   const transferColor = '#0ea5a4';
   const transferRgb = '14, 165, 164';
   const gasColor = '#f59e0b';
@@ -150,7 +152,7 @@ export const initDashboardCharts = (data: DashboardChartData, theme: Theme = 'li
   const totalTxColor = '#2563eb';
   const totalTxRgb = '37, 99, 235';
 
-  const palette = [swapColor, transferColor, gasColor, totalTxColor, '#d946ef', accent];
+  const palette = [swapColor, oracleColor, transferColor, gasColor, totalTxColor, '#d946ef', accent];
   const buildPalette = (count: number) => {
     const colors: string[] = [];
     for (let i = 0; i < count; i += 1) {
@@ -170,8 +172,8 @@ export const initDashboardCharts = (data: DashboardChartData, theme: Theme = 'li
         labels,
         datasets: [
           {
-            label: 'Neo N3 activity',
-            data: normalizeSeries(series.realUsage, labels.length),
+            label: 'Transactions excluding GAS claims',
+            data: normalizeSeries(series.transactionsExcludingGasClaims, labels.length),
             borderColor: swapColor,
             backgroundColor: withAlpha(swapRgb, 0.2),
             fill: true,
@@ -199,13 +201,28 @@ export const initDashboardCharts = (data: DashboardChartData, theme: Theme = 'li
   const typeCtx = getContext('chart-types');
   if (typeCtx) {
     const swapSeries = normalizeSeries(series.swaps, labels.length);
+    const oracleSeries = normalizeSeries(series.oracle, labels.length);
     const transferSeries = normalizeSeries(series.transfers, labels.length);
     const gasSeries = normalizeSeries(series.gasClaims, labels.length);
     const othersSeries = normalizeSeries(series.others, labels.length);
     const typeTotals = labels.map((_, index) => {
-      return swapSeries[index] + transferSeries[index] + gasSeries[index] + othersSeries[index];
+      return (
+        swapSeries[index] +
+        oracleSeries[index] +
+        transferSeries[index] +
+        gasSeries[index] +
+        othersSeries[index]
+      );
     });
     const swapPercent = swapSeries.map((value, index) => {
+      const total = typeTotals[index];
+      if (total <= 0) {
+        return 0;
+      }
+
+      return (value / total) * 100;
+    });
+    const oraclePercent = oracleSeries.map((value, index) => {
       const total = typeTotals[index];
       if (total <= 0) {
         return 0;
@@ -249,6 +266,11 @@ export const initDashboardCharts = (data: DashboardChartData, theme: Theme = 'li
             backgroundColor: withAlpha(swapRgb, 0.7),
           },
           {
+            label: 'Oracle',
+            data: oraclePercent,
+            backgroundColor: withAlpha(oracleRgb, 0.7),
+          },
+          {
             label: 'Transfers',
             data: transferPercent,
             backgroundColor: withAlpha(transferRgb, 0.7),
@@ -280,7 +302,7 @@ export const initDashboardCharts = (data: DashboardChartData, theme: Theme = 'li
                 const dataIndex = context.dataIndex ?? 0;
                 const total = typeTotals[dataIndex] ?? 0;
                 const label = context.dataset.label ?? '';
-                const counts = [swapSeries, transferSeries, gasSeries, othersSeries];
+                const counts = [swapSeries, oracleSeries, transferSeries, gasSeries, othersSeries];
                 const count = counts[datasetIndex]?.[dataIndex] ?? 0;
                 const percent = total > 0 ? (count / total) * 100 : 0;
 
@@ -342,10 +364,12 @@ export const initDashboardCharts = (data: DashboardChartData, theme: Theme = 'li
   if (totalTxCtx) {
     const fallbackTotalTxs = () =>
       labels.map((_, index) => {
-        const realUsage = toNumberSafe(series.realUsage?.[index]);
+        const transactionsExcludingGasClaims = toNumberSafe(
+          series.transactionsExcludingGasClaims?.[index],
+        );
         const gasClaims = toNumberSafe(series.gasClaims?.[index]);
 
-        return realUsage + gasClaims;
+        return transactionsExcludingGasClaims + gasClaims;
       });
 
     createChart(totalTxCtx, {

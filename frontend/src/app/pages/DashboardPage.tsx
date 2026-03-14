@@ -41,20 +41,30 @@ export const DashboardPage: React.FC = () => {
             <strong>{totals?.totalTxs}</strong>
           </div>
           <div className="card" data-animate style={delayStyle('0.1s')}>
-            <span>Transactions excluding Gas Claims</span>
-            <strong>{totals?.realUsage}</strong>
-            <small>Swaps + transfers</small>
+            <span>Transactions excluding GAS claims</span>
+            <strong>{totals?.transactionsExcludingGasClaims}</strong>
+            <small>Total transactions - GAS claims</small>
           </div>
           <div className="card" data-animate style={delayStyle('0.2s')}>
+            <span>Oracle transactions</span>
+            <strong>{totals?.oracle}</strong>
+            <small>Detected oracle and data-feed activity</small>
+          </div>
+          <div className="card" data-animate style={delayStyle('0.23s')}>
+            <span>Others</span>
+            <strong>{totals?.others}</strong>
+            <small>Ignored transactions only</small>
+          </div>
+          <div className="card" data-animate style={delayStyle('0.26s')}>
             <span>Active addresses</span>
             <strong>{totals?.activeAddresses}</strong>
             <small>Unique senders + receivers</small>
           </div>
-          <div className="card" data-animate style={delayStyle('0.25s')}>
+          <div className="card" data-animate style={delayStyle('0.3s')}>
             <span>NEO volume</span>
             <strong>{totals?.neoVolume} NEO</strong>
           </div>
-          <div className="card" data-animate style={delayStyle('0.3s')}>
+          <div className="card" data-animate style={delayStyle('0.35s')}>
             <span>GAS volume</span>
             <strong>{totals?.gasVolume} GAS</strong>
           </div>
@@ -102,7 +112,7 @@ export const DashboardPage: React.FC = () => {
         </div>
         <div className="chart-card" data-animate style={delayStyle('0.12s')}>
           <div className="chart-title">
-            <h3>Total transactions excluding Gas Claims</h3>
+            <h3>Transactions excluding GAS claims</h3>
             <span>Per day (range)</span>
           </div>
           <div className="chart-area">

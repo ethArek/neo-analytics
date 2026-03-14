@@ -348,6 +348,7 @@ export class StatsService {
   private mapDailyStat(stat: DailyStatRow): DailyStatWithBigInt {
     return {
       ...stat,
+      realUsageTotal: Math.max(0, stat.totalTxCount - stat.gasClaimsCount),
       neoVolumeRaw: decimalToBigInt(stat.neoVolumeRaw),
       gasVolumeRaw: decimalToBigInt(stat.gasVolumeRaw),
       swapsUsdValue: stat.swapsUsdValue.toString(),

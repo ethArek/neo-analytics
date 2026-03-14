@@ -19,7 +19,9 @@ const dashboardSeed: PageSeed<DashboardData> = {
     },
     totals: {
       totalTxs: '12,345',
-      realUsage: '9,876',
+      transactionsExcludingGasClaims: '9,876',
+      oracle: '123',
+      others: '456',
       activeAddresses: '4,321',
       neoVolume: '1,234',
       gasVolume: '567',
@@ -94,19 +96,21 @@ const daysSeed: PageSeed<DaysData> = {
         dateLabel: '2026-01-01',
         totalTxCountLabel: '1,200',
         swapsCountLabel: '120',
+        oracleCountLabel: '20',
         transfersCountLabel: '980',
         gasClaimsCountLabel: '70',
         othersCountLabel: '30',
-        realUsageTotalLabel: '1,100',
+        transactionsExcludingGasClaimsLabel: '1,100',
       },
       {
         dateLabel: '2026-01-02',
         totalTxCountLabel: '1,050',
         swapsCountLabel: '100',
+        oracleCountLabel: '15',
         transfersCountLabel: '830',
         gasClaimsCountLabel: '80',
         othersCountLabel: '40',
-        realUsageTotalLabel: '970',
+        transactionsExcludingGasClaimsLabel: '970',
       },
     ],
   },
@@ -121,7 +125,8 @@ const daySeed: PageSeed<DayData> = {
     date: '2026-01-02',
     stat: {
       totalTxCount: 1050,
-      realUsageTotal: 970,
+      transactionsExcludingGasClaims: 970,
+      oracleCount: 25,
       uniqueAddresses: 620,
       neoVolume: '480',
       gasVolume: '220',
@@ -208,7 +213,7 @@ test.describe('frontend rendering', () => {
     await seedAppPage(page, dashboardSeed);
     await expect(page.getByRole('heading', { name: 'Yesterday stats' })).toBeVisible();
     await expect(
-      page.locator('.summary-grid').getByText('Transactions excluding Gas Claims'),
+      page.locator('.summary-grid').getByText('Transactions excluding GAS claims'),
     ).toBeVisible();
     await expect(page.getByText('DeFi metrics')).toBeVisible();
     await expect(page.getByText('Top senders')).toBeVisible();

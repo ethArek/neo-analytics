@@ -110,29 +110,34 @@ export const DayPage: React.FC = () => {
             <small>All scanned blocks</small>
           </div>
           <div className="card" data-animate style={delayStyle('0.1s')}>
-            <span>Total transactions excluding Gas Claims</span>
-            <strong>{stat.realUsageTotal}</strong>
-            <small>Swaps + transfers</small>
+            <span>Transactions excluding GAS claims</span>
+            <strong>{stat.transactionsExcludingGasClaims}</strong>
+            <small>Total transactions - GAS claims</small>
           </div>
           <div className="card" data-animate style={delayStyle('0.15s')}>
+            <span>Oracle transactions</span>
+            <strong>{stat.oracleCount}</strong>
+            <small>Detected oracle and data-feed activity</small>
+          </div>
+          <div className="card" data-animate style={delayStyle('0.2s')}>
             <span>Active addresses</span>
             <strong>{stat.uniqueAddresses}</strong>
             <small>Unique senders + receivers</small>
           </div>
-          <div className="card" data-animate style={delayStyle('0.2s')}>
+          <div className="card" data-animate style={delayStyle('0.25s')}>
             <span>NEO volume</span>
             <strong>{stat.neoVolume} NEO</strong>
           </div>
-          <div className="card" data-animate style={delayStyle('0.25s')}>
+          <div className="card" data-animate style={delayStyle('0.3s')}>
             <span>GAS volume</span>
             <strong>{stat.gasVolume} GAS</strong>
           </div>
-          <div className="card" data-animate style={delayStyle('0.3s')}>
+          <div className="card" data-animate style={delayStyle('0.35s')}>
             <span>Others</span>
             <strong>{stat.othersCount}</strong>
-            <small>Ignored or uncategorized</small>
+            <small>Ignored transactions only</small>
           </div>
-          <div className="card" data-animate style={delayStyle('0.35s')}>
+          <div className="card" data-animate style={delayStyle('0.4s')}>
             <span>Blocks scanned</span>
             <strong>{stat.blockCount}</strong>
             <small>Daily total</small>

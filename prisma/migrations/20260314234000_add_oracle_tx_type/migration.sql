@@ -1,0 +1,6 @@
+-- AlterEnum
+ALTER TYPE "TxType" ADD VALUE IF NOT EXISTS 'ORACLE';
+
+-- AlterTable
+ALTER TABLE "DailyStat"
+ADD COLUMN "oracleCount" INTEGER NOT NULL DEFAULT 0;

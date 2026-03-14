@@ -66,6 +66,7 @@ export class IngestionService {
       addresses: new Set<string>(),
       swapsCount: 0,
       swapsUsdValue: new Prisma.Decimal(0),
+      oracleCount: 0,
       transfersCount: 0,
       gasClaimsCount: 0,
       othersCount: 0,
@@ -126,10 +127,11 @@ export class IngestionService {
       totalTxCount: state.totalTxCount,
       swapsCount: state.swapsCount,
       swapsUsdValue: this.toUsdStorageValue(state.swapsUsdValue),
+      oracleCount: state.oracleCount,
       transfersCount: state.transfersCount,
       gasClaimsCount: state.gasClaimsCount,
       othersCount: state.othersCount,
-      realUsageTotal: state.swapsCount + state.transfersCount,
+      realUsageTotal: state.totalTxCount - state.gasClaimsCount,
       totalTransfers: state.totalTransfers,
       uniqueSenders: state.senders.size,
       uniqueReceivers: state.receivers.size,
@@ -263,6 +265,7 @@ export class IngestionService {
     const addresses = new Set<string>();
     let swapsCount = 0;
     let swapsUsdValue = new Prisma.Decimal(0);
+    let oracleCount = 0;
     let transfersCount = 0;
     let gasClaimsCount = 0;
     let othersCount = 0;
@@ -322,6 +325,10 @@ export class IngestionService {
         case ClassifiedType.SWAP: {
           swapsCount += 1;
           swapsUsdValue = swapsUsdValue.add(swapUsdValue ?? 0);
+          break;
+        }
+        case ClassifiedType.ORACLE: {
+          oracleCount += 1;
           break;
         }
         case ClassifiedType.NORMAL_TRANSFER: {
@@ -464,10 +471,11 @@ export class IngestionService {
       totalTxCount: transactions.length,
       swapsCount,
       swapsUsdValue: this.toUsdStorageValue(swapsUsdValue),
+      oracleCount,
       transfersCount,
       gasClaimsCount,
       othersCount,
-      realUsageTotal: swapsCount + transfersCount,
+      realUsageTotal: transactions.length - gasClaimsCount,
       totalTransfers: dailyTransfers.length,
       uniqueSenders: senders.size,
       uniqueReceivers: receivers.size,
@@ -743,6 +751,10 @@ export class IngestionService {
         case ClassifiedType.SWAP: {
           state.swapsCount += 1;
           state.swapsUsdValue = state.swapsUsdValue.add(swapUsdValue ?? 0);
+          break;
+        }
+        case ClassifiedType.ORACLE: {
+          state.oracleCount += 1;
           break;
         }
         case ClassifiedType.NORMAL_TRANSFER: {

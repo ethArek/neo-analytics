@@ -68,6 +68,7 @@ export type DailyStatRecord = {
   totalTxCount: number;
   swapsCount: number;
   swapsUsdValue: string;
+  oracleCount: number;
   transfersCount: number;
   gasClaimsCount: number;
   othersCount: number;

@@ -273,6 +273,7 @@ export class ApiController {
         acc.totalTxCount += stat.totalTxCount;
         acc.swapsCount += stat.swapsCount;
         acc.swapsUsdValue = this.addDecimalStrings(acc.swapsUsdValue, stat.swapsUsdValue);
+        acc.oracleCount += stat.oracleCount;
         acc.transfersCount += stat.transfersCount;
         acc.gasClaimsCount += stat.gasClaimsCount;
         acc.othersCount += stat.othersCount;
@@ -292,6 +293,7 @@ export class ApiController {
         totalTxCount: 0,
         swapsCount: 0,
         swapsUsdValue: '0',
+        oracleCount: 0,
         transfersCount: 0,
         gasClaimsCount: 0,
         othersCount: 0,
@@ -312,6 +314,7 @@ export class ApiController {
     totalTxCount: number;
     swapsCount: number;
     swapsUsdValue: string;
+    oracleCount: number;
     transfersCount: number;
     gasClaimsCount: number;
     othersCount: number;
@@ -324,8 +327,11 @@ export class ApiController {
     gasVolumeRaw: bigint;
     blockCount: number;
   }) {
+    const { realUsageTotal, ...rest } = stat;
+
     return {
-      ...stat,
+      ...rest,
+      transactionsExcludingGasClaims: realUsageTotal,
       neoVolumeRaw: stat.neoVolumeRaw.toString(),
       gasVolumeRaw: stat.gasVolumeRaw.toString(),
     };
