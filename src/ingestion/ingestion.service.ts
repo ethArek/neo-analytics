@@ -988,8 +988,7 @@ export class IngestionService {
     const progressLabel =
       completedBlocks !== undefined && totalBlocks !== undefined && totalBlocks > 0
         ? `${completedBlocks}/${totalBlocks} blocks (${(
-            (completedBlocks / totalBlocks) *
-            100
+            (completedBlocks / totalBlocks) * 100
           ).toFixed(1)}%)`
         : 'progress pending';
 
