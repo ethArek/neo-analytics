@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { type DailyStat, type DailyTx, type IngestionCursor, Prisma } from '@prisma/client';
 import { IngestionService } from '../src/ingestion/ingestion.service';
@@ -547,6 +548,7 @@ describe('IngestionService', () => {
             nextCursor: 'page-2',
             blockStart: 10,
             blockEnd: 20,
+            lastBlockIndex: 11,
             transactions: [
               {
                 txid: 'swap-serialized',
@@ -593,6 +595,7 @@ describe('IngestionService', () => {
         return Promise.resolve({
           blockStart: 10,
           blockEnd: 20,
+          lastBlockIndex: 20,
           transactions: [
             {
               txid: 'normal-transfer',
@@ -638,11 +641,22 @@ describe('IngestionService', () => {
       },
     });
     const service = new IngestionService(neoClient, prisma, configService);
+    const logSpy = jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
 
     Object.defineProperty(service, 'txBatchSize', { value: 1 });
     Object.defineProperty(service, 'transferBatchSize', { value: 1 });
 
-    await service.ingestDay('2024-05-03');
+    try {
+      await service.ingestDay('2024-05-03');
+      expect(logSpy).toHaveBeenCalledWith(
+        'Ingestion progress for 2024-05-03: page 1, blocks 10-11, +2 tx, total 2 tx, 2/11 blocks (18.2%).',
+      );
+      expect(logSpy).toHaveBeenCalledWith(
+        'Ingestion progress for 2024-05-03: page 2, blocks 10-20, +3 tx, total 5 tx, 11/11 blocks (100.0%).',
+      );
+    } finally {
+      logSpy.mockRestore();
+    }
 
     expect(neoClient.fetchTransactionsForDay).toHaveBeenCalledTimes(2);
     expect(prisma.dailyTxData).toHaveLength(5);
