@@ -7,7 +7,9 @@ export type NavState = {
 
 export type DashboardTotals = {
   totalTxs: string;
-  realUsage: string;
+  transactionsExcludingGasClaims: string;
+  oracle: string;
+  others: string;
   activeAddresses: string;
   neoVolume: string;
   gasVolume: string;
@@ -50,10 +52,11 @@ export type DashboardChartData = {
   labels: string[];
   series: {
     swaps: number[];
+    oracle: number[];
     transfers: number[];
     gasClaims: number[];
     others: number[];
-    realUsage: number[];
+    transactionsExcludingGasClaims: number[];
     totalTxs: number[];
     activeAddresses: number[];
     neoVolume: number[];
@@ -104,10 +107,11 @@ export type DaysStat = {
   dateLabel: string;
   totalTxCountLabel: string;
   swapsCountLabel: string;
+  oracleCountLabel: string;
   transfersCountLabel: string;
   gasClaimsCountLabel: string;
   othersCountLabel: string;
-  realUsageTotalLabel: string;
+  transactionsExcludingGasClaimsLabel: string;
 };
 
 export type DaysData = {
@@ -120,7 +124,8 @@ export type DaysData = {
 
 export type DayStat = {
   totalTxCount: number;
-  realUsageTotal: number;
+  transactionsExcludingGasClaims: number;
+  oracleCount: number;
   uniqueAddresses: number;
   neoVolume: string;
   gasVolume: string;

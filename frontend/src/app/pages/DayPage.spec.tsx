@@ -13,7 +13,8 @@ describe('DayPage', () => {
       date: '2024-01-01',
       stat: {
         totalTxCount: 10,
-        realUsageTotal: 8,
+        transactionsExcludingGasClaims: 8,
+        oracleCount: 3,
         uniqueAddresses: 4,
         neoVolume: '100',
         gasVolume: '50',
@@ -60,6 +61,7 @@ describe('DayPage', () => {
     );
 
     expect(screen.getByText('Day details: 2024-01-01')).toBeInTheDocument();
+    expect(screen.getByText('Oracle transactions')).toBeInTheDocument();
     expect(screen.getByText('Asset transfer volume')).toBeInTheDocument();
     expect(screen.getByText('Transaction explorer')).toBeInTheDocument();
     expect(screen.getByText('Showing 1-1 of 3 transactions')).toBeInTheDocument();

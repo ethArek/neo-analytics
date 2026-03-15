@@ -1,12 +1,18 @@
 # Neo Analytics
 
-Neo Analytics is a NestJS + React (Vite) dashboard that tracks Neo N3 daily activity and classifies transactions into swaps, gas claims, normal transfers, or ignored (self/zero). It provides a public-facing dashboard, a JSON API for analytics, and admin endpoints for running ingestion jobs.
+Neo Analytics is a NestJS + React (Vite) dashboard that tracks Neo N3 daily activity and classifies transactions into swaps, oracle transactions, gas claims, transfers, or ignored (self/zero). It provides a public-facing dashboard, a JSON API for analytics, and admin endpoints for running ingestion jobs.
 
 ## Project overview
 
 - **Data ingestion**: Pulls Neo N3 block data via Dora REST API, extracts NEP-17 transfer activity, and stores per-transaction/per-transfer records plus daily aggregates in PostgreSQL (via Prisma).
-- **Classification**: Deterministic rules classify transactions into swaps, gas claims, normal transfers, or ignored (self/zero), using swap method allowlists, known swap contracts, and DEX notifications.
+- **Classification**: Deterministic rules classify transactions into swaps, oracle transactions, gas claims, transfers, or ignored (self/zero), using swap method allowlists, known swap contracts, oracle/data-feed notifications, and DEX notifications.
 - **Presentation**: NestJS renders the HTML shell + page data, React (Vite) hydrates the UI, and a JSON API exposes analytics for external consumers.
+
+## Metric definitions
+
+- **Transactions excluding GAS claims**: `total transactions - GAS claims`
+- **Oracle transactions**: Detected oracle/data-feed traffic, tracked separately from transfers and ignored transactions
+- **Others**: Ignored transactions only (currently self-transfers and zero-amount transfers)
 
 ## Architecture
 
@@ -85,6 +91,50 @@ Swagger docs are available at http://localhost:3000/api/docs (stats endpoints on
 The dashboard and DeFi page support date range filters via `?from=YYYY-MM-DD&to=YYYY-MM-DD`.
 The DeFi page intentionally starts at `DEFI_METRICS_AVAILABLE_FROM` and does not backfill earlier periods.
 
+## CSV export
+
+Export the same Dora-fetched transactions used by the swap/oracle/transfer/gas-claim classifier for a UTC day:
+
+```bash
+npm run export:dora-csv -- 2026-02-18
+```
+
+This command runs `scripts/export-dora-transactions-csv.js`.
+
+The exporter:
+
+- fetches transactions directly from Dora
+- classifies them with the same rules as ingestion
+- writes a CSV to `exports/dora-transactions-YYYY-MM-DD.csv` by default
+- prints progress while scanning blocks so long full-day runs are visible in the terminal
+- prints a final type summary for `SWAP`, `ORACLE`, `TRANSFER`, `GAS_CLAIM`, and `IGNORED`
+
+You can override the output path with `--out path/to/file.csv`.
+
+For shorter verification runs, you can also export a UTC time window:
+
+```bash
+npm run export:dora-csv -- --from 2026-03-13T00:00:00Z --to 2026-03-13T00:10:00Z
+```
+
+Example with a custom output file:
+
+```bash
+npm run export:dora-csv -- --from 2026-03-13T00:00:00Z --to 2026-03-13T00:10:00Z --out exports/oracle-sample.csv
+```
+
+The CSV is intended for auditing classification decisions and includes fields such as:
+
+- transaction type
+- classification reason
+- transfer count
+- invocation method and contract
+- notification names and notification contracts
+- serialized transfer list
+
+Full UTC day exports can take a while because the script scans the relevant Dora block range and fetches
+application logs for classification.
+
 ## Build + deployment
 
 ```bash
@@ -113,14 +163,20 @@ Classification is handled in `src/classifier/classifier.ts` and is deterministic
 - **Gas claim**
   - Gas claims are detected based on transaction data: GAS transfers with no `from` address (or an empty `from` field).
   - This pattern indicates GAS being distributed from the system to a user, which is characteristic of gas claim operations in Neo N3.
-  - Normal GAS transfers (with a valid `from` address) are classified as normal transfers.
-- **Normal transfer**
-  - Transfers that are not swaps or gas claims and are not filtered out as ignored.
+  - GAS transfers with a valid `from` address are classified as transfers.
+- **Oracle**
+  - Oracle transactions are detected from known oracle/data-feed contracts and oracle-style notifications (for example `FeedUpdated`, `OracleRequested`, and `OracleFulfilled`).
+  - These transactions are tracked separately from transfers so contract maintenance traffic does not look like user transfer activity.
+- **Transfer**
+  - Transfers that are not swaps, oracle transactions, or gas claims and are not filtered out as ignored.
 - **Ignored**
   - Self-transfers (`from == to`) are excluded from totals.
   - Zero-amount transfers are ignored if an amount is provided.
 
-Precedence order: **swap > gas claim > ignored > normal transfer**.
+Precedence order: **swap > oracle > gas claim > ignored > transfer**.
+
+If you want previously ingested days to show oracle counts separately, rebuild those days after deploying the
+oracle classification changes.
 
 ## Neo data provider
 
@@ -144,6 +200,9 @@ It relies on:
 - `GET /api/stats/methods` (top invocation methods)
 - `GET /api/stats/contracts` (top contracts)
 - `GET /api/stats/top` with `type=senders|receivers`
+
+Stats responses include daily counters such as `swapsCount`, `oracleCount`, `transfersCount`,
+`gasClaimsCount`, `othersCount`, and `transactionsExcludingGasClaims`.
 
 ## Admin job endpoints
 

@@ -42,10 +42,11 @@ export const DaysPage: React.FC = () => {
               <th>Date</th>
               <th>Total txs</th>
               <th>Swaps</th>
+              <th>Oracle</th>
               <th>Transfers</th>
               <th>Gas claims</th>
               <th>Others</th>
-              <th>Total tx excluding Gas Claims</th>
+              <th>Tx excluding GAS claims</th>
             </tr>
           </thead>
           <tbody>
@@ -56,10 +57,11 @@ export const DaysPage: React.FC = () => {
                 </td>
                 <td>{stat.totalTxCountLabel}</td>
                 <td>{stat.swapsCountLabel}</td>
+                <td>{stat.oracleCountLabel}</td>
                 <td>{stat.transfersCountLabel}</td>
                 <td>{stat.gasClaimsCountLabel}</td>
                 <td>{stat.othersCountLabel}</td>
-                <td>{stat.realUsageTotalLabel}</td>
+                <td>{stat.transactionsExcludingGasClaimsLabel}</td>
               </tr>
             ))}
           </tbody>

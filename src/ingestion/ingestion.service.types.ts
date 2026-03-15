@@ -77,6 +77,7 @@ export type StreamState = BlockIndexState & {
   addresses: Set<string>;
   swapsCount: number;
   swapsUsdValue: Prisma.Decimal;
+  oracleCount: number;
   transfersCount: number;
   gasClaimsCount: number;
   othersCount: number;

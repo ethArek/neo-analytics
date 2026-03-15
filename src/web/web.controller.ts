@@ -223,10 +223,11 @@ export class WebController {
       dateLabel: formatDate(stat.date),
       totalTxCountLabel: formatNumber(stat.totalTxCount),
       swapsCountLabel: formatNumber(stat.swapsCount),
+      oracleCountLabel: formatNumber(stat.oracleCount),
       transfersCountLabel: formatNumber(stat.transfersCount),
       gasClaimsCountLabel: formatNumber(stat.gasClaimsCount),
       othersCountLabel: formatNumber(stat.othersCount),
-      realUsageTotalLabel: formatNumber(stat.realUsageTotal),
+      transactionsExcludingGasClaimsLabel: formatNumber(stat.realUsageTotal),
     }));
 
     if (!range) {
@@ -296,7 +297,7 @@ export class WebController {
       txid: tx.txid,
       timestampLabel: new Date(tx.timestamp).toISOString(),
       shortTxid: this.shortenAddress(tx.txid),
-      type: tx.type,
+      type: this.formatTransactionTypeLabel(tx.type),
       assetLabel: this.getAssetLabel(tx.asset, assetLabelMap),
       amountLabel: this.formatAmount(
         tx.asset,
@@ -377,6 +378,7 @@ export class WebController {
       totalTxCount: 0,
       swapsCount: 0,
       swapsUsdValue: '0.00000000',
+      oracleCount: 0,
       transfersCount: 0,
       gasClaimsCount: 0,
       othersCount: 0,
@@ -394,10 +396,11 @@ export class WebController {
   private formatTotals(totals: StatTotals) {
     return {
       swaps: formatNumber(totals.swapsCount),
+      oracle: formatNumber(totals.oracleCount),
       transfers: formatNumber(totals.transfersCount),
       gasClaims: formatNumber(totals.gasClaimsCount),
       others: formatNumber(totals.othersCount),
-      realUsage: formatNumber(totals.realUsageTotal),
+      transactionsExcludingGasClaims: formatNumber(totals.realUsageTotal),
       totalTxs: formatNumber(totals.totalTxCount),
       totalTransfers: formatNumber(totals.totalTransfers),
       activeAddresses: formatNumber(totals.uniqueAddresses),
@@ -410,7 +413,8 @@ export class WebController {
   private formatStat(stat: StatTotals) {
     return {
       totalTxCount: stat.totalTxCount,
-      realUsageTotal: stat.realUsageTotal,
+      transactionsExcludingGasClaims: stat.realUsageTotal,
+      oracleCount: stat.oracleCount,
       uniqueAddresses: stat.uniqueAddresses,
       neoVolume: this.formatAmount('NEO', stat.neoVolumeRaw),
       gasVolume: this.formatAmount('GAS', stat.gasVolumeRaw),
@@ -447,10 +451,11 @@ export class WebController {
       labels,
       series: {
         swaps: stats.map((stat) => stat.swapsCount),
+        oracle: stats.map((stat) => stat.oracleCount),
         transfers: stats.map((stat) => stat.transfersCount),
         gasClaims: stats.map((stat) => stat.gasClaimsCount),
         others: stats.map((stat) => stat.othersCount),
-        realUsage: stats.map((stat) => stat.realUsageTotal),
+        transactionsExcludingGasClaims: stats.map((stat) => stat.realUsageTotal),
         totalTxs: stats.map((stat) => stat.totalTxCount),
         activeAddresses: stats.map((stat) => stat.uniqueAddresses),
         neoVolume: stats.map((stat) => toNumber(stat.neoVolumeRaw, 0)),
@@ -619,6 +624,29 @@ export class WebController {
     }
 
     return `${value.slice(0, 6)}...${value.slice(-4)}`;
+  }
+
+  private formatTransactionTypeLabel(value: string) {
+    switch (value) {
+      case 'SWAP': {
+        return 'Swap';
+      }
+      case 'ORACLE': {
+        return 'Oracle';
+      }
+      case 'NORMAL_TRANSFER': {
+        return 'Transfer';
+      }
+      case 'GAS_CLAIM': {
+        return 'GAS claim';
+      }
+      case 'IGNORED': {
+        return 'Other';
+      }
+      default: {
+        return value;
+      }
+    }
   }
 
   private formatAmount(asset: string | null | undefined, value: bigint, decimals?: number | null) {

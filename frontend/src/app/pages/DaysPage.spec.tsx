@@ -18,10 +18,11 @@ describe('DaysPage', () => {
           dateLabel: '2024-01-01',
           totalTxCountLabel: '10',
           swapsCountLabel: '1',
+          oracleCountLabel: '2',
           transfersCountLabel: '2',
           gasClaimsCountLabel: '3',
           othersCountLabel: '4',
-          realUsageTotalLabel: '6',
+          transactionsExcludingGasClaimsLabel: '6',
         },
       ],
     };

@@ -1,7 +1,44 @@
 import { ConfigService } from '@nestjs/config';
 import { ApiController } from './api.controller';
 
-class StatsServiceStub {}
+class StatsServiceStub {
+  async getRangeOrLatest(_from?: string, _to?: string) {
+    return {
+      stats: [
+        {
+          date: new Date('2026-03-01T00:00:00.000Z'),
+          totalTxCount: 10,
+          swapsCount: 2,
+          swapsUsdValue: '12.34000000',
+          oracleCount: 1,
+          transfersCount: 3,
+          gasClaimsCount: 4,
+          othersCount: 1,
+          realUsageTotal: 6,
+          totalTransfers: 5,
+          uniqueSenders: 2,
+          uniqueReceivers: 2,
+          uniqueAddresses: 3,
+          neoVolumeRaw: 100n,
+          gasVolumeRaw: 200000000n,
+          blockCount: 9,
+        },
+      ],
+      range: {
+        from: new Date('2026-03-01T00:00:00.000Z'),
+        to: new Date('2026-03-01T00:00:00.000Z'),
+      },
+    };
+  }
+
+  async getUniqueAddressStatsRange(_from: string, _to: string) {
+    return {
+      uniqueSenders: 5,
+      uniqueReceivers: 7,
+      uniqueAddresses: 9,
+    };
+  }
+}
 
 class IngestionServiceStub {
   async ingestDay(_date: string): Promise<void> {}
@@ -19,6 +56,37 @@ class IngestionServiceStub {
 }
 
 describe('ApiController', () => {
+  it('serializes transactions excluding GAS claims in summary totals', async () => {
+    const controller = Reflect.construct(ApiController, [
+      new StatsServiceStub(),
+      new IngestionServiceStub(),
+      new ConfigService({
+        app: {
+          adminToken: 'secret',
+        },
+      }),
+    ]) as ApiController;
+
+    const result = await controller.summary('2026-03-01', '2026-03-01');
+
+    expect(result).toMatchObject({
+      range: {
+        from: '2026-03-01',
+        to: '2026-03-01',
+      },
+      totals: {
+        totalTxCount: 10,
+        gasClaimsCount: 4,
+        oracleCount: 1,
+        transactionsExcludingGasClaims: 6,
+        uniqueSenders: 5,
+        uniqueReceivers: 7,
+        uniqueAddresses: 9,
+      },
+    });
+    expect(Object.prototype.hasOwnProperty.call(result.totals ?? {}, 'realUsageTotal')).toBe(false);
+  });
+
   it('rejects swap usd backfill when unauthorized', async () => {
     const controller = Reflect.construct(ApiController, [
       new StatsServiceStub(),

@@ -2,6 +2,7 @@ export type StatTotals = {
   totalTxCount: number;
   swapsCount: number;
   swapsUsdValue: string;
+  oracleCount: number;
   transfersCount: number;
   gasClaimsCount: number;
   othersCount: number;

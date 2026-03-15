@@ -13,10 +13,11 @@ describe('DashboardPage', () => {
     labels: ['2024-01-01'],
     series: {
       swaps: [1],
+      oracle: [2],
       transfers: [2],
       gasClaims: [3],
       others: [4],
-      realUsage: [5],
+      transactionsExcludingGasClaims: [5],
       totalTxs: [6],
       activeAddresses: [7],
       neoVolume: [8],
@@ -40,7 +41,9 @@ describe('DashboardPage', () => {
     const data: DashboardData = {
       totals: {
         totalTxs: '100',
-        realUsage: '80',
+        transactionsExcludingGasClaims: '80',
+        oracle: '5',
+        others: '7',
         activeAddresses: '50',
         neoVolume: '200',
         gasVolume: '300',
@@ -87,6 +90,9 @@ describe('DashboardPage', () => {
     });
 
     expect(screen.getByText('Top senders')).toBeInTheDocument();
+    expect(screen.getByText('Oracle transactions')).toBeInTheDocument();
+    expect(screen.queryByText('Others')).not.toBeInTheDocument();
+    expect(screen.queryByText('Blocks scanned')).not.toBeInTheDocument();
     expect(screen.getByText('sender-1')).toBeInTheDocument();
     expect(screen.getByText('Top receivers')).toBeInTheDocument();
     expect(screen.getByText('receiver-1')).toBeInTheDocument();

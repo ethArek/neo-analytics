@@ -316,6 +316,7 @@ class FakePrismaService implements IngestionPrismaClient {
       totalTxCount: record.totalTxCount,
       swapsCount: record.swapsCount,
       swapsUsdValue: new Prisma.Decimal(record.swapsUsdValue),
+      oracleCount: record.oracleCount,
       transfersCount: record.transfersCount,
       gasClaimsCount: record.gasClaimsCount,
       othersCount: record.othersCount,
@@ -650,10 +651,11 @@ describe('IngestionService', () => {
     const stat = prisma.dailyStatData[new Date(Date.UTC(2024, 4, 3)).toISOString()];
     expect(stat.totalTxCount).toBe(5);
     expect(stat.swapsCount).toBe(2);
+    expect(stat.oracleCount).toBe(0);
     expect(stat.transfersCount).toBe(1);
     expect(stat.gasClaimsCount).toBe(1);
     expect(stat.othersCount).toBe(1);
-    expect(stat.realUsageTotal).toBe(3);
+    expect(stat.realUsageTotal).toBe(4);
     expect(stat.totalTransfers).toBe(6);
     expect(stat.uniqueSenders).toBe(3);
     expect(stat.uniqueReceivers).toBe(5);
@@ -702,6 +704,53 @@ describe('IngestionService', () => {
         self: '[Circular]',
       },
     });
+  });
+
+  it('stores oracle notifications as ORACLE transactions and tracks them separately', async () => {
+    const timestamp = new Date('2024-05-08T12:00:00.000Z').toISOString();
+    const neoClient: NeoClient = {
+      fetchTransactionsForDay: async () => ({
+        blockStart: 30,
+        blockEnd: 30,
+        transactions: [
+          {
+            txid: 'oracle-request',
+            timestamp,
+            blockIndex: 30,
+            raw: {
+              applicationLog: {
+                notifications: [
+                  {
+                    event_name: 'OracleRequested',
+                    contract: '0x017520f068fd602082fe5572596185e62a4ad991',
+                  },
+                ],
+              },
+            },
+          },
+        ],
+      }),
+    };
+    const prisma = new FakePrismaService();
+    const configService = new ConfigService({
+      app: {
+        neoNetwork: 'MainNet',
+      },
+    });
+    const service = new IngestionService(neoClient, prisma, configService);
+
+    await service.ingestDay('2024-05-08');
+
+    expect(prisma.dailyTxData).toHaveLength(1);
+    expect(prisma.dailyTxData[0].type).toBe('ORACLE');
+    expect(prisma.dailyTxData[0].transferCount).toBe(0);
+
+    const stat = prisma.dailyStatData[new Date(Date.UTC(2024, 4, 8)).toISOString()];
+    expect(stat.totalTxCount).toBe(1);
+    expect(stat.oracleCount).toBe(1);
+    expect(stat.othersCount).toBe(0);
+    expect(stat.gasClaimsCount).toBe(0);
+    expect(stat.realUsageTotal).toBe(1);
   });
 
   it('keeps block count at zero and does not update cursor when block index is missing', async () => {

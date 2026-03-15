@@ -12,6 +12,7 @@ enum TxType {
   NORMAL_TRANSFER
   GAS_CLAIM
   IGNORED
+  ORACLE
 }
 
 model DailyStat {
@@ -20,6 +21,7 @@ model DailyStat {
   totalTxCount    Int      @default(0)
   swapsCount      Int      @default(0)
   swapsUsdValue   Decimal  @default(0) @db.Decimal(65, 8)
+  oracleCount     Int      @default(0)
   transfersCount  Int      @default(0)
   gasClaimsCount  Int      @default(0)
   othersCount     Int      @default(0)
