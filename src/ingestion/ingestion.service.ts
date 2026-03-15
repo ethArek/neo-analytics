@@ -3,7 +3,12 @@ import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { ClassifiedType, classifyTransaction, defaultSwapMethods } from '../classifier/classifier';
 import { PrismaService } from '../common/prisma.service';
-import type { NeoClient, NeoTransaction, NeoTransfer } from '../neo-client/neo-client.interface';
+import type {
+  NeoClient,
+  NeoPagedResponse,
+  NeoTransaction,
+  NeoTransfer,
+} from '../neo-client/neo-client.interface';
 import { NEO_CLIENT } from '../neo-client/neo-client.provider';
 import { formatDate, parseDate } from './date-utils';
 import type {
@@ -79,9 +84,12 @@ export class IngestionService {
 
     let cursor: string | undefined;
     let blockRange: BlockRange | undefined;
+    let page = 0;
 
     do {
+      const pageCursor = cursor;
       const response = await this.neoClient.fetchTransactionsForDay(date, cursor);
+      page += 1;
       cursor = response.nextCursor;
 
       if (!blockRange && response.blockStart !== undefined && response.blockEnd !== undefined) {
@@ -89,6 +97,7 @@ export class IngestionService {
       }
 
       await this.processTransactionBatch(response.transactions, state, pricingContext);
+      this.logDayIngestionProgress(date, page, pageCursor, response, state, blockRange);
     } while (cursor);
 
     await this.flushBuffers(state);
@@ -941,6 +950,64 @@ export class IngestionService {
     } while (nextCursor);
 
     return { transactions, blockRange };
+  }
+
+  private logDayIngestionProgress(
+    date: string,
+    page: number,
+    pageCursor: string | undefined,
+    response: NeoPagedResponse,
+    state: StreamState,
+    blockRange?: BlockRange,
+  ): void {
+    const isComplete = !response.nextCursor;
+    if (!isComplete && page !== 1 && page % 10 !== 0) {
+      return;
+    }
+    const totalBlocks =
+      blockRange && blockRange.start <= blockRange.end
+        ? blockRange.end - blockRange.start + 1
+        : undefined;
+    const pageBlockStart =
+      this.parseBlockIndex(pageCursor) ?? response.blockStart ?? blockRange?.start;
+    const pageBlockEnd =
+      response.lastBlockIndex ??
+      state.lastProcessedBlock ??
+      (isComplete ? blockRange?.end : undefined);
+    const completedBlocks =
+      blockRange &&
+      pageBlockEnd !== undefined &&
+      pageBlockEnd >= blockRange.start &&
+      totalBlocks !== undefined
+        ? Math.min(pageBlockEnd, blockRange.end) - blockRange.start + 1
+        : undefined;
+    const blockLabel =
+      pageBlockStart !== undefined && pageBlockEnd !== undefined
+        ? `${pageBlockStart}-${pageBlockEnd}`
+        : 'unknown';
+    const progressLabel =
+      completedBlocks !== undefined && totalBlocks !== undefined && totalBlocks > 0
+        ? `${completedBlocks}/${totalBlocks} blocks (${(
+            (completedBlocks / totalBlocks) *
+            100
+          ).toFixed(1)}%)`
+        : 'progress pending';
+
+    this.logger.log(
+      `Ingestion progress for ${date}: page ${page}, blocks ${blockLabel}, +${response.transactions.length} tx, total ${state.totalTxCount} tx, ${progressLabel}.`,
+    );
+  }
+
+  private parseBlockIndex(value?: string): number | undefined {
+    if (!value) {
+      return undefined;
+    }
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) {
+      return undefined;
+    }
+
+    return parsed;
   }
 
   private getPrimaryTransfer(transfers: NeoTransfer[]): NeoTransfer | undefined {
