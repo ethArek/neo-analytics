@@ -647,7 +647,7 @@ export class WebController {
       totalTransfers: formatNumber(totals.totalTransfers),
       activeAddresses: formatNumber(totals.uniqueAddresses),
       neoVolume: this.formatAmount('NEO', totals.neoVolumeRaw),
-      gasVolume: this.formatAmount('GAS', totals.gasVolumeRaw),
+      gasVolume: toNumber(totals.gasVolumeRaw, 8).toFixed(2),
       blocks: formatNumber(totals.blockCount),
     };
   }
