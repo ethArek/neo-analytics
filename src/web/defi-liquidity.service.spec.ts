@@ -62,7 +62,7 @@ class TokenPerformanceServiceStub {
         hash: '0xfusd',
         symbol: 'FUSD',
         unwrappedSymbol: 'FUSD',
-        usdPrice: 1,
+        usdPrice: 0.98,
       },
       {
         hash: '0xbneo',
@@ -92,8 +92,8 @@ describe('DefiLiquidityService', () => {
     const result = await service.getTrackedLiquiditySnapshot();
 
     expect(result).toEqual({
-      trackedTvlUsd: 225,
-      stablecoinLiquidityUsd: 150,
+      trackedTvlUsd: 222,
+      stablecoinLiquidityUsd: 147,
       trackedContracts: 4,
       pricedAssets: 3,
       topAssets: [
@@ -101,7 +101,7 @@ describe('DefiLiquidityService', () => {
           asset: '0xfusd',
           symbol: 'FUSD',
           balance: 150,
-          usdValue: 150,
+          usdValue: 147,
           stablecoin: true,
         },
         {

@@ -12,6 +12,7 @@ import type {
 
 const TOP_ASSET_COUNT = 6;
 const TRACKED_LIQUIDITY_CACHE_TTL_MS = 60 * 1000;
+const NEO_N3_STABLECOIN_SYMBOLS = new Set(['FUSD', 'USDT', 'USDC']);
 
 type CacheEntry<T> = {
   value: T;
@@ -39,17 +40,7 @@ const isStablecoinSymbol = (symbol: string): boolean => {
     return false;
   }
 
-  if (
-    normalized === 'DAI' ||
-    normalized === 'USDE' ||
-    normalized === 'USDS' ||
-    normalized === 'USDT' ||
-    normalized === 'USDC'
-  ) {
-    return true;
-  }
-
-  return normalized.includes('USD');
+  return NEO_N3_STABLECOIN_SYMBOLS.has(normalized);
 };
 
 @Injectable()
