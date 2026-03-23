@@ -1,14 +1,23 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type {
+  ChangeTone,
   DashboardTokenPerformance,
   DashboardTokenPerformanceEntry,
+  DashboardTokenPerformanceFilters,
   DashboardTokenPerformanceWindow,
   FlamingoPriceRow,
 } from './token-performance.service.types';
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
+const MINUTE_IN_MS = 60 * 1000;
 const TOP_TOKEN_COUNT = 1;
+const PRICE_ROWS_CACHE_TTL_MS = 60 * 1000;
+
+type CacheEntry<T> = {
+  value: T;
+  expiresAt: number;
+};
 
 @Injectable()
 export class TokenPerformanceService {
@@ -16,33 +25,58 @@ export class TokenPerformanceService {
 
   private readonly requestTimeoutMs = 8000;
 
+  private readonly priceRowsCache = new Map<string, CacheEntry<FlamingoPriceRow[]>>();
+
+  private readonly priceRowsPromises = new Map<string, Promise<FlamingoPriceRow[]>>();
+
   constructor(@Inject(ConfigService) private readonly configService: ConfigService) {}
 
-  async getDashboardTokenPerformance(): Promise<DashboardTokenPerformance> {
+  async getLatestPriceRows(): Promise<FlamingoPriceRow[]> {
+    const latestUrl = this.getLatestPriceUrl();
+    if (!latestUrl) {
+      return [];
+    }
+
+    try {
+      return await this.getCachedPriceRows(latestUrl);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Failed to load latest Flamingo prices (${reason}). Continuing without liquidity pricing.`,
+      );
+
+      return [];
+    }
+  }
+
+  async getDashboardTokenPerformance(
+    filters?: DashboardTokenPerformanceFilters,
+  ): Promise<DashboardTokenPerformance> {
     const latestUrl = this.getLatestPriceUrl();
     if (!latestUrl) {
       return this.emptyDashboardTokenPerformance();
     }
 
-    const last24hUrl = this.buildHistoricalPriceUrl(latestUrl, Date.now() - DAY_IN_MS);
-    const last7dUrl = this.buildHistoricalPriceUrl(latestUrl, Date.now() - 7 * DAY_IN_MS);
-    const last30dUrl = this.buildHistoricalPriceUrl(latestUrl, Date.now() - 30 * DAY_IN_MS);
+    const anchorTimestamp = this.normalizeHistoricalTimestamp(Date.now());
+    const last24hUrl = this.buildHistoricalPriceUrl(latestUrl, anchorTimestamp - DAY_IN_MS);
+    const last7dUrl = this.buildHistoricalPriceUrl(latestUrl, anchorTimestamp - 7 * DAY_IN_MS);
+    const last30dUrl = this.buildHistoricalPriceUrl(latestUrl, anchorTimestamp - 30 * DAY_IN_MS);
     if (!last24hUrl || !last7dUrl || !last30dUrl) {
       return this.emptyDashboardTokenPerformance();
     }
 
     try {
       const [latestRows, last24hRows, last7dRows, last30dRows] = await Promise.all([
-        this.fetchPriceRows(latestUrl),
-        this.fetchPriceRows(last24hUrl),
-        this.fetchPriceRows(last7dUrl),
-        this.fetchPriceRows(last30dUrl),
+        this.getLatestPriceRows(),
+        this.getCachedPriceRows(last24hUrl),
+        this.getCachedPriceRows(last7dUrl),
+        this.getCachedPriceRows(last30dUrl),
       ]);
 
       return {
-        last24h: this.buildWindow('Last 24h', latestRows, last24hRows),
-        last7d: this.buildWindow('Last 7 days', latestRows, last7dRows),
-        last30d: this.buildWindow('Last 30 days', latestRows, last30dRows),
+        last24h: this.buildWindow('Last 24h', latestRows, last24hRows, filters?.last24h),
+        last7d: this.buildWindow('Last 7 days', latestRows, last7dRows, filters?.last7d),
+        last30d: this.buildWindow('Last 30 days', latestRows, last30dRows, filters?.last30d),
       };
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
@@ -95,6 +129,36 @@ export class TokenPerformanceService {
     return `${latestUrl}/from-timestamp/${Math.floor(timestamp)}`;
   }
 
+  private normalizeHistoricalTimestamp(timestamp: number): number {
+    return Math.floor(timestamp / MINUTE_IN_MS) * MINUTE_IN_MS;
+  }
+
+  private async getCachedPriceRows(url: string): Promise<FlamingoPriceRow[]> {
+    this.pruneExpiredPriceRowsCache();
+
+    const cached = this.priceRowsCache.get(url);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.value;
+    }
+
+    const inFlight = this.priceRowsPromises.get(url);
+    if (inFlight) {
+      return inFlight;
+    }
+
+    const loader = this.fetchPriceRows(url);
+    this.priceRowsPromises.set(url, loader);
+
+    try {
+      const result = await loader;
+      this.priceRowsCache.set(url, this.createCacheEntry(result, PRICE_ROWS_CACHE_TTL_MS));
+
+      return result;
+    } finally {
+      this.priceRowsPromises.delete(url);
+    }
+  }
+
   private async fetchPriceRows(url: string): Promise<FlamingoPriceRow[]> {
     const controller = new AbortController();
     const timeout = setTimeout(() => {
@@ -117,6 +181,16 @@ export class TokenPerformanceService {
       return this.normalizePriceRows(payload);
     } finally {
       clearTimeout(timeout);
+    }
+  }
+
+  private pruneExpiredPriceRowsCache() {
+    const now = Date.now();
+
+    for (const [url, entry] of this.priceRowsCache.entries()) {
+      if (entry.expiresAt <= now) {
+        this.priceRowsCache.delete(url);
+      }
     }
   }
 
@@ -174,6 +248,7 @@ export class TokenPerformanceService {
     label: string,
     latestRows: FlamingoPriceRow[],
     previousRows: FlamingoPriceRow[],
+    activeAssets?: ReadonlySet<string>,
   ): DashboardTokenPerformanceWindow {
     const previousByHash = new Map<string, FlamingoPriceRow>();
     for (const row of previousRows) {
@@ -187,6 +262,10 @@ export class TokenPerformanceService {
     > = [];
 
     for (const latest of latestRows) {
+      if (activeAssets && !this.hasTrackedSwapActivity(latest, activeAssets)) {
+        continue;
+      }
+
       const previous = previousByHash.get(latest.hash);
       if (!previous || previous.usdPrice <= 0) {
         continue;
@@ -231,19 +310,31 @@ export class TokenPerformanceService {
     };
   }
 
+  private hasTrackedSwapActivity(
+    row: FlamingoPriceRow,
+    activeAssets: ReadonlySet<string>,
+  ): boolean {
+    if (activeAssets.has(row.hash.toLowerCase())) {
+      return true;
+    }
+
+    if (activeAssets.has(row.symbol.toUpperCase())) {
+      return true;
+    }
+
+    return activeAssets.has(row.unwrappedSymbol.toUpperCase());
+  }
+
   private formatEntry(
     entry: FlamingoPriceRow & {
       changePercent: number;
     },
   ): DashboardTokenPerformanceEntry {
-    const tone =
-      entry.changePercent > 0 ? 'positive' : entry.changePercent < 0 ? 'negative' : 'neutral';
-
     return {
       symbol: entry.symbol,
       detail: this.formatDetail(entry),
       changeLabel: this.formatPercent(entry.changePercent),
-      tone,
+      tone: this.resolveTone(entry.changePercent),
     };
   }
 
@@ -268,6 +359,22 @@ export class TokenPerformanceService {
     return `${sign}${value.toFixed(2)}%`;
   }
 
+  private resolveTone(value: number | null): ChangeTone {
+    if (value === null || !Number.isFinite(value)) {
+      return 'neutral';
+    }
+
+    if (value > 0) {
+      return 'positive';
+    }
+
+    if (value < 0) {
+      return 'negative';
+    }
+
+    return 'neutral';
+  }
+
   private resolveUsdFractionDigits(value: number): number {
     if (value >= 1) {
       return 2;
@@ -286,5 +393,12 @@ export class TokenPerformanceService {
     }
 
     return 8;
+  }
+
+  private createCacheEntry<T>(value: T, ttlMs: number): CacheEntry<T> {
+    return {
+      value,
+      expiresAt: Date.now() + ttlMs,
+    };
   }
 }

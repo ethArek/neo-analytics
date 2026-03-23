@@ -1,8 +1,25 @@
+export type ChangeTone = 'positive' | 'negative' | 'neutral';
+
 export type NavState = {
   dashboard?: boolean;
   defi?: boolean;
   faq?: boolean;
   specialThanks?: boolean;
+};
+
+export type MarketPriceEntry = {
+  price: string | null;
+  change24h: string | null;
+  tone: ChangeTone;
+};
+
+export type MarketPrices = {
+  neo: MarketPriceEntry;
+  gas: MarketPriceEntry;
+};
+
+type SharedPageData = {
+  marketPrices?: MarketPrices;
 };
 
 export type DashboardTotals = {
@@ -39,6 +56,7 @@ export type DashboardTokenPerformance = Record<
 export type DashboardAddress = {
   address: string;
   shortAddress: string;
+  addressLabel?: string;
   transferCount: string;
 };
 
@@ -68,7 +86,7 @@ export type DashboardChartData = {
   };
 };
 
-export type DashboardData = {
+export type DashboardData = SharedPageData & {
   nav?: NavState;
   totals?: DashboardTotals;
   chartData?: DashboardChartData;
@@ -86,6 +104,8 @@ export type DefiTotals = {
   averageSwapUsdValue: string;
   coveredDays: string;
   requestedDays: string;
+  activityShare: string;
+  activeSwapWallets: string;
 };
 
 export type DefiChartData = {
@@ -96,11 +116,57 @@ export type DefiChartData = {
   };
 };
 
-export type DefiData = {
+export type DefiLiquidityAsset = {
+  symbol: string;
+  balanceLabel: string;
+  usdValueLabel: string;
+  stablecoin: boolean;
+};
+
+export type DefiOnChainOverview = {
+  latestDayDexVolume: string;
+  latestDayLabel: string;
+  last7dDexVolume: string;
+  last7dLabel: string;
+  trackedTvl: string | null;
+  stablecoinLiquidity: string | null;
+  stablecoinShare: string | null;
+  trackedContracts: string | null;
+  pricedAssets: string | null;
+  topLiquidityAssets?: DefiLiquidityAsset[];
+};
+
+export type DefiSwapAsset = {
+  assetLabel: string;
+  swaps: string;
+  usdVolume: string;
+  averageSwapUsdValue: string;
+};
+
+export type DefiSwapTransaction = {
+  txid: string;
+  shortTxid: string;
+  timestampLabel: string;
+  dayLabel: string;
+  dayHref: string;
+  assetLabel: string;
+  amountLabel: string;
+  usdValueLabel: string;
+  method: string | null;
+};
+
+export type DefiData = SharedPageData & {
   nav?: NavState;
   tokenPerformance?: DashboardTokenPerformance;
-  totals?: DefiTotals;
-  chartData?: DefiChartData;
+  totals?: DefiTotals | null;
+  chartData?: DefiChartData | null;
+  onChainOverview?: DefiOnChainOverview | null;
+  rangeLabel?: string;
+  rangeFrom?: string;
+  rangeTo?: string;
+  topSwapAssets?: DefiSwapAsset[];
+  largestSwaps?: DefiSwapTransaction[];
+  recentSwaps?: DefiSwapTransaction[];
 };
 
 export type DaysStat = {
@@ -114,7 +180,7 @@ export type DaysStat = {
   transactionsExcludingGasClaimsLabel: string;
 };
 
-export type DaysData = {
+export type DaysData = SharedPageData & {
   nav?: NavState;
   stats?: DaysStat[];
   rangeLabel?: string;
@@ -161,7 +227,7 @@ export type DayPagination = {
   pageSizeOptions?: number[];
 };
 
-export type DayData = {
+export type DayData = SharedPageData & {
   nav?: NavState;
   date?: string;
   stat?: DayStat | null;
@@ -170,14 +236,14 @@ export type DayData = {
   assetStats?: DayAssetStat[];
 };
 
-export type AdminData = {
+export type AdminData = SharedPageData & {
   email?: string;
   defaultDate?: string;
   message?: string;
   error?: string;
 };
 
-export type AdminLoginData = {
+export type AdminLoginData = SharedPageData & {
   email?: string;
   error?: string;
 };

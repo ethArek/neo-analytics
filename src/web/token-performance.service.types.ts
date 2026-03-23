@@ -1,8 +1,10 @@
+export type ChangeTone = 'positive' | 'negative' | 'neutral';
+
 export type DashboardTokenPerformanceEntry = {
   symbol: string;
   detail: string;
   changeLabel: string;
-  tone: 'positive' | 'negative' | 'neutral';
+  tone: ChangeTone;
 };
 
 export type DashboardTokenPerformancePeriod = 'last24h' | 'last7d' | 'last30d';
@@ -18,9 +20,33 @@ export type DashboardTokenPerformance = Record<
   DashboardTokenPerformanceWindow
 >;
 
+export type DashboardTokenPerformanceFilters = Partial<
+  Record<DashboardTokenPerformancePeriod, ReadonlySet<string>>
+>;
+
+export type MarketPrices = {
+  neo: MarketPriceEntry;
+  gas: MarketPriceEntry;
+};
+
+export type MarketPriceEntry = {
+  price: string | null;
+  change24h: string | null;
+  tone: ChangeTone;
+};
+
 export type FlamingoPriceRow = {
   symbol: string;
   unwrappedSymbol: string;
   hash: string;
   usdPrice: number;
+};
+
+export type CoinPaprikaTicker = {
+  quotes?: {
+    USD?: {
+      price?: unknown;
+      percent_change_24h?: unknown;
+    };
+  };
 };

@@ -98,6 +98,58 @@ body::before {
   padding: 40px 24px 80px;
 }
 
+.market-ticker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.market-ticker-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--stroke);
+  background: var(--surface-1);
+  white-space: nowrap;
+}
+
+.market-ticker-line {
+  font-family: "Space Grotesk", "Segoe UI", sans-serif;
+  font-size: 0.84rem;
+  line-height: 1;
+}
+
+.market-ticker-change {
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.market-ticker-change.is-positive {
+  color: var(--accent);
+}
+
+.market-ticker-change.is-negative {
+  color: #b91c1c;
+}
+
+.market-ticker-change.is-neutral {
+  color: var(--muted);
+}
+
+.navbar-market-ticker {
+  justify-content: center;
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-market-ticker {
+  justify-content: flex-end;
+}
+
 .navbar {
   display: flex;
   align-items: center;
@@ -1315,6 +1367,51 @@ h3 {
   min-height: 100%;
 }
 
+.defi-asset-list,
+.defi-swap-list {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+  display: grid;
+  gap: 12px;
+}
+
+.defi-asset-list li,
+.defi-swap-list li {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--surface-1);
+  border: 1px solid rgba(var(--accent-rgb), 0.08);
+}
+
+.defi-asset-list strong,
+.defi-swap-list strong {
+  font-size: 0.95rem;
+}
+
+.defi-swap-value {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  text-align: right;
+}
+
+.defi-swap-value a {
+  color: var(--accent);
+  font-size: 0.76rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.defi-swap-value a:hover {
+  text-decoration: underline;
+}
+
 .defi-method-list {
   list-style: none;
   padding: 0;
@@ -1369,6 +1466,11 @@ input:focus-visible {
 }
 
 @media (max-width: 900px) {
+  .navbar-market-ticker {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
   .navbar {
     flex-direction: column;
     align-items: flex-start;
@@ -1378,6 +1480,10 @@ input:focus-visible {
   .nav-actions {
     width: 100%;
     justify-content: space-between;
+  }
+
+  .admin-market-ticker {
+    justify-content: flex-start;
   }
 
   .nav-links {

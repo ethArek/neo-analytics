@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
   binaryTargets = ["native", "freebsd14"]
 }
 
@@ -38,24 +38,30 @@ model DailyStat {
 }
 
 model DailyTx {
-  id           Int      @id @default(autoincrement())
-  date         DateTime
-  txid         String   @unique
-  type         TxType
-  from         String?
-  to           String?
-  asset        String?
-  amountRaw    Decimal? @db.Decimal(78, 0)
-  swapUsdValue Decimal? @db.Decimal(65, 8)
-  transferCount Int     @default(0)
-  method       String?
-  contract     String?
-  timestamp    DateTime
-  blockIndex   Int?
-  rawJson      Json
-  createdAt    DateTime @default(now())
+  id            Int      @id @default(autoincrement())
+  date          DateTime
+  txid          String   @unique
+  type          TxType
+  from          String?
+  to            String?
+  asset         String?
+  amountRaw     Decimal? @db.Decimal(78, 0)
+  swapUsdValue  Decimal? @db.Decimal(65, 8)
+  transferCount Int      @default(0)
+  method        String?
+  contract      String?
+  timestamp     DateTime
+  blockIndex    Int?
+  rawJson       Json
+  createdAt     DateTime @default(now())
 
   @@index([date])
+  @@index([date, type])
+  @@index([date, type, asset])
+  @@index([date, type, from])
+  @@index([date, type, to])
+  @@index([date, type, timestamp])
+  @@index([date, type, swapUsdValue])
 }
 
 model DailyTransfer {
@@ -64,7 +70,7 @@ model DailyTransfer {
   txid          String
   transferIndex Int
   asset         String
-  amountRaw     Decimal @db.Decimal(78, 0)
+  amountRaw     Decimal  @db.Decimal(78, 0)
   from          String?
   to            String?
   createdAt     DateTime @default(now())
@@ -117,20 +123,20 @@ model DailyContractStat {
 }
 
 model IngestionCursor {
-  id                    Int       @id @default(autoincrement())
-  network               String    @unique
-  lastProcessedBlock    Int?
+  id                     Int       @id @default(autoincrement())
+  network                String    @unique
+  lastProcessedBlock     Int?
   lastProcessedTimestamp DateTime?
-  updatedAt             DateTime  @updatedAt
+  updatedAt              DateTime  @updatedAt
 }
 
 model AdminUser {
-  id           Int      @id @default(autoincrement())
-  email        String   @unique
+  id           Int       @id @default(autoincrement())
+  email        String    @unique
   passwordHash String
   passwordSalt String
-  sessionToken String?  @unique
+  sessionToken String?   @unique
   lastLoginAt  DateTime?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 }

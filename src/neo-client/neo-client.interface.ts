@@ -19,6 +19,13 @@ export type NeoTransaction = {
   raw: Record<string, unknown>;
 };
 
+export type NeoBalance = {
+  asset: string;
+  symbol: string;
+  assetName: string;
+  balance: number;
+};
+
 export type NeoPagedResponse = {
   transactions: NeoTransaction[];
   nextCursor?: string;
@@ -34,6 +41,7 @@ export interface NeoClient {
     endTime: Date,
     cursor?: string,
   ): Promise<NeoPagedResponse>;
+  getAddressBalances?(address: string): Promise<NeoBalance[]>;
   resolveAssetLabel?(asset: string): Promise<string | null>;
   resolveAssetDecimals?(asset: string): Promise<number | null>;
 }

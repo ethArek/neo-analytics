@@ -1,5 +1,6 @@
 import { u, wallet } from '@cityofzion/neon-js';
 import { Inject, Injectable } from '@nestjs/common';
+import { TxType } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 import { decimalToBigInt } from '../common/prisma-decimal';
 import { parseDate } from '../ingestion/date-utils';
@@ -12,6 +13,8 @@ import type {
   DailyTxWithBigInt,
   DayDetailsOptions,
   DayDetailsPagination,
+  SwapAssetActivity,
+  SwapAssetStat,
   StatsRange,
   TopAddress,
   UniqueAddressStats,
@@ -244,6 +247,142 @@ export class StatsService {
       uniqueReceivers: receiverSet.size,
       uniqueAddresses: uniqueAddresses.size,
     };
+  }
+
+  async getSwapAddressStatsRange(from: string, to: string): Promise<UniqueAddressStats> {
+    const dateRange = {
+      gte: parseDate(from),
+      lte: parseDate(to),
+    };
+    const [senders, receivers] = await Promise.all([
+      this.prisma.dailyTx.groupBy({
+        by: ['from'],
+        where: {
+          date: dateRange,
+          type: TxType.SWAP,
+          from: { not: null, notIn: [''] },
+        },
+      }),
+      this.prisma.dailyTx.groupBy({
+        by: ['to'],
+        where: {
+          date: dateRange,
+          type: TxType.SWAP,
+          to: { not: null, notIn: [''] },
+        },
+      }),
+    ]);
+    const senderSet = new Set(senders.map((row) => row.from).filter(Boolean));
+    const receiverSet = new Set(receivers.map((row) => row.to).filter(Boolean));
+    const uniqueAddresses = new Set([...senderSet, ...receiverSet]);
+
+    return {
+      uniqueSenders: senderSet.size,
+      uniqueReceivers: receiverSet.size,
+      uniqueAddresses: uniqueAddresses.size,
+    };
+  }
+
+  async getSwapAssetStatsRange(from: string, to: string, limit = 6): Promise<SwapAssetStat[]> {
+    const dateRange = {
+      gte: parseDate(from),
+      lte: parseDate(to),
+    };
+    const grouped = await this.prisma.dailyTx.groupBy({
+      by: ['asset'],
+      where: {
+        date: dateRange,
+        type: TxType.SWAP,
+        asset: { not: null, notIn: [''] },
+        swapUsdValue: { not: null },
+      },
+      _sum: {
+        swapUsdValue: true,
+      },
+      _count: {
+        asset: true,
+      },
+    });
+
+    return grouped
+      .map((row) => {
+        const totalUsdValue = row._sum.swapUsdValue?.toString() ?? '0';
+        const swapCount = row._count.asset ?? 0;
+        const averageUsdValue =
+          swapCount > 0 ? (row._sum.swapUsdValue?.div(swapCount).toString() ?? '0') : '0';
+
+        return {
+          asset: row.asset ?? '',
+          swapCount,
+          totalUsdValue,
+          averageUsdValue,
+        };
+      })
+      .sort((left, right) => Number(right.totalUsdValue) - Number(left.totalUsdValue))
+      .slice(0, limit);
+  }
+
+  async getSwapAssetActivityRange(from: string, to: string): Promise<SwapAssetActivity[]> {
+    const grouped = await this.prisma.dailyTx.groupBy({
+      by: ['date', 'asset'],
+      where: {
+        date: {
+          gte: parseDate(from),
+          lte: parseDate(to),
+        },
+        type: TxType.SWAP,
+        asset: { not: null, notIn: [''] },
+      },
+      orderBy: [{ date: 'asc' }, { asset: 'asc' }],
+    });
+
+    return grouped
+      .map((row) => ({
+        date: row.date,
+        asset: row.asset ?? '',
+      }))
+      .filter((row) => row.asset.length > 0);
+  }
+
+  async getLargestSwapTransactionsRange(from: string, to: string, limit = 6) {
+    const transactions = await this.prisma.dailyTx.findMany({
+      where: {
+        date: {
+          gte: parseDate(from),
+          lte: parseDate(to),
+        },
+        type: TxType.SWAP,
+        swapUsdValue: { not: null },
+      },
+      orderBy: [{ swapUsdValue: 'desc' }, { timestamp: 'desc' }, { id: 'desc' }],
+      take: limit,
+    });
+
+    return transactions.map((transaction) => ({
+      ...transaction,
+      amountRaw: transaction.amountRaw === null ? null : decimalToBigInt(transaction.amountRaw),
+      swapUsdValue: transaction.swapUsdValue === null ? null : transaction.swapUsdValue.toString(),
+    }));
+  }
+
+  async getRecentSwapTransactionsRange(from: string, to: string, limit = 6) {
+    const transactions = await this.prisma.dailyTx.findMany({
+      where: {
+        date: {
+          gte: parseDate(from),
+          lte: parseDate(to),
+        },
+        type: TxType.SWAP,
+      },
+      orderBy: [{ timestamp: 'desc' }, { id: 'desc' }],
+      take: limit,
+    });
+
+    return transactions.map((transaction) => ({
+      ...transaction,
+      amountRaw: transaction.amountRaw === null ? null : decimalToBigInt(transaction.amountRaw),
+      swapUsdValue: transaction.swapUsdValue === null ? null : transaction.swapUsdValue.toString(),
+    }));
   }
 
   async getDayDetails(

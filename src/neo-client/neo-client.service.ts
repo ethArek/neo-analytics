@@ -2,6 +2,7 @@ import { api } from '@cityofzion/dora-ts';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type {
+  NeoBalance,
   NeoClient,
   NeoInvocation,
   NeoPagedResponse,
@@ -87,6 +88,44 @@ export class RpcNeoClient implements NeoClient {
     const response = await this.fetchTransactionsForBlockRange(range, label, cursor);
 
     return response;
+  }
+
+  async getAddressBalances(address: string): Promise<NeoBalance[]> {
+    const response = await this.withRpc((client) => client.balance(address, this.doraNetwork));
+    if (!Array.isArray(response)) {
+      return [];
+    }
+
+    const balances: NeoBalance[] = [];
+    for (const item of response) {
+      if (!item || typeof item !== 'object') {
+        continue;
+      }
+
+      const candidate = item as {
+        asset?: unknown;
+        symbol?: unknown;
+        asset_name?: unknown;
+        balance?: unknown;
+      };
+      const asset = typeof candidate.asset === 'string' ? candidate.asset.trim().toLowerCase() : '';
+      const symbol = typeof candidate.symbol === 'string' ? candidate.symbol.trim() : '';
+      const assetName = typeof candidate.asset_name === 'string' ? candidate.asset_name.trim() : '';
+      const balance =
+        typeof candidate.balance === 'number' ? candidate.balance : Number(candidate.balance);
+      if (!asset || !symbol || !Number.isFinite(balance)) {
+        continue;
+      }
+
+      balances.push({
+        asset,
+        symbol,
+        assetName,
+        balance,
+      });
+    }
+
+    return balances;
   }
 
   async resolveAssetLabel(asset: string): Promise<string | null> {
