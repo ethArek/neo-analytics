@@ -3,12 +3,13 @@ import { ConfigService } from '@nestjs/config';
 import { ApiExcludeController } from '@nestjs/swagger';
 import { Prisma } from '@prisma/client';
 import type { Response } from 'express';
-import { formatDate } from '../ingestion/date-utils';
+import { formatDate, parseDate } from '../ingestion/date-utils';
 import type { NeoClient } from '../neo-client/neo-client.interface';
 import { NEO_CLIENT } from '../neo-client/neo-client.provider';
 import { StatsService } from '../stats/stats.service';
 import { formatNumber, formatUnits, toNumber } from '../stats/stats.utils';
 import { countInclusiveDays, normalizeIsoDate, resolveDefiWindow } from './defi-metrics';
+import { DefiLiquidityService } from './defi-liquidity.service';
 import { renderReactPage } from './react-view';
 import { TokenPerformanceService } from './token-performance.service';
 import type { StatTotals } from './web.controller.types';
@@ -22,12 +23,16 @@ export class WebController {
 
   private readonly maxDayPageSize = 200;
 
+  private readonly millisecondsPerDay = 24 * 60 * 60 * 1000;
+
   constructor(
     @Inject(StatsService) private readonly statsService: StatsService,
     @Inject(NEO_CLIENT) private readonly neoClient: NeoClient,
     @Inject(ConfigService) private readonly configService: ConfigService,
     @Inject(TokenPerformanceService)
     private readonly tokenPerformanceService: TokenPerformanceService,
+    @Inject(DefiLiquidityService)
+    private readonly defiLiquidityService: DefiLiquidityService,
   ) {}
 
   @Get('/favicon.ico')
@@ -159,10 +164,11 @@ export class WebController {
 
   @Get('/defi')
   async defi(@Res() res: Response, @Query('from') from?: string, @Query('to') to?: string) {
-    const [{ stats: latestStats }, tokenPerformance] = await Promise.all([
-      this.statsService.getRangeOrLatest(undefined, undefined, 30),
-      this.tokenPerformanceService.getDashboardTokenPerformance(),
-    ]);
+    const { stats: latestStats } = await this.statsService.getRangeOrLatest(
+      undefined,
+      undefined,
+      30,
+    );
     const availableFrom = this.getDefiMetricsAvailableFrom();
     const defaultRange = this.buildDefaultDefiRange(latestStats, availableFrom);
     const window = resolveDefiWindow({
@@ -172,15 +178,15 @@ export class WebController {
       fallbackFrom: defaultRange.from,
       fallbackTo: defaultRange.to,
     });
-
-    let stats: typeof latestStats = [];
-    if (
-      (window.status === 'ready' || window.status === 'partial') &&
-      window.effectiveFrom &&
-      window.effectiveTo
-    ) {
-      stats = await this.statsService.getStatsRange(window.effectiveFrom, window.effectiveTo);
-    }
+    const [trackedLiquidity, tokenPerformanceFilters] = await Promise.all([
+      this.defiLiquidityService.getTrackedLiquiditySnapshot(),
+      this.buildDefiTokenPerformanceFilters(defaultRange.to),
+    ]);
+    const [tokenPerformance, rangeData] = await Promise.all([
+      this.tokenPerformanceService.getDashboardTokenPerformance(tokenPerformanceFilters),
+      this.getDefiRangeData(window),
+    ]);
+    const { stats, swapAddressStats, topSwapAssets, largestSwaps, recentSwaps } = rangeData;
 
     const hasStats = stats.length > 0;
     const requestedDays = countInclusiveDays(window.requestedFrom, window.requestedTo);
@@ -192,6 +198,39 @@ export class WebController {
     const totalSwaps = stats.reduce((total, stat) => total + stat.swapsCount, 0);
     const averageSwapUsdValue =
       totalSwaps > 0 ? totalSwapUsdValue.div(totalSwaps) : new Prisma.Decimal(0);
+    const totalActivity = stats.reduce((total, stat) => total + stat.realUsageTotal, 0);
+    const rangeFrom = window.effectiveFrom ?? window.requestedFrom ?? '';
+    const rangeTo = window.effectiveTo ?? window.requestedTo ?? rangeFrom;
+    const rangeLabel = rangeFrom && rangeTo ? `${rangeFrom} to ${rangeTo}` : 'No data available';
+    const swapAssetsToResolve = new Set<string>();
+    for (const asset of topSwapAssets) {
+      if (asset.asset) {
+        swapAssetsToResolve.add(asset.asset);
+      }
+    }
+
+    for (const transaction of largestSwaps) {
+      if (transaction.asset) {
+        swapAssetsToResolve.add(transaction.asset);
+      }
+    }
+
+    for (const transaction of recentSwaps) {
+      if (transaction.asset) {
+        swapAssetsToResolve.add(transaction.asset);
+      }
+    }
+
+    const [assetLabelMap, assetDecimalsMap] = await Promise.all([
+      this.buildAssetLabelMap([...swapAssetsToResolve]),
+      this.buildAssetDecimalsMap([...swapAssetsToResolve]),
+    ]);
+    const latestDay = latestStats[latestStats.length - 1];
+    const latestSevenDays = latestStats.slice(-7);
+    const latestSevenDayVolume = latestSevenDays.reduce(
+      (total, stat) => total.add(stat.swapsUsdValue),
+      new Prisma.Decimal(0),
+    );
 
     return res.send(
       renderReactPage({
@@ -202,6 +241,9 @@ export class WebController {
             defi: true,
           },
           tokenPerformance,
+          rangeLabel,
+          rangeFrom,
+          rangeTo,
           totals: hasStats
             ? {
                 estimatedSwapUsdValue: this.formatUsd(totalSwapUsdValue),
@@ -209,8 +251,85 @@ export class WebController {
                 averageSwapUsdValue: this.formatUsd(averageSwapUsdValue),
                 coveredDays: formatNumber(coveredDays),
                 requestedDays: formatNumber(requestedDays),
+                activityShare: this.formatPercentValue(totalSwaps, totalActivity),
+                activeSwapWallets: formatNumber(swapAddressStats.uniqueAddresses),
               }
             : null,
+          onChainOverview: {
+            latestDayDexVolume: this.formatUsd(latestDay?.swapsUsdValue ?? '0'),
+            latestDayLabel: latestDay ? formatDate(latestDay.date, 'UTC') : 'No data available',
+            last7dDexVolume: this.formatUsd(latestSevenDayVolume),
+            last7dLabel:
+              latestSevenDays.length > 0
+                ? `${formatDate(latestSevenDays[0].date, 'UTC')} to ${formatDate(
+                    latestSevenDays[latestSevenDays.length - 1].date,
+                    'UTC',
+                  )}`
+                : 'No data available',
+            trackedTvl: trackedLiquidity ? this.formatUsd(trackedLiquidity.trackedTvlUsd) : null,
+            stablecoinLiquidity: trackedLiquidity
+              ? this.formatUsd(trackedLiquidity.stablecoinLiquidityUsd)
+              : null,
+            stablecoinShare: trackedLiquidity
+              ? this.formatPercentValue(
+                  trackedLiquidity.stablecoinLiquidityUsd,
+                  trackedLiquidity.trackedTvlUsd,
+                )
+              : null,
+            trackedContracts: trackedLiquidity
+              ? formatNumber(trackedLiquidity.trackedContracts)
+              : null,
+            pricedAssets: trackedLiquidity ? formatNumber(trackedLiquidity.pricedAssets) : null,
+            topLiquidityAssets:
+              trackedLiquidity?.topAssets.map((asset) => ({
+                symbol: asset.symbol,
+                balanceLabel: this.formatTokenBalance(asset.balance),
+                usdValueLabel: this.formatUsd(asset.usdValue),
+                stablecoin: asset.stablecoin,
+              })) ?? [],
+          },
+          topSwapAssets: topSwapAssets.map((asset) => ({
+            assetLabel: this.getAssetLabel(asset.asset, assetLabelMap),
+            swaps: formatNumber(asset.swapCount),
+            usdVolume: this.formatUsd(asset.totalUsdValue),
+            averageSwapUsdValue: this.formatUsd(asset.averageUsdValue),
+          })),
+          largestSwaps: largestSwaps.map((transaction) => ({
+            txid: transaction.txid,
+            shortTxid: this.shortenAddress(transaction.txid),
+            timestampLabel: this.formatTimestampLabel(transaction.timestamp),
+            dayLabel: formatDate(transaction.date, 'UTC'),
+            dayHref: this.buildDayHref(formatDate(transaction.date, 'UTC')),
+            assetLabel: this.getAssetLabel(transaction.asset, assetLabelMap),
+            amountLabel:
+              transaction.amountRaw === null
+                ? '-'
+                : this.formatAmount(
+                    transaction.asset,
+                    transaction.amountRaw,
+                    this.getAssetDecimals(transaction.asset, assetDecimalsMap),
+                  ),
+            usdValueLabel: this.formatUsd(transaction.swapUsdValue ?? '0'),
+            method: transaction.method,
+          })),
+          recentSwaps: recentSwaps.map((transaction) => ({
+            txid: transaction.txid,
+            shortTxid: this.shortenAddress(transaction.txid),
+            timestampLabel: this.formatTimestampLabel(transaction.timestamp),
+            dayLabel: formatDate(transaction.date, 'UTC'),
+            dayHref: this.buildDayHref(formatDate(transaction.date, 'UTC')),
+            assetLabel: this.getAssetLabel(transaction.asset, assetLabelMap),
+            amountLabel:
+              transaction.amountRaw === null
+                ? '-'
+                : this.formatAmount(
+                    transaction.asset,
+                    transaction.amountRaw,
+                    this.getAssetDecimals(transaction.asset, assetDecimalsMap),
+                  ),
+            usdValueLabel: this.formatUsd(transaction.swapUsdValue ?? '0'),
+            method: transaction.method,
+          })),
           chartData: hasStats ? this.buildDefiChartData(stats) : null,
         },
       }),
@@ -363,6 +482,109 @@ export class WebController {
     };
   }
 
+  private async getDefiRangeData(window: ReturnType<typeof resolveDefiWindow>) {
+    if (
+      (window.status !== 'ready' && window.status !== 'partial') ||
+      !window.effectiveFrom ||
+      !window.effectiveTo
+    ) {
+      return {
+        stats: [] as Awaited<ReturnType<StatsService['getLatestStats']>>,
+        swapAddressStats: {
+          uniqueSenders: 0,
+          uniqueReceivers: 0,
+          uniqueAddresses: 0,
+        },
+        topSwapAssets: [] as Awaited<ReturnType<StatsService['getSwapAssetStatsRange']>>,
+        largestSwaps: [] as Awaited<ReturnType<StatsService['getLargestSwapTransactionsRange']>>,
+        recentSwaps: [] as Awaited<ReturnType<StatsService['getRecentSwapTransactionsRange']>>,
+      };
+    }
+
+    const [stats, swapAddressStats, topSwapAssets, largestSwaps, recentSwaps] = await Promise.all([
+      this.statsService.getStatsRange(window.effectiveFrom, window.effectiveTo),
+      this.statsService.getSwapAddressStatsRange(window.effectiveFrom, window.effectiveTo),
+      this.statsService.getSwapAssetStatsRange(window.effectiveFrom, window.effectiveTo, 6),
+      this.statsService.getLargestSwapTransactionsRange(
+        window.effectiveFrom,
+        window.effectiveTo,
+        6,
+      ),
+      this.statsService.getRecentSwapTransactionsRange(window.effectiveFrom, window.effectiveTo, 6),
+    ]);
+
+    return {
+      stats,
+      swapAddressStats,
+      topSwapAssets,
+      largestSwaps,
+      recentSwaps,
+    };
+  }
+
+  private async buildDefiTokenPerformanceFilters(latestDate: string | null) {
+    if (!latestDate) {
+      return {
+        last24h: new Set<string>(),
+        last7d: new Set<string>(),
+        last30d: new Set<string>(),
+      };
+    }
+
+    const last7dFrom = this.shiftIsoDate(latestDate, -6);
+    const last30dFrom = this.shiftIsoDate(latestDate, -29);
+    const assetActivity = await this.statsService.getSwapAssetActivityRange(
+      last30dFrom,
+      latestDate,
+    );
+    const last24h = new Set<string>();
+    const last7d = new Set<string>();
+    const last30d = new Set<string>();
+
+    for (const activity of assetActivity) {
+      const normalizedAsset = this.normalizeAssetKey(activity.asset);
+      if (!normalizedAsset) {
+        continue;
+      }
+
+      const activityDate = formatDate(activity.date, 'UTC');
+      last30d.add(normalizedAsset);
+      if (activityDate >= last7dFrom) {
+        last7d.add(normalizedAsset);
+      }
+
+      if (activityDate === latestDate) {
+        last24h.add(normalizedAsset);
+      }
+    }
+
+    return {
+      last24h,
+      last7d,
+      last30d,
+    };
+  }
+
+  private shiftIsoDate(value: string, days: number): string {
+    const parsed = parseDate(value);
+    const shifted = new Date(parsed.getTime() + days * this.millisecondsPerDay);
+
+    return formatDate(shifted, 'UTC');
+  }
+
+  private normalizeAssetKey(value: string): string | null {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return null;
+    }
+
+    if (trimmed.startsWith('0x')) {
+      return trimmed.toLowerCase();
+    }
+
+    return trimmed.toUpperCase();
+  }
+
   private buildDefiChartData(stats: Awaited<ReturnType<StatsService['getLatestStats']>>) {
     return {
       labels: stats.map((stat) => formatDate(stat.date)),
@@ -425,7 +647,9 @@ export class WebController {
 
   private buildChartData(
     stats: Array<
-      Awaited<ReturnType<StatsService['getLatestStats']>>[number] & { dateLabel: string }
+      Awaited<ReturnType<StatsService['getLatestStats']>>[number] & {
+        dateLabel: string;
+      }
     >,
     assetStats: Array<
       Awaited<ReturnType<StatsService['getAssetStatsRange']>>[number] & {
@@ -595,6 +819,44 @@ export class WebController {
     }
   }
 
+  private formatPercentValue(value: number, total: number): string {
+    if (!Number.isFinite(value) || !Number.isFinite(total) || total <= 0) {
+      return '0.00%';
+    }
+
+    const percent = (value / total) * 100;
+
+    return `${percent.toFixed(2)}%`;
+  }
+
+  private formatTokenBalance(value: number): string {
+    if (!Number.isFinite(value)) {
+      return '0';
+    }
+
+    let maximumFractionDigits = 2;
+    if (Math.abs(value) > 0 && Math.abs(value) < 1) {
+      maximumFractionDigits = 6;
+    }
+
+    return new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits,
+    }).format(value);
+  }
+
+  private formatTimestampLabel(value: Date): string {
+    return value.toISOString().replace('T', ' ').replace('.000Z', ' UTC');
+  }
+
+  private buildDayHref(date: string): string {
+    if (!date) {
+      return '/days';
+    }
+
+    return `/day/${encodeURIComponent(date)}`;
+  }
+
   private resolveDayPageSize(value?: string): number {
     const requested = this.parsePositiveInt(value, this.defaultDayPageSize);
     const clamped = Math.min(Math.max(requested, 1), this.maxDayPageSize);
@@ -665,7 +927,7 @@ export class WebController {
     return formatUnits(value, 0);
   }
 
-  private formatUsd(value: string | Prisma.Decimal): string {
+  private formatUsd(value: string | number | Prisma.Decimal): string {
     let decimalValue: Prisma.Decimal;
     try {
       decimalValue = value instanceof Prisma.Decimal ? value : new Prisma.Decimal(value);

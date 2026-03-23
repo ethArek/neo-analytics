@@ -31,6 +31,18 @@ export type UniqueAddressStats = {
   uniqueAddresses: number;
 };
 
+export type SwapAssetStat = {
+  asset: string;
+  swapCount: number;
+  totalUsdValue: string;
+  averageUsdValue: string;
+};
+
+export type SwapAssetActivity = {
+  date: Date;
+  asset: string;
+};
+
 export type DailyStatRow = Awaited<ReturnType<PrismaService['dailyStat']['findMany']>>[number];
 
 export type DailyStatWithBigInt = Omit<

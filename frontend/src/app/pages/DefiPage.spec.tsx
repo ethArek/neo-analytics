@@ -25,11 +25,14 @@ describe('DefiPage', () => {
     jest.clearAllMocks();
   });
 
-  it('renders DeFi metrics and initializes charts', async () => {
+  it('renders blockchain-first DeFi metrics and initializes charts', async () => {
     const data: DefiData = {
       nav: {
         defi: true,
       },
+      rangeLabel: '2026-03-01 to 2026-03-10',
+      rangeFrom: '2026-03-01',
+      rangeTo: '2026-03-10',
       tokenPerformance: {
         last24h: {
           label: 'Last 24h',
@@ -95,7 +98,62 @@ describe('DefiPage', () => {
         averageSwapUsdValue: '$94.82',
         coveredDays: '4',
         requestedDays: '10',
+        activityShare: '21.30%',
+        activeSwapWallets: '17',
       },
+      onChainOverview: {
+        latestDayDexVolume: '$980.25',
+        latestDayLabel: '2026-03-08',
+        last7dDexVolume: '$6,420.55',
+        last7dLabel: '2026-03-02 to 2026-03-08',
+        trackedTvl: '$719,999.31',
+        stablecoinLiquidity: '$306,986.22',
+        stablecoinShare: '42.64%',
+        trackedContracts: '4',
+        pricedAssets: '10',
+        topLiquidityAssets: [
+          {
+            symbol: 'FUSD',
+            balanceLabel: '293,276.14',
+            usdValueLabel: '$272,479.53',
+            stablecoin: true,
+          },
+        ],
+      },
+      topSwapAssets: [
+        {
+          assetLabel: 'FUSD',
+          swaps: '9',
+          usdVolume: '$1,200.50',
+          averageSwapUsdValue: '$133.39',
+        },
+      ],
+      largestSwaps: [
+        {
+          txid: '0xabc123',
+          shortTxid: '0xabc1...c123',
+          timestampLabel: '2026-03-08 12:30 UTC',
+          dayLabel: '2026-03-08',
+          dayHref: '/day/2026-03-08',
+          assetLabel: 'FUSD',
+          amountLabel: '1,000.00',
+          usdValueLabel: '$1,000.00',
+          method: 'swapTokens',
+        },
+      ],
+      recentSwaps: [
+        {
+          txid: '0xdef456',
+          shortTxid: '0xdef4...f456',
+          timestampLabel: '2026-03-08 13:10 UTC',
+          dayLabel: '2026-03-08',
+          dayHref: '/day/2026-03-08',
+          assetLabel: 'GAS',
+          amountLabel: '15.50',
+          usdValueLabel: '$250.00',
+          method: 'swap',
+        },
+      ],
       chartData,
     };
 
@@ -112,19 +170,28 @@ describe('DefiPage', () => {
       expect(mockedInit).toHaveBeenCalledWith(chartData, 'dark');
     });
 
-    expect(screen.getByRole('heading', { name: 'Estimated swap USD value' })).toBeInTheDocument();
+    expect(screen.getByText('2026-03-01 to 2026-03-10')).toBeInTheDocument();
+    expect(screen.getByText('DEX volume')).toBeInTheDocument();
     expect(screen.getByText('$2,180.75')).toBeInTheDocument();
+    expect(screen.getByText('Active swap wallets')).toBeInTheDocument();
+    expect(screen.getByText('21.30%')).toBeInTheDocument();
+    expect(screen.getByText('Tracked DEX TVL')).toBeInTheDocument();
+    expect(screen.getByText('$719,999.31')).toBeInTheDocument();
+    expect(screen.getByText('Stablecoin liquidity')).toBeInTheDocument();
+    expect(screen.getByText('$306,986.22')).toBeInTheDocument();
+    expect(screen.getByText('Tracked liquidity mix')).toBeInTheDocument();
+    expect(screen.getByText('Top swap assets')).toBeInTheDocument();
+    expect(screen.getByText('Largest swaps')).toBeInTheDocument();
+    expect(screen.getByText('Recent swaps')).toBeInTheDocument();
+    expect(screen.getByText('0xabc1...c123')).toBeInTheDocument();
+    expect(screen.getByText('0xdef4...f456')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Estimated swap USD value' })).toBeInTheDocument();
     expect(screen.getByText('Top gainer · Last 24h')).toBeInTheDocument();
-    expect(screen.getByText('Top loser · Last 24h')).toBeInTheDocument();
-    expect(screen.getByText('NUDES')).toBeInTheDocument();
-    expect(screen.getByText('$0.00001234')).toBeInTheDocument();
-    expect(screen.getByText('-4.20%')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('tab', { name: '7 days' }));
 
     expect(screen.getByText('Top gainer · Last 7 days')).toBeInTheDocument();
-    expect(screen.getByText('NEO')).toBeInTheDocument();
-    expect(screen.getByText('-1.10%')).toBeInTheDocument();
+    expect(screen.getByText('$20.00')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('tab', { name: '30 days' }));
 
