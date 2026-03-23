@@ -1,11 +1,12 @@
 import type React from 'react';
 import { delayStyle } from '../utils';
+import { MarketTicker } from './MarketTicker';
 import type { NavbarProps } from './Navbar.types';
 import { ThemeToggle } from './ThemeToggle';
 
 const navClass = (isActive?: boolean) => (isActive ? 'nav-link is-active' : 'nav-link');
 
-export const Navbar: React.FC<NavbarProps> = ({ nav }) => (
+export const Navbar: React.FC<NavbarProps> = ({ nav, marketPrices }) => (
   <nav className="navbar" data-animate style={delayStyle('0s')}>
     <a className="nav-brand" href="/dashboard">
       <span className="nav-mark">N3</span>
@@ -13,6 +14,7 @@ export const Navbar: React.FC<NavbarProps> = ({ nav }) => (
         <span className="nav-title">Neo Analytics</span>
       </span>
     </a>
+    <MarketTicker marketPrices={marketPrices} className="navbar-market-ticker" />
     <div className="nav-actions">
       <div className="nav-links">
         <a className={navClass(nav?.dashboard)} href="/dashboard">

@@ -10,6 +10,18 @@ describe('DayPage', () => {
 
   it('renders the summary and tables when stats are present', () => {
     const data: DayData = {
+      marketPrices: {
+        neo: {
+          price: '$12.34',
+          change24h: '+2.40%',
+          tone: 'positive',
+        },
+        gas: {
+          price: '$3.21',
+          change24h: '-1.10%',
+          tone: 'negative',
+        },
+      },
       date: '2024-01-01',
       stat: {
         totalTxCount: 10,
@@ -61,6 +73,8 @@ describe('DayPage', () => {
     );
 
     expect(screen.getByText('Day details: 2024-01-01')).toBeInTheDocument();
+    expect(document.body).toHaveTextContent('NEO $12.34 (+2.40%)');
+    expect(document.body).toHaveTextContent('GAS $3.21 (-1.10%)');
     expect(screen.getByText('Oracle transactions')).toBeInTheDocument();
     expect(screen.getByText('Asset transfer volume')).toBeInTheDocument();
     expect(screen.getByText('Transaction explorer')).toBeInTheDocument();

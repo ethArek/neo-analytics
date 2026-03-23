@@ -4,6 +4,7 @@ import type { Request, Response } from 'express';
 import { formatDate, parseDate, yesterdayInTimeZone } from '../ingestion/date-utils';
 import { IngestionService } from '../ingestion/ingestion.service';
 import { renderReactPage } from '../web/react-view';
+import { TokenPerformanceService } from '../web/token-performance.service';
 import { AdminService } from './admin.service';
 
 const SESSION_COOKIE = 'admin_session';
@@ -15,6 +16,8 @@ export class AdminController {
   constructor(
     @Inject(AdminService) private readonly adminService: AdminService,
     @Inject(IngestionService) private readonly ingestionService: IngestionService,
+    @Inject(TokenPerformanceService)
+    private readonly tokenPerformanceService: TokenPerformanceService,
   ) {}
 
   @Get()
@@ -25,26 +28,16 @@ export class AdminController {
     }
 
     return res.send(
-      renderReactPage({
-        title: 'Admin console · Neo Analytics',
-        page: 'admin',
-        data: {
-          email: admin.email,
-          defaultDate: yesterdayInTimeZone('Europe/Warsaw'),
-        },
+      await this.renderAdminPage({
+        email: admin.email,
+        defaultDate: yesterdayInTimeZone('Europe/Warsaw'),
       }),
     );
   }
 
   @Get('login')
   async loginForm(@Res() res: Response) {
-    return res.send(
-      renderReactPage({
-        title: 'Admin login · Neo Analytics',
-        page: 'admin-login',
-        data: {},
-      }),
-    );
+    return res.send(await this.renderAdminLoginPage({}));
   }
 
   @Post('login')
@@ -55,13 +48,9 @@ export class AdminController {
     if (!admin) {
       res.status(401);
       return res.send(
-        renderReactPage({
-          title: 'Admin login · Neo Analytics',
-          page: 'admin-login',
-          data: {
-            error: 'Invalid email or password.',
-            email,
-          },
+        await this.renderAdminLoginPage({
+          error: 'Invalid email or password.',
+          email,
         }),
       );
     }
@@ -88,14 +77,10 @@ export class AdminController {
     if (!this.isValidDate(targetDate)) {
       res.status(400);
       return res.send(
-        renderReactPage({
-          title: 'Admin console · Neo Analytics',
-          page: 'admin',
-          data: {
-            email: admin.email,
-            defaultDate: targetDate,
-            error: 'Enter a valid date in YYYY-MM-DD format.',
-          },
+        await this.renderAdminPage({
+          email: admin.email,
+          defaultDate: targetDate,
+          error: 'Enter a valid date in YYYY-MM-DD format.',
         }),
       );
     }
@@ -103,27 +88,19 @@ export class AdminController {
     try {
       await this.ingestionService.ingestDay(targetDate);
       return res.send(
-        renderReactPage({
-          title: 'Admin console · Neo Analytics',
-          page: 'admin',
-          data: {
-            email: admin.email,
-            defaultDate: targetDate,
-            message: `Ingestion completed for ${targetDate}.`,
-          },
+        await this.renderAdminPage({
+          email: admin.email,
+          defaultDate: targetDate,
+          message: `Ingestion completed for ${targetDate}.`,
         }),
       );
     } catch (_error) {
       res.status(500);
       return res.send(
-        renderReactPage({
-          title: 'Admin console · Neo Analytics',
-          page: 'admin',
-          data: {
-            email: admin.email,
-            defaultDate: targetDate,
-            error: 'Ingestion failed. Check logs for details.',
-          },
+        await this.renderAdminPage({
+          email: admin.email,
+          defaultDate: targetDate,
+          error: 'Ingestion failed. Check logs for details.',
         }),
       );
     }
@@ -200,5 +177,36 @@ export class AdminController {
     }
 
     return formatDate(parsed, 'UTC') === value;
+  }
+
+  private async renderAdminPage(data: {
+    email?: string;
+    defaultDate?: string;
+    message?: string;
+    error?: string;
+  }) {
+    const marketPrices = await this.tokenPerformanceService.getMarketPrices();
+
+    return renderReactPage({
+      title: 'Admin console · Neo Analytics',
+      page: 'admin',
+      data: {
+        ...data,
+        marketPrices,
+      },
+    });
+  }
+
+  private async renderAdminLoginPage(data: { email?: string; error?: string }) {
+    const marketPrices = await this.tokenPerformanceService.getMarketPrices();
+
+    return renderReactPage({
+      title: 'Admin login · Neo Analytics',
+      page: 'admin-login',
+      data: {
+        ...data,
+        marketPrices,
+      },
+    });
   }
 }

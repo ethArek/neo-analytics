@@ -2,16 +2,22 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type {
   ChangeTone,
+  CoinPaprikaTicker,
   DashboardTokenPerformance,
   DashboardTokenPerformanceEntry,
   DashboardTokenPerformanceFilters,
+  MarketPriceEntry,
   DashboardTokenPerformanceWindow,
   FlamingoPriceRow,
+  MarketPrices,
 } from './token-performance.service.types';
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const MINUTE_IN_MS = 60 * 1000;
 const TOP_TOKEN_COUNT = 1;
+const NEO_COIN_PAPRIKA_ID = 'neo-neo';
+const GAS_COIN_PAPRIKA_ID = 'gas-gas';
+const MARKET_PRICES_CACHE_TTL_MS = 60 * 1000;
 const PRICE_ROWS_CACHE_TTL_MS = 60 * 1000;
 
 type CacheEntry<T> = {
@@ -25,11 +31,38 @@ export class TokenPerformanceService {
 
   private readonly requestTimeoutMs = 8000;
 
+  private marketPricesCache: CacheEntry<MarketPrices> | null = null;
+
+  private marketPricesPromise: Promise<MarketPrices> | null = null;
+
   private readonly priceRowsCache = new Map<string, CacheEntry<FlamingoPriceRow[]>>();
 
   private readonly priceRowsPromises = new Map<string, Promise<FlamingoPriceRow[]>>();
 
   constructor(@Inject(ConfigService) private readonly configService: ConfigService) {}
+
+  async getMarketPrices(): Promise<MarketPrices> {
+    const cached = this.getCachedValue(this.marketPricesCache);
+    if (cached) {
+      return cached;
+    }
+
+    if (this.marketPricesPromise) {
+      return this.marketPricesPromise;
+    }
+
+    const loader = this.loadMarketPrices();
+    this.marketPricesPromise = loader;
+
+    try {
+      const result = await loader;
+      this.marketPricesCache = this.createCacheEntry(result, MARKET_PRICES_CACHE_TTL_MS);
+
+      return result;
+    } finally {
+      this.marketPricesPromise = null;
+    }
+  }
 
   async getLatestPriceRows(): Promise<FlamingoPriceRow[]> {
     const latestUrl = this.getLatestPriceUrl();
@@ -88,6 +121,32 @@ export class TokenPerformanceService {
     }
   }
 
+  private async loadMarketPrices(): Promise<MarketPrices> {
+    const apiUrl = this.getCoinPaprikaApiUrl();
+    if (!apiUrl) {
+      return this.emptyMarketPrices();
+    }
+
+    try {
+      const [neoPrice, gasPrice] = await Promise.all([
+        this.fetchCoinPaprikaMarketEntry(apiUrl, NEO_COIN_PAPRIKA_ID),
+        this.fetchCoinPaprikaMarketEntry(apiUrl, GAS_COIN_PAPRIKA_ID),
+      ]);
+
+      return {
+        neo: neoPrice,
+        gas: gasPrice,
+      };
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Failed to load latest market prices (${reason}). Continuing without market prices.`,
+      );
+
+      return this.emptyMarketPrices();
+    }
+  }
+
   private emptyDashboardTokenPerformance(): DashboardTokenPerformance {
     return {
       last24h: {
@@ -106,6 +165,30 @@ export class TokenPerformanceService {
         losers: [],
       },
     };
+  }
+
+  private emptyMarketPrices(): MarketPrices {
+    return {
+      neo: this.emptyMarketPriceEntry(),
+      gas: this.emptyMarketPriceEntry(),
+    };
+  }
+
+  private emptyMarketPriceEntry(): MarketPriceEntry {
+    return {
+      price: null,
+      change24h: null,
+      tone: 'neutral',
+    };
+  }
+
+  private getCoinPaprikaApiUrl(): string | null {
+    const configured = this.configService.get<string>('app.coinPaprikaApiUrl')?.trim();
+    if (!configured) {
+      return null;
+    }
+
+    return configured.replace(/\/+$/, '');
   }
 
   private getLatestPriceUrl(): string | null {
@@ -223,6 +306,62 @@ export class TokenPerformanceService {
     }
 
     return rows;
+  }
+
+  private async fetchCoinPaprikaMarketEntry(
+    apiUrl: string,
+    coinId: string,
+  ): Promise<MarketPriceEntry> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => {
+      controller.abort();
+    }, this.requestTimeoutMs);
+
+    try {
+      const response = await fetch(`${apiUrl}/tickers/${coinId}?quotes=USD`, {
+        method: 'GET',
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const payload: unknown = await response.json();
+      const { price, percentChange24h } = this.parseCoinPaprikaTicker(payload);
+      if (price === null || price <= 0) {
+        return this.emptyMarketPriceEntry();
+      }
+
+      return {
+        price: this.formatUsd(price),
+        change24h: percentChange24h === null ? null : this.formatPercent(percentChange24h),
+        tone: this.resolveTone(percentChange24h),
+      };
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  private parseCoinPaprikaTicker(payload: unknown): {
+    price: number | null;
+    percentChange24h: number | null;
+  } {
+    if (!payload || typeof payload !== 'object') {
+      return {
+        price: null,
+        percentChange24h: null,
+      };
+    }
+
+    const ticker = payload as CoinPaprikaTicker;
+
+    return {
+      price: this.parsePrice(ticker.quotes?.USD?.price),
+      percentChange24h: this.parsePrice(ticker.quotes?.USD?.percent_change_24h),
+    };
   }
 
   private parsePrice(value: unknown): number | null {
@@ -400,5 +539,17 @@ export class TokenPerformanceService {
       value,
       expiresAt: Date.now() + ttlMs,
     };
+  }
+
+  private getCachedValue<T>(entry: CacheEntry<T> | null): T | null {
+    if (!entry) {
+      return null;
+    }
+
+    if (entry.expiresAt <= Date.now()) {
+      return null;
+    }
+
+    return entry.value;
   }
 }

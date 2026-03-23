@@ -6,6 +6,7 @@ export default registerAs('app', () => ({
   doraApiUrls: [process.env.DORA_API_URL].filter((endpoint): endpoint is string =>
     Boolean(endpoint),
   ),
+  coinPaprikaApiUrl: process.env.COINPAPRIKA_API_URL ?? 'https://api.coinpaprika.com/v1',
   flamingoPriceApiUrl:
     process.env.FLAMINGO_PRICE_API_URL ??
     'https://neo-api.b-cdn.net/flamingo/live-data/prices/latest',

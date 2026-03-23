@@ -1,4 +1,5 @@
 import type React from 'react';
+import { MarketTicker } from '../components/MarketTicker';
 import { ThemeToggle } from '../components/ThemeToggle';
 import type { AdminData } from '../types';
 import { delayStyle, getPageData } from '../utils';
@@ -17,6 +18,7 @@ export const AdminPage: React.FC = () => {
           </div>
         </div>
         <div className="hero-actions">
+          <MarketTicker marketPrices={data.marketPrices} className="admin-market-ticker" />
           <ThemeToggle />
           <a className="button secondary" href="/dashboard">
             View dashboard

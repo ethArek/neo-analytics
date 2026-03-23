@@ -8,7 +8,7 @@ export const SpecialThanksPage: React.FC = () => {
 
   return (
     <main className="container">
-      <Navbar nav={data.nav} />
+      <Navbar nav={data.nav} marketPrices={data.marketPrices} />
 
       <header className="hero" data-animate style={delayStyle('0s')}>
         <div>
