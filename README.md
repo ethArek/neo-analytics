@@ -31,9 +31,11 @@ flowchart LR
     Classifier["Transaction classifier"]
     Stats["StatsService"]
     TokenSvc["TokenPerformanceService"]
+    Liquidity["DefiLiquidityService"]
     Web["WebController"]
     Admin["AdminController"]
     API["ApiController"]
+    Common["Shared utils + types"]
   end
 
   DB[("PostgreSQL via Prisma")]
@@ -50,11 +52,18 @@ flowchart LR
   Stats --> Web
   Stats --> API
   Admin -->|manual ingest/backfill| Ingest
+  Common --> NeoClient
+  Common --> Ingest
+  Common --> Stats
+  Common --> TokenSvc
+  Common --> Liquidity
   CoinPaprika -->|latest NEO/GAS navbar prices| TokenSvc
   Flamingo -->|token performance windows| TokenSvc
+  Flamingo -->|tracked liquidity pricing| Liquidity
   Flamingo -->|historical swap USD pricing| Ingest
   TokenSvc --> Web
   TokenSvc --> Admin
+  Liquidity --> Web
   Web -->|HTML shell + window.__PAGE_DATA__| UI
   Admin -->|HTML shell + window.__PAGE_DATA__| UI
   API -->|JSON| Consumers
@@ -62,7 +71,7 @@ flowchart LR
 
 Public and admin pages are server-rendered by NestJS and hydrated from `window.__PAGE_DATA__`. The
 latest NEO/GAS navbar ticker comes from Coinpaprika, while Flamingo is still used for DeFi token
-performance windows and historical swap USD pricing.
+performance windows, tracked liquidity pricing, and historical swap USD pricing.
 
 ## Requirements
 
