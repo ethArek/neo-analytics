@@ -115,9 +115,9 @@ export const DayPage: React.FC = () => {
             <small>Total transactions - GAS claims</small>
           </div>
           <div className="card" data-animate style={delayStyle('0.15s')}>
-            <span>Oracle transactions</span>
+            <span>Oracle transactions (subset)</span>
             <strong>{stat.oracleCount}</strong>
-            <small>Detected oracle and data-feed activity</small>
+            <small>Included in transactions excluding GAS claims</small>
           </div>
           <div className="card" data-animate style={delayStyle('0.2s')}>
             <span>Active addresses</span>

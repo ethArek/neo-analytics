@@ -8,6 +8,7 @@ import type { NeoClient } from '../neo-client/neo-client.interface';
 import { NEO_CLIENT } from '../neo-client/neo-client.provider';
 import { StatsService } from '../stats/stats.service';
 import { formatNumber, formatUnits, toNumber } from '../stats/stats.utils';
+import { getAddressLabel } from './address-labels';
 import { countInclusiveDays, normalizeIsoDate, resolveDefiWindow } from './defi-metrics';
 import { DefiLiquidityService } from './defi-liquidity.service';
 import { renderReactPage } from './react-view';
@@ -160,11 +161,13 @@ export class WebController {
           topSenders: topSenders.map((entry) => ({
             address: entry.address,
             shortAddress: this.shortenAddress(entry.address),
+            addressLabel: getAddressLabel(entry.address),
             transferCount: formatNumber(entry.transferCount),
           })),
           topReceivers: topReceivers.map((entry) => ({
             address: entry.address,
             shortAddress: this.shortenAddress(entry.address),
+            addressLabel: getAddressLabel(entry.address),
             transferCount: formatNumber(entry.transferCount),
           })),
           assetBreakdown,

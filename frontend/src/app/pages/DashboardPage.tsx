@@ -7,6 +7,14 @@ import { useTheme } from '../theme';
 import type { DashboardData } from '../types';
 import { buildPageHref, delayStyle, ensureArray, getPageData } from '../utils';
 
+const formatTopAddressLabel = (shortAddress: string, addressLabel?: string): string => {
+  if (!addressLabel) {
+    return shortAddress;
+  }
+
+  return `${shortAddress} (${addressLabel})`;
+};
+
 export const DashboardPage: React.FC = () => {
   const { theme } = useTheme();
   const data = getPageData<DashboardData>();
@@ -46,9 +54,9 @@ export const DashboardPage: React.FC = () => {
             <small>Total transactions - GAS claims</small>
           </div>
           <div className="card" data-animate style={delayStyle('0.2s')}>
-            <span>Oracle transactions</span>
+            <span>Oracle transactions (subset)</span>
             <strong>{totals?.oracle}</strong>
-            <small>Detected oracle and data-feed activity</small>
+            <small>Included in transactions excluding GAS claims</small>
           </div>
           <div className="card" data-animate style={delayStyle('0.23s')}>
             <span>Active addresses</span>
@@ -163,7 +171,9 @@ export const DashboardPage: React.FC = () => {
             {topSenders.map((sender) => (
               <li key={sender.address}>
                 <div>
-                  <div className="mono">{sender.shortAddress}</div>
+                  <div className="mono">
+                    {formatTopAddressLabel(sender.shortAddress, sender.addressLabel)}
+                  </div>
                   <small>{sender.address}</small>
                 </div>
                 <strong>{sender.transferCount}</strong>
@@ -177,7 +187,9 @@ export const DashboardPage: React.FC = () => {
             {topReceivers.map((receiver) => (
               <li key={receiver.address}>
                 <div>
-                  <div className="mono">{receiver.shortAddress}</div>
+                  <div className="mono">
+                    {formatTopAddressLabel(receiver.shortAddress, receiver.addressLabel)}
+                  </div>
                   <small>{receiver.address}</small>
                 </div>
                 <strong>{receiver.transferCount}</strong>

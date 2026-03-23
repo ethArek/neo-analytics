@@ -42,7 +42,7 @@ export const DaysPage: React.FC = () => {
               <th>Date</th>
               <th>Total txs</th>
               <th>Swaps</th>
-              <th>Oracle</th>
+              <th>Oracle (subset)</th>
               <th>Transfers</th>
               <th>Gas claims</th>
               <th>Others</th>
