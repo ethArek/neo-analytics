@@ -75,7 +75,8 @@ describe('DayPage', () => {
     expect(screen.getByText('Day details: 2024-01-01')).toBeInTheDocument();
     expect(document.body).toHaveTextContent('NEO $12.34 (+2.40%)');
     expect(document.body).toHaveTextContent('GAS $3.21 (-1.10%)');
-    expect(screen.getByText('Oracle transactions')).toBeInTheDocument();
+    expect(screen.getByText('Oracle transactions (subset)')).toBeInTheDocument();
+    expect(screen.getByText('Included in transactions excluding GAS claims')).toBeInTheDocument();
     expect(screen.getByText('Asset transfer volume')).toBeInTheDocument();
     expect(screen.getByText('Transaction explorer')).toBeInTheDocument();
     expect(screen.getByText('Showing 1-1 of 3 transactions')).toBeInTheDocument();

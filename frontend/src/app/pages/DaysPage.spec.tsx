@@ -50,7 +50,7 @@ describe('DaysPage', () => {
     expect(screen.getByText('Daily activity table')).toBeInTheDocument();
     expect(document.body).toHaveTextContent('NEO $12.34 (+2.40%)');
     expect(document.body).toHaveTextContent('GAS $3.21 (-1.10%)');
-    expect(screen.getByText('Oracle')).toBeInTheDocument();
+    expect(screen.getByText('Oracle (subset)')).toBeInTheDocument();
     expect(screen.getByText('2024-01-01')).toBeInTheDocument();
     expect(screen.getByText('10')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Back to dashboard' })).toHaveAttribute(
