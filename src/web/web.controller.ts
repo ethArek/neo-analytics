@@ -19,11 +19,8 @@ import type { StatTotals } from './web.controller.types';
 @Controller()
 export class WebController {
   private readonly dayPageSizeOptions = [25, 50, 100, 200];
-
   private readonly defaultDayPageSize = 50;
-
   private readonly maxDayPageSize = 200;
-
   private readonly millisecondsPerDay = 24 * 60 * 60 * 1000;
 
   constructor(

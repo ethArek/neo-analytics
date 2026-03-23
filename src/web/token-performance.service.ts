@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type {
+  CacheEntry,
   ChangeTone,
   CoinPaprikaTicker,
   DashboardTokenPerformance,
@@ -20,23 +21,13 @@ const GAS_COIN_PAPRIKA_ID = 'gas-gas';
 const MARKET_PRICES_CACHE_TTL_MS = 60 * 1000;
 const PRICE_ROWS_CACHE_TTL_MS = 60 * 1000;
 
-type CacheEntry<T> = {
-  value: T;
-  expiresAt: number;
-};
-
 @Injectable()
 export class TokenPerformanceService {
   private readonly logger = new Logger(TokenPerformanceService.name);
-
   private readonly requestTimeoutMs = 8000;
-
   private marketPricesCache: CacheEntry<MarketPrices> | null = null;
-
   private marketPricesPromise: Promise<MarketPrices> | null = null;
-
   private readonly priceRowsCache = new Map<string, CacheEntry<FlamingoPriceRow[]>>();
-
   private readonly priceRowsPromises = new Map<string, Promise<FlamingoPriceRow[]>>();
 
   constructor(@Inject(ConfigService) private readonly configService: ConfigService) {}

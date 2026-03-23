@@ -1,5 +1,10 @@
 export type ChangeTone = 'positive' | 'negative' | 'neutral';
 
+export type CacheEntry<T> = {
+  value: T;
+  expiresAt: number;
+};
+
 export type DashboardTokenPerformanceEntry = {
   symbol: string;
   detail: string;

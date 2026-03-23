@@ -1,6 +1,8 @@
 import { api } from '@cityofzion/dora-ts';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { sleep } from '../common/async.utils';
+import { normalizeHash } from '../common/hash.utils';
 import type {
   NeoBalance,
   NeoClient,
@@ -23,8 +25,6 @@ import type {
   RpcContractState,
   RpcStackItem,
 } from './neo-client.service.types';
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const NEO_HASH = '0xef4073a0f2b305a38ec4050e4d3d28bc40ea63f5';
 const GAS_HASH = '0xd2a4cff31913016155e38e474a2c06d08be276cf';
@@ -139,7 +139,7 @@ export class RpcNeoClient implements NeoClient {
       return upper;
     }
 
-    const normalized = this.normalizeHash(trimmed);
+    const normalized = normalizeHash(trimmed);
     if (!this.isHash(normalized)) {
       return trimmed;
     }
@@ -177,7 +177,7 @@ export class RpcNeoClient implements NeoClient {
       return 8;
     }
 
-    const normalized = this.normalizeHash(trimmed);
+    const normalized = normalizeHash(trimmed);
     if (!this.isHash(normalized)) {
       return null;
     }
@@ -565,7 +565,7 @@ export class RpcNeoClient implements NeoClient {
       const from = this.readAddress(items[0]);
       const to = this.readAddress(items[1]);
       const amount = this.readInteger(items[2]);
-      const assetHash = this.normalizeHash(notification.contract);
+      const assetHash = normalizeHash(notification.contract);
       const asset = assetMap.get(assetHash) ?? assetHash;
 
       transfers.push({
@@ -798,15 +798,6 @@ export class RpcNeoClient implements NeoClient {
 
   private isHash(value: string): boolean {
     return /^0x[0-9a-f]{40}$/i.test(value);
-  }
-
-  private normalizeHash(hash: string): string {
-    const normalized = hash.toLowerCase();
-    if (normalized.startsWith('0x')) {
-      return normalized;
-    }
-
-    return `0x${normalized}`;
   }
 
   private toNumber(value: number | string): number {
