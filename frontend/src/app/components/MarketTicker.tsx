@@ -25,7 +25,7 @@ export const MarketTicker: React.FC<MarketTickerProps> = ({ marketPrices, classN
   const rootClassName = className ? `market-ticker ${className}` : 'market-ticker';
 
   return (
-    <div className={rootClassName} aria-label="Latest NEO and GAS prices">
+    <section className={rootClassName} aria-label="Latest NEO and GAS prices">
       {entries.map(({ symbol, entry }) => (
         <div className="market-ticker-pill" key={symbol}>
           <strong className="market-ticker-line">
@@ -36,6 +36,6 @@ export const MarketTicker: React.FC<MarketTickerProps> = ({ marketPrices, classN
           ) : null}
         </div>
       ))}
-    </div>
+    </section>
   );
 };
