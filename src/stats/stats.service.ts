@@ -15,6 +15,7 @@ import type {
   DayDetailsPagination,
   SwapAssetActivity,
   SwapAssetStat,
+  SwapUsdCoverage,
   StatsRange,
   TopAddress,
   UniqueAddressStats,
@@ -280,6 +281,34 @@ export class StatsService {
       uniqueSenders: senderSet.size,
       uniqueReceivers: receiverSet.size,
       uniqueAddresses: uniqueAddresses.size,
+    };
+  }
+
+  async getSwapUsdCoverageRange(from: string, to: string): Promise<SwapUsdCoverage> {
+    const dateRange = {
+      gte: parseDate(from),
+      lte: parseDate(to),
+    };
+    const [swapCount, pricedSwapCount] = await Promise.all([
+      this.prisma.dailyTx.count({
+        where: {
+          date: dateRange,
+          type: TxType.SWAP,
+        },
+      }),
+      this.prisma.dailyTx.count({
+        where: {
+          date: dateRange,
+          type: TxType.SWAP,
+          swapUsdValue: { not: null },
+        },
+      }),
+    ]);
+
+    return {
+      swapCount,
+      pricedSwapCount,
+      missingSwapCount: Math.max(0, swapCount - pricedSwapCount),
     };
   }
 

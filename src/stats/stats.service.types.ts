@@ -31,6 +31,12 @@ export type UniqueAddressStats = {
   uniqueAddresses: number;
 };
 
+export type SwapUsdCoverage = {
+  swapCount: number;
+  pricedSwapCount: number;
+  missingSwapCount: number;
+};
+
 export type SwapAssetStat = {
   asset: string;
   swapCount: number;

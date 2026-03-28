@@ -3,14 +3,16 @@ import { ConfigService } from '@nestjs/config';
 import { ApiExcludeController } from '@nestjs/swagger';
 import { Prisma } from '@prisma/client';
 import type { Response } from 'express';
-import { formatDate, parseDate } from '../ingestion/date-utils';
+import { formatDate, parseDate, yesterdayInTimeZone } from '../ingestion/date-utils';
 import type { NeoClient } from '../neo-client/neo-client.interface';
 import { NEO_CLIENT } from '../neo-client/neo-client.provider';
 import { StatsService } from '../stats/stats.service';
+import type { SwapUsdCoverage } from '../stats/stats.service.types';
 import { formatNumber, formatUnits, toNumber } from '../stats/stats.utils';
 import { getAddressLabel } from './address-labels';
-import { countInclusiveDays, normalizeIsoDate, resolveDefiWindow } from './defi-metrics';
 import { DefiLiquidityService } from './defi-liquidity.service';
+import { countInclusiveDays, normalizeIsoDate, resolveDefiWindow } from './defi-metrics';
+import { buildRecentVolumeNotice, resolveRecentVolumeWindow } from './defi-recent-volume';
 import { renderReactPage } from './react-view';
 import { TokenPerformanceService } from './token-performance.service';
 import type { StatTotals } from './web.controller.types';
@@ -236,10 +238,28 @@ export class WebController {
       this.buildAssetDecimalsMap([...swapAssetsToResolve]),
     ]);
     const latestDay = latestStats[latestStats.length - 1];
-    const latestSevenDays = latestStats.slice(-7);
-    const latestSevenDayVolume = latestSevenDays.reduce(
+    const latestDayLabel = latestDay ? formatDate(latestDay.date, 'UTC') : null;
+    const recentVolumeWindow = resolveRecentVolumeWindow(latestDayLabel, availableFrom);
+    const recentVolumeStats =
+      recentVolumeWindow.from && recentVolumeWindow.to
+        ? await this.statsService.getStatsRange(recentVolumeWindow.from, recentVolumeWindow.to)
+        : [];
+    const latestSevenDayVolume = recentVolumeStats.reduce(
       (total, stat) => total.add(stat.swapsUsdValue),
       new Prisma.Decimal(0),
+    );
+    const expectedLatestDayLabel = yesterdayInTimeZone('Europe/Warsaw');
+    const [latestDayCoverage, latestSevenDayCoverage] = await Promise.all([
+      latestDayLabel
+        ? this.statsService.getSwapUsdCoverageRange(latestDayLabel, latestDayLabel)
+        : Promise.resolve(this.emptySwapUsdCoverage()),
+      recentVolumeWindow.from && recentVolumeWindow.to
+        ? this.statsService.getSwapUsdCoverageRange(recentVolumeWindow.from, recentVolumeWindow.to)
+        : Promise.resolve(this.emptySwapUsdCoverage()),
+    ]);
+    const missingRecentVolumeDays = Math.max(
+      0,
+      recentVolumeWindow.expectedDays - recentVolumeStats.length,
     );
 
     return res.send(
@@ -268,15 +288,19 @@ export class WebController {
             : null,
           onChainOverview: {
             latestDayDexVolume: this.formatUsd(latestDay?.swapsUsdValue ?? '0'),
-            latestDayLabel: latestDay ? formatDate(latestDay.date, 'UTC') : 'No data available',
+            latestDayLabel: latestDayLabel ?? 'No data available',
             last7dDexVolume: this.formatUsd(latestSevenDayVolume),
             last7dLabel:
-              latestSevenDays.length > 0
-                ? `${formatDate(latestSevenDays[0].date, 'UTC')} to ${formatDate(
-                    latestSevenDays[latestSevenDays.length - 1].date,
-                    'UTC',
-                  )}`
+              recentVolumeWindow.from && recentVolumeWindow.to
+                ? `${recentVolumeWindow.from} to ${recentVolumeWindow.to}`
                 : 'No data available',
+            recentVolumeNotice: buildRecentVolumeNotice({
+              latestDayLabel,
+              expectedLatestDayLabel,
+              missingWindowDays: missingRecentVolumeDays,
+              latestDayCoverage,
+              displayedCoverage: latestSevenDayCoverage,
+            }),
             trackedTvl: trackedLiquidity ? this.formatUsd(trackedLiquidity.trackedTvlUsd) : null,
             stablecoinLiquidity: trackedLiquidity
               ? this.formatUsd(trackedLiquidity.stablecoinLiquidityUsd)
@@ -609,6 +633,14 @@ export class WebController {
         swapUsdValue: stats.map((stat) => Number(stat.swapsUsdValue)),
         swaps: stats.map((stat) => stat.swapsCount),
       },
+    };
+  }
+
+  private emptySwapUsdCoverage(): SwapUsdCoverage {
+    return {
+      swapCount: 0,
+      pricedSwapCount: 0,
+      missingSwapCount: 0,
     };
   }
 

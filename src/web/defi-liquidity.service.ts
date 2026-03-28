@@ -15,6 +15,12 @@ import type {
 
 const TOP_ASSET_COUNT = 6;
 const TRACKED_LIQUIDITY_CACHE_TTL_MS = 60 * 1000;
+const ALWAYS_INCLUDED_TRACKED_LIQUIDITY_SYMBOLS = new Set(['USDC']);
+
+type LiquidityPriceMatch = {
+  usdPrice: number;
+  symbol: string;
+};
 
 @Injectable()
 export class DefiLiquidityService {
@@ -62,8 +68,8 @@ export class DefiLiquidityService {
       return null;
     }
 
-    const priceByHash = new Map<string, number>();
-    const priceBySymbol = new Map<string, number>();
+    const priceByHash = new Map<string, LiquidityPriceMatch>();
+    const priceBySymbol = new Map<string, LiquidityPriceMatch>();
     for (const row of latestPriceRows) {
       this.indexPriceRow(row, priceByHash, priceBySymbol);
     }
@@ -100,15 +106,15 @@ export class DefiLiquidityService {
 
         const assetHash = normalizeHash(balance.asset);
         const symbol = normalizeSymbol(balance.symbol);
-        const usdPrice = priceByHash.get(assetHash) ?? priceBySymbol.get(symbol);
-        if (!usdPrice || !Number.isFinite(usdPrice) || usdPrice <= 0) {
+        const pricedAsset = priceByHash.get(assetHash) ?? priceBySymbol.get(symbol);
+        if (!pricedAsset || !Number.isFinite(pricedAsset.usdPrice) || pricedAsset.usdPrice <= 0) {
           continue;
         }
 
-        const usdValue = balance.balance * usdPrice;
+        const usdValue = balance.balance * pricedAsset.usdPrice;
         trackedTvlUsd += usdValue;
 
-        const stablecoin = isStablecoinSymbol(symbol);
+        const stablecoin = isStablecoinSymbol(pricedAsset.symbol);
         if (stablecoin) {
           stablecoinLiquidityUsd += usdValue;
         }
@@ -123,7 +129,7 @@ export class DefiLiquidityService {
 
         aggregated.set(assetHash, {
           asset: assetHash,
-          symbol,
+          symbol: pricedAsset.symbol,
           balance: balance.balance,
           usdValue,
           stablecoin,
@@ -131,9 +137,7 @@ export class DefiLiquidityService {
       }
     }
 
-    const topAssets = [...aggregated.values()]
-      .sort((left, right) => right.usdValue - left.usdValue)
-      .slice(0, TOP_ASSET_COUNT);
+    const topAssets = this.selectTopAssets([...aggregated.values()]);
 
     return {
       trackedTvlUsd,
@@ -146,18 +150,47 @@ export class DefiLiquidityService {
 
   private indexPriceRow(
     row: FlamingoPriceRow,
-    priceByHash: Map<string, number>,
-    priceBySymbol: Map<string, number>,
+    priceByHash: Map<string, LiquidityPriceMatch>,
+    priceBySymbol: Map<string, LiquidityPriceMatch>,
   ) {
     const hash = normalizeHash(row.hash);
-    if (hash && Number.isFinite(row.usdPrice) && row.usdPrice > 0) {
-      priceByHash.set(hash, row.usdPrice);
+    const symbol = normalizeSymbol(row.symbol || row.unwrappedSymbol);
+    if (!Number.isFinite(row.usdPrice) || row.usdPrice <= 0 || !symbol) {
+      return;
     }
 
-    const symbol = normalizeSymbol(row.symbol);
-    if (symbol && Number.isFinite(row.usdPrice) && row.usdPrice > 0 && !priceBySymbol.has(symbol)) {
-      priceBySymbol.set(symbol, row.usdPrice);
+    const pricedAsset = {
+      usdPrice: row.usdPrice,
+      symbol,
+    };
+    if (hash) {
+      priceByHash.set(hash, pricedAsset);
     }
+
+    if (!priceBySymbol.has(symbol)) {
+      priceBySymbol.set(symbol, pricedAsset);
+    }
+  }
+
+  private selectTopAssets(assets: TrackedLiquidityAsset[]): TrackedLiquidityAsset[] {
+    const sortedAssets = [...assets].sort((left, right) => right.usdValue - left.usdValue);
+    const selectedAssets = sortedAssets.slice(0, TOP_ASSET_COUNT);
+    const selectedAssetIds = new Set(selectedAssets.map((asset) => asset.asset));
+
+    for (const asset of sortedAssets) {
+      if (selectedAssetIds.has(asset.asset)) {
+        continue;
+      }
+
+      if (!ALWAYS_INCLUDED_TRACKED_LIQUIDITY_SYMBOLS.has(asset.symbol)) {
+        continue;
+      }
+
+      selectedAssets.push(asset);
+      selectedAssetIds.add(asset.asset);
+    }
+
+    return selectedAssets.sort((left, right) => right.usdValue - left.usdValue);
   }
 
   private toAddress(contractHash: string): string | null {

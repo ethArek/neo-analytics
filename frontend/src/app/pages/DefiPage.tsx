@@ -242,7 +242,7 @@ export const DefiPage: React.FC = () => {
           </div>
           <div className="summary-grid">
             <div className="card">
-              <span>Latest day DEX volume</span>
+              <span>Yesterday DEX volume</span>
               <strong>{onChainOverview.latestDayDexVolume}</strong>
               <small>{onChainOverview.latestDayLabel}</small>
             </div>
@@ -265,6 +265,9 @@ export const DefiPage: React.FC = () => {
               <small>{onChainOverview.stablecoinShare ?? '-'} of tracked TVL</small>
             </div>
           </div>
+          {onChainOverview.recentVolumeNotice ? (
+            <p className="summary-subtitle">{onChainOverview.recentVolumeNotice}</p>
+          ) : null}
         </section>
       ) : null}
 
