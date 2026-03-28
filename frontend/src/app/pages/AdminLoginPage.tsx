@@ -1,4 +1,5 @@
 import type React from 'react';
+import { MarketTicker } from '../components/MarketTicker';
 import { ThemeToggle } from '../components/ThemeToggle';
 import type { AdminLoginData } from '../types';
 import { delayStyle, getPageData } from '../utils';
@@ -14,6 +15,7 @@ export const AdminLoginPage: React.FC = () => {
           <p className="subtitle">Sign in to manage ingestion runs.</p>
         </div>
         <div className="hero-actions">
+          <MarketTicker marketPrices={data.marketPrices} className="admin-market-ticker" />
           <ThemeToggle />
           <a className="button secondary" href="/dashboard">
             Back to dashboard

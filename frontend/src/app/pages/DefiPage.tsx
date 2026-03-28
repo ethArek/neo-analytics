@@ -172,7 +172,7 @@ export const DefiPage: React.FC = () => {
 
   return (
     <main className="container">
-      <Navbar nav={data.nav} />
+      <Navbar nav={data.nav} marketPrices={data.marketPrices} />
 
       <section className="range-analytics-section">
         <div className="range-analytics-header" data-animate style={delayStyle('0.02s')}>

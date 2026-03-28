@@ -27,7 +27,7 @@ export const DashboardPage: React.FC = () => {
 
   return (
     <main className="container">
-      <Navbar nav={data.nav} />
+      <Navbar nav={data.nav} marketPrices={data.marketPrices} />
       <section className="summary-section">
         <div className="summary-header" data-animate style={delayStyle('0.02s')}>
           <div>

@@ -1,5 +1,6 @@
-import type { NavState } from '../types';
+import type { MarketPrices, NavState } from '../types';
 
 export type NavbarProps = {
   nav?: NavState;
+  marketPrices?: MarketPrices;
 };

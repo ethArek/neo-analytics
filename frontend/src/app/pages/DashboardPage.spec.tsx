@@ -39,6 +39,18 @@ describe('DashboardPage', () => {
 
   it('initializes charts and renders the dashboard lists', async () => {
     const data: DashboardData = {
+      marketPrices: {
+        neo: {
+          price: '$12.34',
+          change24h: '+2.40%',
+          tone: 'positive',
+        },
+        gas: {
+          price: '$3.21',
+          change24h: '-1.10%',
+          tone: 'negative',
+        },
+      },
       totals: {
         totalTxs: '100',
         transactionsExcludingGasClaims: '80',
@@ -90,6 +102,8 @@ describe('DashboardPage', () => {
     });
 
     expect(screen.getByText('Top senders')).toBeInTheDocument();
+    expect(document.body).toHaveTextContent('NEO $12.34 (+2.40%)');
+    expect(document.body).toHaveTextContent('GAS $3.21 (-1.10%)');
     expect(screen.getByText('Oracle transactions')).toBeInTheDocument();
     expect(screen.queryByText('Others')).not.toBeInTheDocument();
     expect(screen.queryByText('Blocks scanned')).not.toBeInTheDocument();

@@ -226,6 +226,101 @@ describe('TokenPerformanceService', () => {
     expect(result.last30d.losers).toEqual([]);
   });
 
+  it('reuses cached CoinPaprika market prices across concurrent requests', async () => {
+    const service = new TokenPerformanceService(
+      new ConfigService({
+        app: {
+          coinPaprikaApiUrl,
+          flamingoPriceApiUrl: latestUrl,
+        },
+      }),
+    );
+    const fetchSpy = jest.spyOn(global, 'fetch').mockImplementation(async (input) => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url === `${coinPaprikaApiUrl}/tickers/neo-neo?quotes=USD`) {
+        return new Response(
+          JSON.stringify({
+            quotes: { USD: { price: 12.34, percent_change_24h: 14.85 } },
+          }),
+          {
+            status: 200,
+          },
+        );
+      }
+
+      if (url === `${coinPaprikaApiUrl}/tickers/gas-gas?quotes=USD`) {
+        return new Response(
+          JSON.stringify({
+            quotes: { USD: { price: 3.21, percent_change_24h: -1.1 } },
+          }),
+          {
+            status: 200,
+          },
+        );
+      }
+
+      return new Response('error', { status: 404 });
+    });
+
+    await Promise.all([service.getMarketPrices(), service.getMarketPrices()]);
+    await service.getMarketPrices();
+
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it('returns formatted NEO and GAS prices from the latest feed', async () => {
+    const service = new TokenPerformanceService(
+      new ConfigService({
+        app: {
+          coinPaprikaApiUrl,
+          flamingoPriceApiUrl: latestUrl,
+        },
+      }),
+    );
+
+    jest.spyOn(global, 'fetch').mockImplementation(async (input) => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url === `${coinPaprikaApiUrl}/tickers/neo-neo?quotes=USD`) {
+        return new Response(
+          JSON.stringify({
+            quotes: { USD: { price: 12.34, percent_change_24h: 14.85 } },
+          }),
+          {
+            status: 200,
+          },
+        );
+      }
+
+      if (url === `${coinPaprikaApiUrl}/tickers/gas-gas?quotes=USD`) {
+        return new Response(
+          JSON.stringify({
+            quotes: { USD: { price: 3.21, percent_change_24h: -1.1 } },
+          }),
+          {
+            status: 200,
+          },
+        );
+      }
+
+      return new Response('error', { status: 404 });
+    });
+
+    const result = await service.getMarketPrices();
+
+    expect(result).toEqual({
+      neo: {
+        price: '$12.34',
+        change24h: '+14.85%',
+        tone: 'positive',
+      },
+      gas: {
+        price: '$3.21',
+        change24h: '-1.10%',
+        tone: 'negative',
+      },
+    });
+  });
+
   it('returns empty rankings when the price feed fails', async () => {
     const service = new TokenPerformanceService(
       new ConfigService({
@@ -246,5 +341,75 @@ describe('TokenPerformanceService', () => {
     expect(result.last7d.losers).toEqual([]);
     expect(result.last30d.gainers).toEqual([]);
     expect(result.last30d.losers).toEqual([]);
+  });
+
+  it('returns empty market prices when the latest feed fails', async () => {
+    const service = new TokenPerformanceService(
+      new ConfigService({
+        app: {
+          coinPaprikaApiUrl,
+          flamingoPriceApiUrl: latestUrl,
+        },
+      }),
+    );
+
+    jest.spyOn(global, 'fetch').mockResolvedValue(new Response('error', { status: 500 }));
+
+    const result = await service.getMarketPrices();
+
+    expect(result).toEqual({
+      neo: {
+        price: null,
+        change24h: null,
+        tone: 'neutral',
+      },
+      gas: {
+        price: null,
+        change24h: null,
+        tone: 'neutral',
+      },
+    });
+  });
+
+  it('calls Coinpaprika ticker endpoints for NEO and GAS latest prices', async () => {
+    const service = new TokenPerformanceService(
+      new ConfigService({
+        app: {
+          coinPaprikaApiUrl,
+          flamingoPriceApiUrl: latestUrl,
+        },
+      }),
+    );
+
+    const fetchSpy = jest.spyOn(global, 'fetch').mockImplementation(async (input) => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (
+        url === `${coinPaprikaApiUrl}/tickers/neo-neo?quotes=USD` ||
+        url === `${coinPaprikaApiUrl}/tickers/gas-gas?quotes=USD`
+      ) {
+        return new Response(JSON.stringify({ quotes: { USD: { price: 1 } } }), {
+          status: 200,
+        });
+      }
+
+      return new Response('error', { status: 404 });
+    });
+
+    await service.getMarketPrices();
+
+    expect(fetchSpy).toHaveBeenCalledWith(`${coinPaprikaApiUrl}/tickers/neo-neo?quotes=USD`, {
+      method: 'GET',
+      signal: expect.any(AbortSignal),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    expect(fetchSpy).toHaveBeenCalledWith(`${coinPaprikaApiUrl}/tickers/gas-gas?quotes=USD`, {
+      method: 'GET',
+      signal: expect.any(AbortSignal),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
   });
 });

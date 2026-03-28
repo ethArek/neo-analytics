@@ -44,12 +44,15 @@ export class WebController {
   root() {}
 
   @Get('/faq')
-  faq(@Res() res: Response) {
+  async faq(@Res() res: Response) {
+    const marketPrices = await this.getMarketPrices();
+
     return res.send(
       renderReactPage({
         title: 'Neo Analytics - FAQ',
         page: 'faq',
         data: {
+          marketPrices,
           nav: {
             faq: true,
           },
@@ -59,12 +62,15 @@ export class WebController {
   }
 
   @Get('/special-thanks')
-  specialThanks(@Res() res: Response) {
+  async specialThanks(@Res() res: Response) {
+    const marketPrices = await this.getMarketPrices();
+
     return res.send(
       renderReactPage({
         title: 'Neo Analytics - Special thanks',
         page: 'special-thanks',
         data: {
+          marketPrices,
           nav: {
             specialThanks: true,
           },
@@ -75,7 +81,10 @@ export class WebController {
 
   @Get('/dashboard')
   async dashboard(@Res() res: Response, @Query('from') from?: string, @Query('to') to?: string) {
-    const { stats, range } = await this.statsService.getRangeOrLatest(from, to, 30);
+    const [{ stats, range }, marketPrices] = await Promise.all([
+      this.statsService.getRangeOrLatest(from, to, 30),
+      this.getMarketPrices(),
+    ]);
     const labeledStats = stats.map((stat) => ({
       ...stat,
       dateLabel: formatDate(stat.date),
@@ -88,6 +97,7 @@ export class WebController {
           title: 'Neo Analytics',
           page: 'dashboard',
           data: {
+            marketPrices,
             nav: {
               dashboard: true,
             },
@@ -138,6 +148,7 @@ export class WebController {
         title: 'Neo Analytics',
         page: 'dashboard',
         data: {
+          marketPrices,
           nav: {
             dashboard: true,
           },
@@ -164,11 +175,10 @@ export class WebController {
 
   @Get('/defi')
   async defi(@Res() res: Response, @Query('from') from?: string, @Query('to') to?: string) {
-    const { stats: latestStats } = await this.statsService.getRangeOrLatest(
-      undefined,
-      undefined,
-      30,
-    );
+    const [{ stats: latestStats }, marketPrices] = await Promise.all([
+      this.statsService.getRangeOrLatest(undefined, undefined, 30),
+      this.getMarketPrices(),
+    ]);
     const availableFrom = this.getDefiMetricsAvailableFrom();
     const defaultRange = this.buildDefaultDefiRange(latestStats, availableFrom);
     const window = resolveDefiWindow({
@@ -237,6 +247,7 @@ export class WebController {
         title: 'Neo Analytics - DeFi metrics',
         page: 'defi',
         data: {
+          marketPrices,
           nav: {
             defi: true,
           },
@@ -337,7 +348,10 @@ export class WebController {
   }
   @Get('/days')
   async days(@Res() res: Response, @Query('from') from?: string, @Query('to') to?: string) {
-    const { stats, range } = await this.statsService.getRangeOrLatest(from, to, 90);
+    const [{ stats, range }, marketPrices] = await Promise.all([
+      this.statsService.getRangeOrLatest(from, to, 90),
+      this.getMarketPrices(),
+    ]);
     const labeledStats = stats.map((stat) => ({
       dateLabel: formatDate(stat.date),
       totalTxCountLabel: formatNumber(stat.totalTxCount),
@@ -355,6 +369,7 @@ export class WebController {
           title: 'Neo Analytics - Daily table',
           page: 'days',
           data: {
+            marketPrices,
             nav: {
               dashboard: true,
             },
@@ -375,6 +390,7 @@ export class WebController {
         title: 'Neo Analytics - Daily table',
         page: 'days',
         data: {
+          marketPrices,
           nav: {
             dashboard: true,
           },
@@ -396,13 +412,13 @@ export class WebController {
   ) {
     const requestedPage = this.parsePositiveInt(page, 1);
     const requestedPageSize = this.resolveDayPageSize(pageSize);
-    const { stat, transactions, assetStats, pagination } = await this.statsService.getDayDetails(
-      date,
-      {
+    const [{ stat, transactions, assetStats, pagination }, marketPrices] = await Promise.all([
+      this.statsService.getDayDetails(date, {
         page: requestedPage,
         pageSize: requestedPageSize,
-      },
-    );
+      }),
+      this.getMarketPrices(),
+    ]);
     const dayAssets = [
       ...assetStats.map((asset) => asset.asset),
       ...transactions.map((transaction) => transaction.asset),
@@ -433,6 +449,7 @@ export class WebController {
         title: `Neo Analytics - ${date}`,
         page: 'day',
         data: {
+          marketPrices,
           nav: {
             dashboard: true,
           },
@@ -942,5 +959,9 @@ export class WebController {
     const groupedWhole = wholePart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 
     return `${isNegative ? '-' : ''}$${groupedWhole}.${fractionPart}`;
+  }
+
+  private async getMarketPrices() {
+    return this.tokenPerformanceService.getMarketPrices();
   }
 }

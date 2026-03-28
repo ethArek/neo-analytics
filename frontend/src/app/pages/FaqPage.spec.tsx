@@ -1,15 +1,15 @@
 import { render, screen } from '@testing-library/react';
 import { ThemeProvider } from '../theme';
-import type { AdminLoginData } from '../types';
-import { AdminLoginPage } from './AdminLoginPage';
+import type { DashboardData } from '../types';
+import { FaqPage } from './FaqPage';
 
-describe('AdminLoginPage', () => {
+describe('FaqPage', () => {
   beforeEach(() => {
     delete window.__PAGE_DATA__;
   });
 
-  it('renders the login form and error message', () => {
-    const data: AdminLoginData = {
+  it('renders the FAQ content and market prices', () => {
+    const data: DashboardData = {
       marketPrices: {
         neo: {
           price: '$12.34',
@@ -22,22 +22,24 @@ describe('AdminLoginPage', () => {
           tone: 'negative',
         },
       },
-      email: 'admin@example.com',
-      error: 'Invalid credentials.',
+      nav: {
+        faq: true,
+      },
     };
 
     window.__PAGE_DATA__ = data;
 
     render(
       <ThemeProvider>
-        <AdminLoginPage />
+        <FaqPage />
       </ThemeProvider>,
     );
 
-    expect(screen.getByText('Admin access')).toBeInTheDocument();
     expect(document.body).toHaveTextContent('NEO $12.34 (+2.40%)');
     expect(document.body).toHaveTextContent('GAS $3.21 (-1.10%)');
-    expect(screen.getByText('Invalid credentials.')).toBeInTheDocument();
-    expect(screen.getByLabelText('Email')).toHaveValue('admin@example.com');
+    expect(
+      screen.getByRole('heading', { name: 'Clear answers to how Neo Analytics works.' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('How often is data updated?')).toBeInTheDocument();
   });
 });

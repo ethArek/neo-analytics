@@ -27,6 +27,18 @@ describe('DefiPage', () => {
 
   it('renders blockchain-first DeFi metrics and initializes charts', async () => {
     const data: DefiData = {
+      marketPrices: {
+        neo: {
+          price: '$12.34',
+          change24h: '+2.40%',
+          tone: 'positive',
+        },
+        gas: {
+          price: '$3.21',
+          change24h: '-1.10%',
+          tone: 'negative',
+        },
+      },
       nav: {
         defi: true,
       },
@@ -170,6 +182,8 @@ describe('DefiPage', () => {
       expect(mockedInit).toHaveBeenCalledWith(chartData, 'dark');
     });
 
+    expect(document.body).toHaveTextContent('NEO $12.34 (+2.40%)');
+    expect(document.body).toHaveTextContent('GAS $3.21 (-1.10%)');
     expect(screen.getByText('2026-03-01 to 2026-03-10')).toBeInTheDocument();
     expect(screen.getByText('DEX volume')).toBeInTheDocument();
     expect(screen.getByText('$2,180.75')).toBeInTheDocument();
