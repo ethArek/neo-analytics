@@ -25,6 +25,10 @@ class FakePrismaService implements IngestionPrismaClient {
     { lastProcessedBlock?: number; lastProcessedTimestamp?: Date }
   > = {};
 
+  $executeRaw = async (_query: Prisma.Sql): Promise<number> => {
+    return 0;
+  };
+
   dailyTx = {
     createMany: async ({ data }: { data: DailyTxCreateRecord[]; skipDuplicates?: boolean }) => {
       this.dailyTxData.push(...data);

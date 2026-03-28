@@ -68,14 +68,16 @@ describe('DashboardPage', () => {
       topSenders: [
         {
           address: 'sender-1',
-          shortAddress: 'sender',
+          shortAddress: 'NSy3Gf...g4KE',
+          addressLabel: 'Binance Hot wallet',
           transferCount: '10',
         },
       ],
       topReceivers: [
         {
           address: 'receiver-1',
-          shortAddress: 'receiver',
+          shortAddress: 'NUqLhf...ouVp',
+          addressLabel: 'Gate.io Cold wallet',
           transferCount: '12',
         },
       ],
@@ -104,11 +106,14 @@ describe('DashboardPage', () => {
     expect(screen.getByText('Top senders')).toBeInTheDocument();
     expect(document.body).toHaveTextContent('NEO $12.34 (+2.40%)');
     expect(document.body).toHaveTextContent('GAS $3.21 (-1.10%)');
-    expect(screen.getByText('Oracle transactions')).toBeInTheDocument();
+    expect(screen.getByText('Oracle transactions (subset)')).toBeInTheDocument();
+    expect(screen.getByText('Included in transactions excluding GAS claims')).toBeInTheDocument();
     expect(screen.queryByText('Others')).not.toBeInTheDocument();
     expect(screen.queryByText('Blocks scanned')).not.toBeInTheDocument();
+    expect(screen.getByText('NSy3Gf...g4KE (Binance Hot wallet)')).toBeInTheDocument();
     expect(screen.getByText('sender-1')).toBeInTheDocument();
     expect(screen.getByText('Top receivers')).toBeInTheDocument();
+    expect(screen.getByText('NUqLhf...ouVp (Gate.io Cold wallet)')).toBeInTheDocument();
     expect(screen.getByText('receiver-1')).toBeInTheDocument();
     expect(screen.getByText('Asset transfer volume')).toBeInTheDocument();
     expect(screen.getByText('33 transfers')).toBeInTheDocument();

@@ -1,54 +1,25 @@
 import { wallet } from '@cityofzion/neon-js';
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { normalizeHash } from '../common/hash.utils';
 import type { NeoClient } from '../neo-client/neo-client.interface';
 import { NEO_CLIENT } from '../neo-client/neo-client.provider';
 import { defaultSwapContracts } from '../classifier/classifier';
+import { isStablecoinSymbol, normalizeSymbol } from './defi-liquidity.utils';
 import { TokenPerformanceService } from './token-performance.service';
 import type { FlamingoPriceRow } from './token-performance.service.types';
 import type {
+  CacheEntry,
   TrackedLiquidityAsset,
   TrackedLiquiditySnapshot,
 } from './defi-liquidity.service.types';
 
 const TOP_ASSET_COUNT = 6;
 const TRACKED_LIQUIDITY_CACHE_TTL_MS = 60 * 1000;
-const NEO_N3_STABLECOIN_SYMBOLS = new Set(['FUSD', 'USDT', 'USDC']);
-
-type CacheEntry<T> = {
-  value: T;
-  expiresAt: number;
-};
-
-const normalizeHash = (value: string): string => {
-  const normalized = value.trim().toLowerCase();
-  if (!normalized) {
-    return '';
-  }
-
-  if (normalized.startsWith('0x')) {
-    return normalized;
-  }
-
-  return `0x${normalized}`;
-};
-
-const normalizeSymbol = (value: string): string => value.trim().toUpperCase();
-
-const isStablecoinSymbol = (symbol: string): boolean => {
-  const normalized = normalizeSymbol(symbol);
-  if (!normalized) {
-    return false;
-  }
-
-  return NEO_N3_STABLECOIN_SYMBOLS.has(normalized);
-};
 
 @Injectable()
 export class DefiLiquidityService {
   private readonly logger = new Logger(DefiLiquidityService.name);
-
   private snapshotCache: CacheEntry<TrackedLiquiditySnapshot | null> | null = null;
-
   private snapshotPromise: Promise<TrackedLiquiditySnapshot | null> | null = null;
 
   constructor(

@@ -1,3 +1,4 @@
+import { normalizeHash } from '../common/hash.utils';
 import type { NeoTransaction } from '../neo-client/neo-client.interface';
 import type { ClassifiedResult, ClassifierConfig } from './classifier.types';
 
@@ -10,19 +11,6 @@ export enum ClassifiedType {
 }
 
 const normalize = (value?: string) => value?.trim().toLowerCase() ?? '';
-
-const normalizeHash = (value?: string): string => {
-  const normalized = normalize(value);
-  if (!normalized) {
-    return '';
-  }
-
-  if (normalized.startsWith('0x')) {
-    return normalized;
-  }
-
-  return `0x${normalized}`;
-};
 
 export const defaultSwapMethods = [
   'swap',

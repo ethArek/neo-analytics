@@ -171,5 +171,6 @@ export type IngestionPrismaClient = {
       create: { network: string; lastProcessedBlock?: number; lastProcessedTimestamp?: Date };
     }) => Promise<IngestionCursor>;
   };
+  $executeRaw: (query: Prisma.Sql) => Promise<number>;
   $transaction: <T>(callback: (tx: IngestionPrismaClient) => Promise<T>) => Promise<T>;
 };

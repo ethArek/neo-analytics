@@ -43,6 +43,8 @@ type DailyStatRow = {
 };
 
 class PrismaStub {
+  executeRawCalls = 0;
+
   dailyTxRows: DailyTxRow[] = [
     {
       date: new Date('2026-03-01T00:00:00.000Z'),
@@ -219,6 +221,26 @@ class PrismaStub {
     },
   };
 
+  async $executeRaw(query: Prisma.Sql): Promise<number> {
+    this.executeRawCalls += 1;
+
+    const values = (query as Prisma.Sql & { values?: unknown[] }).values ?? [];
+    for (let index = 0; index < values.length; index += 2) {
+      const txid = values[index];
+      const swapUsdValue = values[index + 1];
+      if (typeof txid !== 'string' || typeof swapUsdValue !== 'string') {
+        continue;
+      }
+
+      const row = this.dailyTxRows.find((entry) => entry.txid === txid);
+      if (row) {
+        row.swapUsdValue = swapUsdValue;
+      }
+    }
+
+    return Math.floor(values.length / 2);
+  }
+
   async $transaction<T>(callback: (tx: PrismaStub) => Promise<T>): Promise<T> {
     return callback(this);
   }
@@ -269,6 +291,7 @@ describe('IngestionService', () => {
       transactions: 1,
       to: '2026-03-01',
     });
+    expect(prisma.executeRawCalls).toBe(1);
     expect(prisma.dailyTxRows[0]?.swapUsdValue).toBe('3.00000000');
     expect(prisma.dailyStatRows[0]?.swapsUsdValue).toBe('3.00000000');
   });

@@ -11,26 +11,67 @@ Neo Analytics is a NestJS + React (Vite) dashboard that tracks Neo N3 daily acti
 ## Metric definitions
 
 - **Transactions excluding GAS claims**: `total transactions - GAS claims`
-- **Oracle transactions**: Detected oracle/data-feed traffic, tracked separately from transfers and ignored transactions
+- **Oracle transactions**: Detected oracle/data-feed traffic, included in total transactions and transactions excluding GAS claims, and tracked separately from transfers and ignored transactions
 - **Others**: Ignored transactions only (currently self-transfers and zero-amount transfers)
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-  Dora[Dora API endpoints] -->|REST| NeoClient[RpcNeoClient]
-  NeoClient --> Ingest[IngestionService]
-  Cron[Cron schedules] --> Ingest
-  Admin[Admin UI + job API] -->|manual ingest/backfill| Ingest
-  Ingest -->|transactions + aggregates| DB[(PostgreSQL)]
-  DB --> Stats[StatsService]
-  Stats --> Web["WebController HTML + page data"]
-  Stats --> API["Analytics API JSON"]
-  Web --> UI["Dashboard FAQ Admin UI React"]
-  API --> Consumers[External consumers]
+  subgraph "External Services"
+    Dora["Dora REST API"]
+    CoinPaprika["Coinpaprika API"]
+    Flamingo["Flamingo price API"]
+  end
+
+  subgraph "NestJS Application"
+    Cron["Cron schedules"]
+    NeoClient["RpcNeoClient"]
+    Ingest["IngestionService"]
+    Classifier["Transaction classifier"]
+    Stats["StatsService"]
+    TokenSvc["TokenPerformanceService"]
+    Liquidity["DefiLiquidityService"]
+    Web["WebController"]
+    Admin["AdminController"]
+    API["ApiController"]
+    Common["Shared utils + types"]
+  end
+
+  DB[("PostgreSQL via Prisma")]
+  UI["React (Vite) pages"]
+  Consumers["External consumers"]
+
+  Dora -->|REST| NeoClient
+  Cron --> Ingest
+  NeoClient --> Ingest
+  Ingest --> Classifier
+  Classifier --> Ingest
+  Ingest -->|transactions + aggregates| DB
+  DB --> Stats
+  Stats --> Web
+  Stats --> API
+  Admin -->|manual ingest/backfill| Ingest
+  Common --> NeoClient
+  Common --> Ingest
+  Common --> Stats
+  Common --> TokenSvc
+  Common --> Liquidity
+  CoinPaprika -->|latest NEO/GAS navbar prices| TokenSvc
+  Flamingo -->|token performance windows| TokenSvc
+  Flamingo -->|tracked liquidity pricing| Liquidity
+  Flamingo -->|historical swap USD pricing| Ingest
+  TokenSvc --> Web
+  TokenSvc --> Admin
+  Liquidity --> Web
+  Web -->|HTML shell + window.__PAGE_DATA__| UI
+  Admin -->|HTML shell + window.__PAGE_DATA__| UI
+  API -->|JSON| Consumers
 ```
 
-The React app renders from `window.__PAGE_DATA__` injected by the server; the JSON API is intended for external consumers.
+Public and admin pages are server-rendered by NestJS and hydrated from `window.__PAGE_DATA__`. The
+latest NEO/GAS navbar ticker comes from Coinpaprika, while Flamingo is still used for DeFi token
+performance windows, tracked liquidity pricing, and historical swap USD pricing.
 
 ## Requirements
 
@@ -43,10 +84,14 @@ The React app renders from `window.__PAGE_DATA__` injected by the server; the JS
 NEO_DATABASE_URL="postgresql://user:password@localhost:5432/neo_usage"
 NEO_NETWORK=MainNet
 DORA_API_URL="https://api.coz.io"
+COINPAPRIKA_API_URL="https://api.coinpaprika.com/v1"
 FLAMINGO_PRICE_API_URL="https://neo-api.b-cdn.net/flamingo/live-data/prices/latest"
 DEFI_METRICS_AVAILABLE_FROM="2026-03-07"
 ADMIN_TOKEN="change-me"
 ```
+
+`COINPAPRIKA_API_URL` is used for the latest NEO/GAS prices shown at the top of pages. `FLAMINGO_PRICE_API_URL`
+is still used for token performance windows and historical swap USD pricing.
 
 ## Setup
 

@@ -8,6 +8,7 @@ import type { NeoClient } from '../neo-client/neo-client.interface';
 import { NEO_CLIENT } from '../neo-client/neo-client.provider';
 import { StatsService } from '../stats/stats.service';
 import { formatNumber, formatUnits, toNumber } from '../stats/stats.utils';
+import { getAddressLabel } from './address-labels';
 import { countInclusiveDays, normalizeIsoDate, resolveDefiWindow } from './defi-metrics';
 import { DefiLiquidityService } from './defi-liquidity.service';
 import { renderReactPage } from './react-view';
@@ -18,11 +19,8 @@ import type { StatTotals } from './web.controller.types';
 @Controller()
 export class WebController {
   private readonly dayPageSizeOptions = [25, 50, 100, 200];
-
   private readonly defaultDayPageSize = 50;
-
   private readonly maxDayPageSize = 200;
-
   private readonly millisecondsPerDay = 24 * 60 * 60 * 1000;
 
   constructor(
@@ -160,11 +158,13 @@ export class WebController {
           topSenders: topSenders.map((entry) => ({
             address: entry.address,
             shortAddress: this.shortenAddress(entry.address),
+            addressLabel: getAddressLabel(entry.address),
             transferCount: formatNumber(entry.transferCount),
           })),
           topReceivers: topReceivers.map((entry) => ({
             address: entry.address,
             shortAddress: this.shortenAddress(entry.address),
+            addressLabel: getAddressLabel(entry.address),
             transferCount: formatNumber(entry.transferCount),
           })),
           assetBreakdown,
@@ -644,7 +644,7 @@ export class WebController {
       totalTransfers: formatNumber(totals.totalTransfers),
       activeAddresses: formatNumber(totals.uniqueAddresses),
       neoVolume: this.formatAmount('NEO', totals.neoVolumeRaw),
-      gasVolume: this.formatAmount('GAS', totals.gasVolumeRaw),
+      gasVolume: toNumber(totals.gasVolumeRaw, 8).toFixed(2),
       blocks: formatNumber(totals.blockCount),
     };
   }

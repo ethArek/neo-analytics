@@ -45,6 +45,7 @@ export class IngestionService {
   private readonly logger = new Logger(IngestionService.name);
   private readonly txBatchSize = 1000;
   private readonly transferBatchSize = 5000;
+  private readonly swapUsdUpdateBatchSize = 250;
   private readonly flamingoPriceTimeoutMs = 8000;
 
   constructor(
@@ -676,14 +677,7 @@ export class IngestionService {
     }
 
     await this.prisma.$transaction(async (tx) => {
-      for (const update of updates) {
-        await tx.dailyTx.update({
-          where: { txid: update.txid },
-          data: {
-            swapUsdValue: update.swapUsdValue,
-          },
-        });
-      }
+      await this.applySwapUsdUpdates(tx, updates);
 
       await tx.dailyStat.update({
         where: { date: day },
@@ -694,6 +688,28 @@ export class IngestionService {
     });
 
     return updates.length;
+  }
+
+  private async applySwapUsdUpdates(
+    tx: IngestionPrismaClient,
+    updates: Array<{ txid: string; swapUsdValue: string }>,
+  ): Promise<void> {
+    if (updates.length === 0) {
+      return;
+    }
+
+    for (const chunk of this.chunkValues(updates, this.swapUsdUpdateBatchSize)) {
+      const values = chunk.map((update) => {
+        return Prisma.sql`(${update.txid}, CAST(${update.swapUsdValue} AS DECIMAL(65, 8)))`;
+      });
+
+      await tx.$executeRaw(Prisma.sql`
+        UPDATE "DailyTx" AS "dailyTx"
+        SET "swapUsdValue" = updates."swapUsdValue"
+        FROM (VALUES ${Prisma.join(values)}) AS updates("txid", "swapUsdValue")
+        WHERE "dailyTx"."txid" = updates."txid"
+      `);
+    }
   }
 
   private async processTransactionBatch(
@@ -1379,6 +1395,19 @@ export class IngestionService {
     const divisor = new Prisma.Decimal(10).pow(decimals);
 
     return amount.div(divisor);
+  }
+
+  private chunkValues<T>(values: T[], size: number): T[][] {
+    if (size <= 0) {
+      return [values];
+    }
+
+    const chunks: T[][] = [];
+    for (let index = 0; index < values.length; index += size) {
+      chunks.push(values.slice(index, index + size));
+    }
+
+    return chunks;
   }
 
   private toUsdStorageValue(value: Prisma.Decimal): string {
