@@ -79,9 +79,9 @@ const LiquidityList: React.FC<{
           <li key={asset.symbol}>
             <div>
               <div className="mono">{asset.symbol}</div>
-              <small>
-                Balance {asset.balanceLabel}
-                {asset.stablecoin ? ' · stablecoin' : ''}
+              <small className="defi-asset-meta">
+                <span>Balance {asset.balanceLabel}</span>
+                {asset.stablecoin ? <span className="defi-asset-badge">Stablecoin</span> : null}
               </small>
             </div>
             <strong>{asset.usdValueLabel}</strong>

@@ -202,6 +202,7 @@ describe('DefiPage', () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getByText('Tracked liquidity mix')).toBeInTheDocument();
+    expect(screen.getByText('Stablecoin')).toBeInTheDocument();
     expect(screen.getByText('Top swap assets')).toBeInTheDocument();
     expect(screen.getByText('Largest swaps')).toBeInTheDocument();
     expect(screen.getByText('Recent swaps')).toBeInTheDocument();
