@@ -77,7 +77,7 @@ describe('DashboardPage', () => {
         {
           address: 'receiver-1',
           shortAddress: 'NUqLhf...ouVp',
-          addressLabel: 'Gate.io Cold wallet',
+          addressLabel: 'Gate.io',
           transferCount: '12',
         },
       ],
@@ -113,7 +113,7 @@ describe('DashboardPage', () => {
     expect(screen.getByText('NSy3Gf...g4KE (Binance Hot wallet)')).toBeInTheDocument();
     expect(screen.getByText('sender-1')).toBeInTheDocument();
     expect(screen.getByText('Top receivers')).toBeInTheDocument();
-    expect(screen.getByText('NUqLhf...ouVp (Gate.io Cold wallet)')).toBeInTheDocument();
+    expect(screen.getByText('NUqLhf...ouVp (Gate.io)')).toBeInTheDocument();
     expect(screen.getByText('receiver-1')).toBeInTheDocument();
     expect(screen.getByText('Asset transfer volume')).toBeInTheDocument();
     expect(screen.getByText('33 transfers')).toBeInTheDocument();
