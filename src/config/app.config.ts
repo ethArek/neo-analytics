@@ -2,7 +2,7 @@ import { registerAs } from '@nestjs/config';
 
 export default registerAs('app', () => ({
   databaseUrl: process.env.NEO_DATABASE_URL,
-  siteUrl: process.env.SITE_URL?.trim() ?? '',
+  siteUrl: process.env.SITE_URL?.trim() ?? 'https://neoanalytics.info',
   neoNetwork: process.env.NEO_NETWORK ?? 'MainNet',
   doraApiUrls: [process.env.DORA_API_URL].filter((endpoint): endpoint is string =>
     Boolean(endpoint),

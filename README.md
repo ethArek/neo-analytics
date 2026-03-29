@@ -82,7 +82,7 @@ performance windows, tracked liquidity pricing, and historical swap USD pricing.
 
 ```bash
 NEO_DATABASE_URL="postgresql://user:password@localhost:5432/neo_usage"
-SITE_URL="https://example.com"
+SITE_URL="https://neoanalytics.info"
 NEO_NETWORK=MainNet
 DORA_API_URL="https://api.coz.io"
 COINPAPRIKA_API_URL="https://api.coinpaprika.com/v1"
@@ -92,7 +92,7 @@ ADMIN_TOKEN="change-me"
 ```
 
 `SITE_URL` is the public base URL used for canonical tags, `robots.txt`, and `sitemap.xml`. If it is
-not set, the app falls back to the request host headers.
+not set, the app defaults to `https://neoanalytics.info`.
 
 `COINPAPRIKA_API_URL` is used for the latest NEO/GAS prices shown at the top of pages. `FLAMINGO_PRICE_API_URL`
 is still used for token performance windows and historical swap USD pricing.
