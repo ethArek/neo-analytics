@@ -213,22 +213,19 @@ test.describe('frontend rendering', () => {
     await seedAppPage(page, dashboardSeed);
     await expect(page.getByRole('heading', { name: 'Yesterday stats' })).toBeVisible();
     await expect(
-      page.locator('.summary-grid').getByText('Transactions excluding GAS claims'),
+      page.locator('.card span').getByText('Transactions excluding GAS claims'),
     ).toBeVisible();
-    await expect(page.getByText('DeFi metrics')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Range analytics' })).toBeVisible();
     await expect(page.getByText('Top senders')).toBeVisible();
     await captureScreenshot(page, testInfo, 'dashboard.png');
   });
 
   test('defi page renders boundary and table', async ({ page }, testInfo) => {
     await seedAppPage(page, defiSeed);
-    await expect(
-      page.getByRole('heading', {
-        name: 'Estimated swap USD metrics with a clear historical boundary.',
-      }),
-    ).toBeVisible();
-    await expect(page.getByText('Partial coverage')).toBeVisible();
-    await expect(page.getByRole('cell', { name: '$12,000.00' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'DeFi analytics' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Selected range' })).toBeVisible();
+    await expect(page.getByText('$45,123.90')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Estimated swap USD value' })).toBeVisible();
     await captureScreenshot(page, testInfo, 'defi.png');
   });
 
