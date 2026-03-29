@@ -2,6 +2,9 @@ export type ReactPageOptions = {
   title: string;
   page: string;
   data: Record<string, unknown>;
+  description?: string;
+  canonicalUrl?: string;
+  robots?: string;
 };
 
 export type ManifestEntry = {

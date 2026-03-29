@@ -82,6 +82,7 @@ performance windows, tracked liquidity pricing, and historical swap USD pricing.
 
 ```bash
 NEO_DATABASE_URL="postgresql://user:password@localhost:5432/neo_usage"
+SITE_URL="https://example.com"
 NEO_NETWORK=MainNet
 DORA_API_URL="https://api.coz.io"
 COINPAPRIKA_API_URL="https://api.coinpaprika.com/v1"
@@ -89,6 +90,9 @@ FLAMINGO_PRICE_API_URL="https://neo-api.b-cdn.net/flamingo/live-data/prices/late
 DEFI_METRICS_AVAILABLE_FROM="2026-03-07"
 ADMIN_TOKEN="change-me"
 ```
+
+`SITE_URL` is the public base URL used for canonical tags, `robots.txt`, and `sitemap.xml`. If it is
+not set, the app falls back to the request host headers.
 
 `COINPAPRIKA_API_URL` is used for the latest NEO/GAS prices shown at the top of pages. `FLAMINGO_PRICE_API_URL`
 is still used for token performance windows and historical swap USD pricing.
@@ -132,6 +136,13 @@ Visit http://localhost:3000/dashboard to see the dashboard.
 The separate DeFi metrics page is available at http://localhost:3000/defi.
 The FAQ is available at http://localhost:3000/faq.
 Swagger docs are available at http://localhost:3000/api/docs (stats endpoints only).
+
+Crawler-facing endpoints are also available:
+
+- `GET /robots.txt`
+- `GET /sitemap.xml`
+- `GET /llms.txt`
+- `GET /agents.txt`
 
 The dashboard and DeFi page support date range filters via `?from=YYYY-MM-DD&to=YYYY-MM-DD`.
 The DeFi page intentionally starts at `DEFI_METRICS_AVAILABLE_FROM` and does not backfill earlier periods.

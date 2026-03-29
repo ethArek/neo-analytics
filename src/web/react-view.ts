@@ -93,8 +93,21 @@ const resolveClientAssets = (): ClientAssets => {
   };
 };
 
-export const renderReactPage = ({ title, page, data }: ReactPageOptions): string => {
+export const renderReactPage = ({
+  title,
+  page,
+  data,
+  description,
+  canonicalUrl,
+  robots,
+}: ReactPageOptions): string => {
   const safeTitle = escapeHtml(title);
+  const safeDescription = escapeHtml(
+    description ??
+      'Neo N3 analytics dashboard with daily activity, DeFi metrics, and public data views.',
+  );
+  const safeRobots = escapeHtml(robots ?? 'index, follow');
+  const safeCanonicalUrl = canonicalUrl ? escapeHtml(canonicalUrl) : null;
   const serialized = JSON.stringify(data).replace(/</g, '\\u003c');
   const assets = resolveClientAssets();
   const scriptTags = assets.scripts
@@ -114,6 +127,18 @@ export const renderReactPage = ({ title, page, data }: ReactPageOptions): string
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>${safeTitle}</title>
+    <meta name="description" content="${safeDescription}" />
+    <meta name="robots" content="${safeRobots}" />
+    <meta property="og:site_name" content="Neo Analytics" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="${safeTitle}" />
+    <meta property="og:description" content="${safeDescription}" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="${safeTitle}" />
+    <meta name="twitter:description" content="${safeDescription}" />
+    <meta name="theme-color" content="#16a34a" />
+    ${safeCanonicalUrl ? `<link rel="canonical" href="${safeCanonicalUrl}" />` : ''}
+    ${safeCanonicalUrl ? `<meta property="og:url" content="${safeCanonicalUrl}" />` : ''}
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

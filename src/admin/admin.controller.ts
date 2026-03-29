@@ -189,6 +189,9 @@ export class AdminController {
 
     return renderReactPage({
       title: 'Admin console · Neo Analytics',
+      description:
+        'Private Neo Analytics admin console for manual ingestion and operational tasks.',
+      robots: 'noindex, nofollow',
       page: 'admin',
       data: {
         ...data,
@@ -202,6 +205,8 @@ export class AdminController {
 
     return renderReactPage({
       title: 'Admin login · Neo Analytics',
+      description: 'Private Neo Analytics admin login.',
+      robots: 'noindex, nofollow',
       page: 'admin-login',
       data: {
         ...data,

@@ -1,8 +1,8 @@
-import { Controller, Get, Inject, Param, Query, Redirect, Res } from '@nestjs/common';
+import { Controller, Get, Inject, Param, Query, Redirect, Req, Res } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiExcludeController } from '@nestjs/swagger';
 import { Prisma } from '@prisma/client';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import { formatDate, parseDate, yesterdayInTimeZone } from '../ingestion/date-utils';
 import type { NeoClient } from '../neo-client/neo-client.interface';
 import { NEO_CLIENT } from '../neo-client/neo-client.provider';
@@ -14,8 +14,69 @@ import { DefiLiquidityService } from './defi-liquidity.service';
 import { countInclusiveDays, normalizeIsoDate, resolveDefiWindow } from './defi-metrics';
 import { buildRecentVolumeNotice, resolveRecentVolumeWindow } from './defi-recent-volume';
 import { renderReactPage } from './react-view';
+import {
+  joinSiteUrl,
+  normalizeSiteUrl,
+  renderLlmsTxt,
+  renderRobotsTxt,
+  renderSitemapXml,
+} from './seo';
+import type { LlmsEntry, SitemapEntry } from './seo';
 import { TokenPerformanceService } from './token-performance.service';
 import type { StatTotals } from './web.controller.types';
+
+const STATIC_SITEMAP_ENTRIES: SitemapEntry[] = [
+  {
+    path: '/dashboard',
+    changeFrequency: 'daily',
+    priority: 1,
+  },
+  {
+    path: '/defi',
+    changeFrequency: 'daily',
+    priority: 0.9,
+  },
+  {
+    path: '/days',
+    changeFrequency: 'daily',
+    priority: 0.8,
+  },
+  {
+    path: '/faq',
+    changeFrequency: 'monthly',
+    priority: 0.6,
+  },
+  {
+    path: '/special-thanks',
+    changeFrequency: 'monthly',
+    priority: 0.4,
+  },
+];
+
+const LLMS_ENTRIES: LlmsEntry[] = [
+  {
+    path: '/dashboard',
+    title: 'Dashboard',
+    description: 'Daily Neo N3 activity totals, charts, address leaders, and asset breakdowns.',
+  },
+  {
+    path: '/defi',
+    title: 'DeFi Analytics',
+    description: 'DEX volume, tracked liquidity mix, stablecoin share, and recent swap activity.',
+  },
+  {
+    path: '/days',
+    title: 'Daily Table',
+    description:
+      'Calendar-style table of daily transaction, swap, oracle, transfer, and GAS claim counts.',
+  },
+  {
+    path: '/faq',
+    title: 'FAQ',
+    description:
+      'Methodology notes about data sources, metric definitions, and classification rules.',
+  },
+];
 
 @ApiExcludeController()
 @Controller()
@@ -43,13 +104,58 @@ export class WebController {
   @Redirect('/dashboard', 302)
   root() {}
 
+  @Get('/robots.txt')
+  robots(@Req() req: Request, @Res() res: Response) {
+    res.type('text/plain');
+
+    return res.send(renderRobotsTxt(this.resolveSiteUrl(req)));
+  }
+
+  @Get('/sitemap.xml')
+  async sitemap(@Req() req: Request, @Res() res: Response) {
+    const dates = await this.statsService.getLatestStats(365);
+    const entries = [
+      ...STATIC_SITEMAP_ENTRIES,
+      ...dates
+        .map((stat) => formatDate(stat.date, 'UTC'))
+        .sort((left, right) => left.localeCompare(right))
+        .map((date) => ({
+          path: `/day/${encodeURIComponent(date)}`,
+          changeFrequency: 'weekly' as const,
+          priority: 0.7,
+          lastModified: date,
+        })),
+    ];
+
+    res.type('application/xml');
+
+    return res.send(renderSitemapXml(this.resolveSiteUrl(req), entries));
+  }
+
+  @Get('/llms.txt')
+  llms(@Req() req: Request, @Res() res: Response) {
+    res.type('text/plain');
+
+    return res.send(renderLlmsTxt(this.resolveSiteUrl(req), LLMS_ENTRIES));
+  }
+
+  @Get('/agents.txt')
+  agents(@Req() req: Request, @Res() res: Response) {
+    res.type('text/plain');
+
+    return res.send(renderLlmsTxt(this.resolveSiteUrl(req), LLMS_ENTRIES));
+  }
+
   @Get('/faq')
-  async faq(@Res() res: Response) {
+  async faq(@Req() req: Request, @Res() res: Response) {
     const marketPrices = await this.getMarketPrices();
 
     return res.send(
       renderReactPage({
         title: 'Neo Analytics - FAQ',
+        description:
+          'FAQ for Neo Analytics covering methodology, metrics, and Neo N3 data sources.',
+        canonicalUrl: this.buildCanonicalUrl(req, '/faq'),
         page: 'faq',
         data: {
           marketPrices,
@@ -62,12 +168,15 @@ export class WebController {
   }
 
   @Get('/special-thanks')
-  async specialThanks(@Res() res: Response) {
+  async specialThanks(@Req() req: Request, @Res() res: Response) {
     const marketPrices = await this.getMarketPrices();
 
     return res.send(
       renderReactPage({
         title: 'Neo Analytics - Special thanks',
+        description:
+          'Credits to the contributors, tools, and data providers behind the Neo Analytics project.',
+        canonicalUrl: this.buildCanonicalUrl(req, '/special-thanks'),
         page: 'special-thanks',
         data: {
           marketPrices,
@@ -80,11 +189,17 @@ export class WebController {
   }
 
   @Get('/dashboard')
-  async dashboard(@Res() res: Response, @Query('from') from?: string, @Query('to') to?: string) {
+  async dashboard(
+    @Req() req: Request,
+    @Res() res: Response,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
     const [{ stats, range }, marketPrices] = await Promise.all([
       this.statsService.getRangeOrLatest(from, to, 30),
       this.getMarketPrices(),
     ]);
+    const shouldIndexPage = !from && !to;
     const labeledStats = stats.map((stat) => ({
       ...stat,
       dateLabel: formatDate(stat.date),
@@ -95,6 +210,10 @@ export class WebController {
       return res.send(
         renderReactPage({
           title: 'Neo Analytics',
+          description:
+            'Neo N3 analytics dashboard with daily transaction activity, swaps, oracle traffic, transfers, and address trends.',
+          canonicalUrl: this.buildCanonicalUrl(req, '/dashboard'),
+          robots: shouldIndexPage ? 'index, follow' : 'noindex, follow',
           page: 'dashboard',
           data: {
             marketPrices,
@@ -146,6 +265,10 @@ export class WebController {
     return res.send(
       renderReactPage({
         title: 'Neo Analytics',
+        description:
+          'Neo N3 analytics dashboard with daily transaction activity, swaps, oracle traffic, transfers, and address trends.',
+        canonicalUrl: this.buildCanonicalUrl(req, '/dashboard'),
+        robots: shouldIndexPage ? 'index, follow' : 'noindex, follow',
         page: 'dashboard',
         data: {
           marketPrices,
@@ -176,11 +299,17 @@ export class WebController {
   }
 
   @Get('/defi')
-  async defi(@Res() res: Response, @Query('from') from?: string, @Query('to') to?: string) {
+  async defi(
+    @Req() req: Request,
+    @Res() res: Response,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
     const [{ stats: latestStats }, marketPrices] = await Promise.all([
       this.statsService.getRangeOrLatest(undefined, undefined, 30),
       this.getMarketPrices(),
     ]);
+    const shouldIndexPage = !from && !to;
     const availableFrom = this.getDefiMetricsAvailableFrom();
     const defaultRange = this.buildDefaultDefiRange(latestStats, availableFrom);
     const window = resolveDefiWindow({
@@ -265,6 +394,10 @@ export class WebController {
     return res.send(
       renderReactPage({
         title: 'Neo Analytics - DeFi metrics',
+        description:
+          'Neo N3 DeFi analytics with DEX volume, tracked liquidity, stablecoin share, token performance, and recent swaps.',
+        canonicalUrl: this.buildCanonicalUrl(req, '/defi'),
+        robots: shouldIndexPage ? 'index, follow' : 'noindex, follow',
         page: 'defi',
         data: {
           marketPrices,
@@ -371,11 +504,17 @@ export class WebController {
     );
   }
   @Get('/days')
-  async days(@Res() res: Response, @Query('from') from?: string, @Query('to') to?: string) {
+  async days(
+    @Req() req: Request,
+    @Res() res: Response,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
     const [{ stats, range }, marketPrices] = await Promise.all([
       this.statsService.getRangeOrLatest(from, to, 90),
       this.getMarketPrices(),
     ]);
+    const shouldIndexPage = !from && !to;
     const labeledStats = stats.map((stat) => ({
       dateLabel: formatDate(stat.date),
       totalTxCountLabel: formatNumber(stat.totalTxCount),
@@ -391,6 +530,10 @@ export class WebController {
       return res.send(
         renderReactPage({
           title: 'Neo Analytics - Daily table',
+          description:
+            'Daily Neo N3 activity table with swaps, oracle transactions, transfers, GAS claims, and other usage metrics.',
+          canonicalUrl: this.buildCanonicalUrl(req, '/days'),
+          robots: shouldIndexPage ? 'index, follow' : 'noindex, follow',
           page: 'days',
           data: {
             marketPrices,
@@ -412,6 +555,10 @@ export class WebController {
     return res.send(
       renderReactPage({
         title: 'Neo Analytics - Daily table',
+        description:
+          'Daily Neo N3 activity table with swaps, oracle transactions, transfers, GAS claims, and other usage metrics.',
+        canonicalUrl: this.buildCanonicalUrl(req, '/days'),
+        robots: shouldIndexPage ? 'index, follow' : 'noindex, follow',
         page: 'days',
         data: {
           marketPrices,
@@ -429,11 +576,13 @@ export class WebController {
 
   @Get('/day/:date')
   async day(
+    @Req() req: Request,
     @Res() res: Response,
     @Param('date') date: string,
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
   ) {
+    const shouldIndexPage = !page && !pageSize;
     const requestedPage = this.parsePositiveInt(page, 1);
     const requestedPageSize = this.resolveDayPageSize(pageSize);
     const [{ stat, transactions, assetStats, pagination }, marketPrices] = await Promise.all([
@@ -471,6 +620,9 @@ export class WebController {
     return res.send(
       renderReactPage({
         title: `Neo Analytics - ${date}`,
+        description: `Neo N3 activity for ${date}, including classified transactions, asset flows, and daily totals.`,
+        canonicalUrl: this.buildCanonicalUrl(req, this.buildDayHref(date)),
+        robots: shouldIndexPage ? 'index, follow' : 'noindex, follow',
         page: 'day',
         data: {
           marketPrices,
@@ -896,6 +1048,30 @@ export class WebController {
 
   private formatTimestampLabel(value: Date): string {
     return value.toISOString().replace('T', ' ').replace('.000Z', ' UTC');
+  }
+
+  private buildCanonicalUrl(req: Request, path: string): string {
+    return joinSiteUrl(this.resolveSiteUrl(req), path);
+  }
+
+  private resolveSiteUrl(req: Request): string {
+    const configuredSiteUrl = normalizeSiteUrl(this.configService.get<string>('app.siteUrl'));
+    if (configuredSiteUrl) {
+      return configuredSiteUrl;
+    }
+
+    const forwardedProtoHeader = req.headers['x-forwarded-proto'];
+    const forwardedProto = Array.isArray(forwardedProtoHeader)
+      ? forwardedProtoHeader[0]
+      : forwardedProtoHeader;
+    const protocol = forwardedProto?.split(',')[0]?.trim() || req.protocol || 'http';
+    const forwardedHostHeader = req.headers['x-forwarded-host'];
+    const forwardedHost = Array.isArray(forwardedHostHeader)
+      ? forwardedHostHeader[0]
+      : forwardedHostHeader;
+    const host = (forwardedHost || req.get('host') || 'localhost:3000').split(',')[0].trim();
+
+    return normalizeSiteUrl(`${protocol}://${host}`) ?? 'http://localhost:3000';
   }
 
   private buildDayHref(date: string): string {

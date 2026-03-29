@@ -20,6 +20,24 @@ describe('renderReactPage', () => {
     );
   });
 
+  it('renders SEO metadata when provided', () => {
+    const html = renderReactPage({
+      title: 'Neo Analytics',
+      page: 'dashboard',
+      description: 'Public analytics for Neo N3.',
+      canonicalUrl: 'https://neo.example.com/dashboard',
+      robots: 'noindex, follow',
+      data: {},
+    });
+
+    expect(html).toContain('<meta name="description" content="Public analytics for Neo N3." />');
+    expect(html).toContain('<meta name="robots" content="noindex, follow" />');
+    expect(html).toContain('<link rel="canonical" href="https://neo.example.com/dashboard" />');
+    expect(html).toContain(
+      '<meta property="og:url" content="https://neo.example.com/dashboard" />',
+    );
+  });
+
   it('falls back to default asset when manifest content is invalid', () => {
     const manifestPath = join(process.cwd(), 'public', 'app', '.vite', 'manifest.json');
     const hadManifest = existsSync(manifestPath);
