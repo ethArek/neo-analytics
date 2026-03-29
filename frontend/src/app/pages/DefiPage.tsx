@@ -70,9 +70,9 @@ const LiquidityList: React.FC<{
 }> = ({ assets }) => {
   return (
     <div className="list-card defi-list-card" data-animate style={delayStyle('0.28s')}>
-      <h3>Tracked liquidity mix</h3>
+      <h3>Flamingo liquidity mix</h3>
       <p className="summary-subtitle">
-        Known swap contract balances priced with the latest Flamingo market feed.
+        Live Flamingo pool balances priced with the latest Flamingo market feed.
       </p>
       <ul className="defi-asset-list">
         {assets.map((asset) => (
@@ -236,7 +236,7 @@ export const DefiPage: React.FC = () => {
             <div>
               <h2>On-chain liquidity and recent volume</h2>
               <p className="summary-subtitle">
-                Latest DEX volume plus a tracked TVL proxy built from known swap contract balances.
+                Recent DEX volume from Flamingo Analytics swap volume plus live Flamingo pool TVL.
               </p>
             </div>
           </div>
@@ -252,17 +252,17 @@ export const DefiPage: React.FC = () => {
               <small>{onChainOverview.last7dLabel}</small>
             </div>
             <div className="card accent">
-              <span>Tracked DEX TVL</span>
+              <span>Flamingo TVL</span>
               <strong>{onChainOverview.trackedTvl ?? '-'}</strong>
               <small>
-                {onChainOverview.trackedContracts ?? '-'} contracts ·{' '}
-                {onChainOverview.pricedAssets ?? '-'} priced assets
+                {onChainOverview.poolCount ?? '-'} pools · {onChainOverview.pricedAssets ?? '-'}{' '}
+                priced assets
               </small>
             </div>
             <div className="card">
               <span>Stablecoin liquidity</span>
               <strong>{onChainOverview.stablecoinLiquidity ?? '-'}</strong>
-              <small>{onChainOverview.stablecoinShare ?? '-'} of tracked TVL</small>
+              <small>{onChainOverview.stablecoinShare ?? '-'} of Flamingo TVL</small>
             </div>
           </div>
           {onChainOverview.recentVolumeNotice ? (

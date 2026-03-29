@@ -4,6 +4,7 @@ import { TokenPerformanceService } from './token-performance.service';
 describe('TokenPerformanceService', () => {
   const coinPaprikaApiUrl = 'https://api.coinpaprika.com/v1';
   const latestUrl = 'https://example.test/flamingo/live-data/prices/latest';
+  const analyticsUrl = 'https://example.test/flamingo/analytics/rolling-30-days/total_data';
   const now = 1_800_000_000_000;
 
   beforeEach(() => {
@@ -154,6 +155,62 @@ describe('TokenPerformanceService', () => {
     await service.getDashboardTokenPerformance();
 
     expect(fetchSpy).toHaveBeenCalledTimes(4);
+  });
+
+  it('returns cached Flamingo rolling dex volume rows using swap volume', async () => {
+    const service = new TokenPerformanceService(
+      new ConfigService({
+        app: {
+          coinPaprikaApiUrl,
+          flamingoPriceApiUrl: latestUrl,
+          flamingoAnalyticsApiUrl: analyticsUrl,
+        },
+      }),
+    );
+    const fetchSpy = jest.spyOn(global, 'fetch').mockImplementation(async (input) => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url === analyticsUrl) {
+        return new Response(
+          JSON.stringify([
+            {
+              date: '2026-03-29T00:00:00',
+              total_data: {
+                total_order_volume: '1323.04',
+                swap_volume: '1323.0355',
+              },
+            },
+            {
+              date: '2026-03-28T00:00:00',
+              total_data: {
+                total_order_volume: '36255.74',
+                swap_volume: '29175.2921',
+              },
+            },
+          ]),
+          { status: 200 },
+        );
+      }
+
+      return new Response('error', { status: 404 });
+    });
+
+    const first = await service.getRollingDexVolumeRows();
+    const second = await service.getRollingDexVolumeRows();
+
+    expect(first).toEqual([
+      {
+        date: '2026-03-28',
+        swapVolume: 29175.2921,
+        totalOrderVolume: 36255.74,
+      },
+      {
+        date: '2026-03-29',
+        swapVolume: 1323.0355,
+        totalOrderVolume: 1323.04,
+      },
+    ]);
+    expect(second).toEqual(first);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 
   it('filters token performance to assets that had swap activity in the matching window', async () => {

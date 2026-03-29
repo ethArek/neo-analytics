@@ -12,7 +12,11 @@ import { formatNumber, formatUnits, toNumber } from '../stats/stats.utils';
 import { getAddressLabel } from './address-labels';
 import { DefiLiquidityService } from './defi-liquidity.service';
 import { countInclusiveDays, normalizeIsoDate, resolveDefiWindow } from './defi-metrics';
-import { buildRecentVolumeNotice, resolveRecentVolumeWindow } from './defi-recent-volume';
+import {
+  buildRecentVolumeNotice,
+  resolveFlamingoRecentVolume,
+  resolveRecentVolumeWindow,
+} from './defi-recent-volume';
 import { renderReactPage } from './react-view';
 import { TokenPerformanceService } from './token-performance.service';
 import type { StatTotals } from './web.controller.types';
@@ -233,34 +237,38 @@ export class WebController {
       }
     }
 
-    const [assetLabelMap, assetDecimalsMap] = await Promise.all([
+    const [assetLabelMap, assetDecimalsMap, flamingoRecentVolumeRows] = await Promise.all([
       this.buildAssetLabelMap([...swapAssetsToResolve]),
       this.buildAssetDecimalsMap([...swapAssetsToResolve]),
+      this.tokenPerformanceService.getRollingDexVolumeRows(),
     ]);
-    const latestDay = latestStats[latestStats.length - 1];
-    const latestDayLabel = latestDay ? formatDate(latestDay.date, 'UTC') : null;
-    const recentVolumeWindow = resolveRecentVolumeWindow(latestDayLabel, availableFrom);
-    const recentVolumeStats =
-      recentVolumeWindow.from && recentVolumeWindow.to
-        ? await this.statsService.getStatsRange(recentVolumeWindow.from, recentVolumeWindow.to)
-        : [];
-    const latestSevenDayVolume = recentVolumeStats.reduce(
-      (total, stat) => total.add(stat.swapsUsdValue),
-      new Prisma.Decimal(0),
-    );
     const expectedLatestDayLabel = yesterdayInTimeZone('Europe/Warsaw');
-    const [latestDayCoverage, latestSevenDayCoverage] = await Promise.all([
-      latestDayLabel
-        ? this.statsService.getSwapUsdCoverageRange(latestDayLabel, latestDayLabel)
-        : Promise.resolve(this.emptySwapUsdCoverage()),
-      recentVolumeWindow.from && recentVolumeWindow.to
-        ? this.statsService.getSwapUsdCoverageRange(recentVolumeWindow.from, recentVolumeWindow.to)
-        : Promise.resolve(this.emptySwapUsdCoverage()),
-    ]);
-    const missingRecentVolumeDays = Math.max(
-      0,
-      recentVolumeWindow.expectedDays - recentVolumeStats.length,
-    );
+    const flamingoRecentVolume = resolveFlamingoRecentVolume({
+      rows: flamingoRecentVolumeRows,
+      expectedLatestDayLabel,
+    });
+    const localRecentVolume = flamingoRecentVolume
+      ? null
+      : await this.buildLocalRecentVolumeOverview(
+          latestStats,
+          availableFrom,
+          expectedLatestDayLabel,
+        );
+    const recentVolumeOverview = flamingoRecentVolume
+      ? {
+          latestDayDexVolume: this.formatUsd(flamingoRecentVolume.latestDayVolume),
+          latestDayLabel: flamingoRecentVolume.latestDayLabel,
+          last7dDexVolume: this.formatUsd(flamingoRecentVolume.last7dVolume),
+          last7dLabel: flamingoRecentVolume.last7dLabel,
+          recentVolumeNotice: flamingoRecentVolume.notice,
+        }
+      : (localRecentVolume ?? {
+          latestDayDexVolume: this.formatUsd(0),
+          latestDayLabel: 'No data available',
+          last7dDexVolume: this.formatUsd(0),
+          last7dLabel: 'No data available',
+          recentVolumeNotice: null,
+        });
 
     return res.send(
       renderReactPage({
@@ -287,20 +295,11 @@ export class WebController {
               }
             : null,
           onChainOverview: {
-            latestDayDexVolume: this.formatUsd(latestDay?.swapsUsdValue ?? '0'),
-            latestDayLabel: latestDayLabel ?? 'No data available',
-            last7dDexVolume: this.formatUsd(latestSevenDayVolume),
-            last7dLabel:
-              recentVolumeWindow.from && recentVolumeWindow.to
-                ? `${recentVolumeWindow.from} to ${recentVolumeWindow.to}`
-                : 'No data available',
-            recentVolumeNotice: buildRecentVolumeNotice({
-              latestDayLabel,
-              expectedLatestDayLabel,
-              missingWindowDays: missingRecentVolumeDays,
-              latestDayCoverage,
-              displayedCoverage: latestSevenDayCoverage,
-            }),
+            latestDayDexVolume: recentVolumeOverview.latestDayDexVolume,
+            latestDayLabel: recentVolumeOverview.latestDayLabel,
+            last7dDexVolume: recentVolumeOverview.last7dDexVolume,
+            last7dLabel: recentVolumeOverview.last7dLabel,
+            recentVolumeNotice: recentVolumeOverview.recentVolumeNotice,
             trackedTvl: trackedLiquidity ? this.formatUsd(trackedLiquidity.trackedTvlUsd) : null,
             stablecoinLiquidity: trackedLiquidity
               ? this.formatUsd(trackedLiquidity.stablecoinLiquidityUsd)
@@ -311,9 +310,7 @@ export class WebController {
                   trackedLiquidity.trackedTvlUsd,
                 )
               : null,
-            trackedContracts: trackedLiquidity
-              ? formatNumber(trackedLiquidity.trackedContracts)
-              : null,
+            poolCount: trackedLiquidity ? formatNumber(trackedLiquidity.poolCount) : null,
             pricedAssets: trackedLiquidity ? formatNumber(trackedLiquidity.pricedAssets) : null,
             topLiquidityAssets:
               trackedLiquidity?.topAssets.map((asset) => ({
@@ -991,6 +988,62 @@ export class WebController {
     const groupedWhole = wholePart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 
     return `${isNegative ? '-' : ''}$${groupedWhole}.${fractionPart}`;
+  }
+
+  private async buildLocalRecentVolumeOverview(
+    latestStats: Array<{
+      date: Date;
+      swapsUsdValue: Prisma.Decimal | string;
+    }>,
+    availableFrom: string | null,
+    expectedLatestDayLabel: string,
+  ): Promise<{
+    latestDayDexVolume: string;
+    latestDayLabel: string;
+    last7dDexVolume: string;
+    last7dLabel: string;
+    recentVolumeNotice: string | null;
+  } | null> {
+    const latestDay = latestStats[latestStats.length - 1];
+    const latestDayLabel = latestDay ? formatDate(latestDay.date, 'UTC') : null;
+    const recentVolumeWindow = resolveRecentVolumeWindow(latestDayLabel, availableFrom);
+    const recentVolumeStats =
+      recentVolumeWindow.from && recentVolumeWindow.to
+        ? await this.statsService.getStatsRange(recentVolumeWindow.from, recentVolumeWindow.to)
+        : [];
+    const latestSevenDayVolume = recentVolumeStats.reduce(
+      (total, stat) => total.add(stat.swapsUsdValue),
+      new Prisma.Decimal(0),
+    );
+    const [latestDayCoverage, latestSevenDayCoverage] = await Promise.all([
+      latestDayLabel
+        ? this.statsService.getSwapUsdCoverageRange(latestDayLabel, latestDayLabel)
+        : Promise.resolve(this.emptySwapUsdCoverage()),
+      recentVolumeWindow.from && recentVolumeWindow.to
+        ? this.statsService.getSwapUsdCoverageRange(recentVolumeWindow.from, recentVolumeWindow.to)
+        : Promise.resolve(this.emptySwapUsdCoverage()),
+    ]);
+    const missingRecentVolumeDays = Math.max(
+      0,
+      recentVolumeWindow.expectedDays - recentVolumeStats.length,
+    );
+
+    return {
+      latestDayDexVolume: this.formatUsd(latestDay?.swapsUsdValue ?? '0'),
+      latestDayLabel: latestDayLabel ?? 'No data available',
+      last7dDexVolume: this.formatUsd(latestSevenDayVolume),
+      last7dLabel:
+        recentVolumeWindow.from && recentVolumeWindow.to
+          ? `${recentVolumeWindow.from} to ${recentVolumeWindow.to}`
+          : 'No data available',
+      recentVolumeNotice: buildRecentVolumeNotice({
+        latestDayLabel,
+        expectedLatestDayLabel,
+        missingWindowDays: missingRecentVolumeDays,
+        latestDayCoverage,
+        displayedCoverage: latestSevenDayCoverage,
+      }),
+    };
   }
 
   private async getMarketPrices() {

@@ -14,7 +14,7 @@ export type CacheEntry<T> = {
 export type TrackedLiquiditySnapshot = {
   trackedTvlUsd: number;
   stablecoinLiquidityUsd: number;
-  trackedContracts: number;
+  poolCount: number;
   pricedAssets: number;
   topAssets: TrackedLiquidityAsset[];
 };

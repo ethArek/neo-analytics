@@ -47,6 +47,12 @@ export type FlamingoPriceRow = {
   usdPrice: number;
 };
 
+export type FlamingoDexVolumeRow = {
+  date: string;
+  swapVolume: number;
+  totalOrderVolume: number;
+};
+
 export type CoinPaprikaTicker = {
   quotes?: {
     USD?: {
