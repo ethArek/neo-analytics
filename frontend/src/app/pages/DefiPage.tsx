@@ -79,9 +79,9 @@ const LiquidityList: React.FC<{
           <li key={asset.symbol}>
             <div>
               <div className="mono">{asset.symbol}</div>
-              <small>
-                Balance {asset.balanceLabel}
-                {asset.stablecoin ? ' · stablecoin' : ''}
+              <small className="defi-asset-meta">
+                <span>Balance {asset.balanceLabel}</span>
+                {asset.stablecoin ? <span className="defi-asset-badge">Stablecoin</span> : null}
               </small>
             </div>
             <strong>{asset.usdValueLabel}</strong>
@@ -242,7 +242,7 @@ export const DefiPage: React.FC = () => {
           </div>
           <div className="summary-grid">
             <div className="card">
-              <span>Latest day DEX volume</span>
+              <span>Yesterday DEX volume</span>
               <strong>{onChainOverview.latestDayDexVolume}</strong>
               <small>{onChainOverview.latestDayLabel}</small>
             </div>
@@ -265,6 +265,9 @@ export const DefiPage: React.FC = () => {
               <small>{onChainOverview.stablecoinShare ?? '-'} of tracked TVL</small>
             </div>
           </div>
+          {onChainOverview.recentVolumeNotice ? (
+            <p className="summary-subtitle">{onChainOverview.recentVolumeNotice}</p>
+          ) : null}
         </section>
       ) : null}
 

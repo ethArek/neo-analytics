@@ -128,6 +128,7 @@ export type DefiOnChainOverview = {
   latestDayLabel: string;
   last7dDexVolume: string;
   last7dLabel: string;
+  recentVolumeNotice?: string | null;
   trackedTvl: string | null;
   stablecoinLiquidity: string | null;
   stablecoinShare: string | null;

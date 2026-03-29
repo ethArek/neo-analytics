@@ -118,6 +118,8 @@ describe('DefiPage', () => {
         latestDayLabel: '2026-03-08',
         last7dDexVolume: '$6,420.55',
         last7dLabel: '2026-03-02 to 2026-03-08',
+        recentVolumeNotice:
+          'Recent DEX volume may be incomplete because latest ingested day is 2026-03-08, so newer days are not included yet, and 5 swap transactions in the displayed recent window are still missing USD pricing, including 2 swaps on 2026-03-08.',
         trackedTvl: '$719,999.31',
         stablecoinLiquidity: '$306,986.22',
         stablecoinShare: '42.64%',
@@ -189,11 +191,18 @@ describe('DefiPage', () => {
     expect(screen.getByText('$2,180.75')).toBeInTheDocument();
     expect(screen.getByText('Active swap wallets')).toBeInTheDocument();
     expect(screen.getByText('21.30%')).toBeInTheDocument();
+    expect(screen.getByText('Yesterday DEX volume')).toBeInTheDocument();
     expect(screen.getByText('Tracked DEX TVL')).toBeInTheDocument();
     expect(screen.getByText('$719,999.31')).toBeInTheDocument();
     expect(screen.getByText('Stablecoin liquidity')).toBeInTheDocument();
     expect(screen.getByText('$306,986.22')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Recent DEX volume may be incomplete because latest ingested day is 2026-03-08, so newer days are not included yet, and 5 swap transactions in the displayed recent window are still missing USD pricing, including 2 swaps on 2026-03-08.',
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText('Tracked liquidity mix')).toBeInTheDocument();
+    expect(screen.getByText('Stablecoin')).toBeInTheDocument();
     expect(screen.getByText('Top swap assets')).toBeInTheDocument();
     expect(screen.getByText('Largest swaps')).toBeInTheDocument();
     expect(screen.getByText('Recent swaps')).toBeInTheDocument();
