@@ -132,7 +132,7 @@ export type DefiOnChainOverview = {
   trackedTvl: string | null;
   stablecoinLiquidity: string | null;
   stablecoinShare: string | null;
-  trackedContracts: string | null;
+  poolCount: string | null;
   pricedAssets: string | null;
   topLiquidityAssets?: DefiLiquidityAsset[];
 };

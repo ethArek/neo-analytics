@@ -9,6 +9,7 @@ import type {
   DashboardTokenPerformanceFilters,
   MarketPriceEntry,
   DashboardTokenPerformanceWindow,
+  FlamingoDexVolumeRow,
   FlamingoPriceRow,
   MarketPrices,
 } from './token-performance.service.types';
@@ -20,6 +21,7 @@ const NEO_COIN_PAPRIKA_ID = 'neo-neo';
 const GAS_COIN_PAPRIKA_ID = 'gas-gas';
 const MARKET_PRICES_CACHE_TTL_MS = 60 * 1000;
 const PRICE_ROWS_CACHE_TTL_MS = 60 * 1000;
+const ROLLING_DEX_VOLUME_CACHE_TTL_MS = 60 * 1000;
 
 @Injectable()
 export class TokenPerformanceService {
@@ -27,6 +29,8 @@ export class TokenPerformanceService {
   private readonly requestTimeoutMs = 8000;
   private marketPricesCache: CacheEntry<MarketPrices> | null = null;
   private marketPricesPromise: Promise<MarketPrices> | null = null;
+  private rollingDexVolumeCache: CacheEntry<FlamingoDexVolumeRow[]> | null = null;
+  private rollingDexVolumePromise: Promise<FlamingoDexVolumeRow[]> | null = null;
   private readonly priceRowsCache = new Map<string, CacheEntry<FlamingoPriceRow[]>>();
   private readonly priceRowsPromises = new Map<string, Promise<FlamingoPriceRow[]>>();
 
@@ -70,6 +74,41 @@ export class TokenPerformanceService {
       );
 
       return [];
+    }
+  }
+
+  async getRollingDexVolumeRows(): Promise<FlamingoDexVolumeRow[]> {
+    const analyticsUrl = this.getRollingDexVolumeUrl();
+    if (!analyticsUrl) {
+      return [];
+    }
+
+    const cached = this.getCachedValue(this.rollingDexVolumeCache);
+    if (cached) {
+      return cached;
+    }
+
+    if (this.rollingDexVolumePromise) {
+      return this.rollingDexVolumePromise;
+    }
+
+    const loader = this.fetchRollingDexVolumeRows(analyticsUrl);
+    this.rollingDexVolumePromise = loader;
+
+    try {
+      const result = await loader;
+      this.rollingDexVolumeCache = this.createCacheEntry(result, ROLLING_DEX_VOLUME_CACHE_TTL_MS);
+
+      return result;
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Failed to load Flamingo rolling dex volume (${reason}). Continuing without analytics-backed recent volume.`,
+      );
+
+      return [];
+    } finally {
+      this.rollingDexVolumePromise = null;
     }
   }
 
@@ -191,6 +230,15 @@ export class TokenPerformanceService {
     return configured.replace(/\/+$/, '');
   }
 
+  private getRollingDexVolumeUrl(): string | null {
+    const configured = this.configService.get<string>('app.flamingoAnalyticsApiUrl')?.trim();
+    if (!configured) {
+      return null;
+    }
+
+    return configured.replace(/\/+$/, '');
+  }
+
   private buildHistoricalPriceUrl(latestUrl: string, timestamp: number): string | null {
     if (!Number.isFinite(timestamp) || timestamp <= 0) {
       return null;
@@ -258,6 +306,31 @@ export class TokenPerformanceService {
     }
   }
 
+  private async fetchRollingDexVolumeRows(url: string): Promise<FlamingoDexVolumeRow[]> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => {
+      controller.abort();
+    }, this.requestTimeoutMs);
+
+    try {
+      const response = await fetch(url, {
+        signal: controller.signal,
+        headers: {
+          Accept: 'application/json',
+        },
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const payload: unknown = await response.json();
+
+      return this.normalizeRollingDexVolumeRows(payload);
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
   private pruneExpiredPriceRowsCache() {
     const now = Date.now();
 
@@ -297,6 +370,54 @@ export class TokenPerformanceService {
     }
 
     return rows;
+  }
+
+  private normalizeRollingDexVolumeRows(payload: unknown): FlamingoDexVolumeRow[] {
+    if (!Array.isArray(payload)) {
+      return [];
+    }
+
+    const rowsByDate = new Map<string, FlamingoDexVolumeRow>();
+    for (const item of payload) {
+      if (!item || typeof item !== 'object') {
+        continue;
+      }
+
+      const date = this.normalizeAnalyticsDate(item.date);
+      if (!date) {
+        continue;
+      }
+
+      const totalData =
+        item.total_data && typeof item.total_data === 'object' ? item.total_data : undefined;
+      const swapVolume = this.parsePrice(totalData?.swap_volume) ?? 0;
+      const totalOrderVolume = this.parsePrice(totalData?.total_order_volume) ?? swapVolume;
+      rowsByDate.set(date, {
+        date,
+        swapVolume: Math.max(0, swapVolume),
+        totalOrderVolume: Math.max(0, totalOrderVolume),
+      });
+    }
+
+    return [...rowsByDate.values()].sort((left, right) => left.date.localeCompare(right.date));
+  }
+
+  private normalizeAnalyticsDate(value: unknown): string | null {
+    if (typeof value !== 'string') {
+      return null;
+    }
+
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return null;
+    }
+
+    const match = trimmed.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (!match) {
+      return null;
+    }
+
+    return match[1];
   }
 
   private async fetchCoinPaprikaMarketEntry(

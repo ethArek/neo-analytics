@@ -1,53 +1,30 @@
+import { ConfigService } from '@nestjs/config';
 import { DefiLiquidityService } from './defi-liquidity.service';
-import type { NeoBalance, NeoClient } from '../neo-client/neo-client.interface';
-import { defaultSwapContracts } from '../classifier/classifier';
+import type { NeoClient } from '../neo-client/neo-client.interface';
 import type { FlamingoPriceRow } from './token-performance.service.types';
 
-class NeoClientStub implements NeoClient {
-  readonly balanceRequests: string[] = [];
+const poolDataUrl = 'https://example.test/flamingo/live-data/pool-data/latest';
+const tvlUrl = 'https://example.test/flamingo/analytics/flamingo/usd-value-locked';
 
+class NeoClientStub implements NeoClient {
   async fetchTransactionsForDay() {
     return { transactions: [] };
   }
 
-  async getAddressBalances(address: string): Promise<NeoBalance[]> {
-    this.balanceRequests.push(address);
+  async resolveAssetDecimals(asset: string): Promise<number | null> {
+    const decimalsByAsset = new Map<string, number>([
+      ['0xfusd', 2],
+      ['0xbneo', 2],
+      ['0xgas', 2],
+      ['0xfusdc', 2],
+      ['0xbnb', 2],
+      ['0xusdt', 2],
+      ['0xwbtc', 2],
+      ['0xcake', 2],
+      ['0xflm', 2],
+    ]);
 
-    if (address === 'NSy3Gffa2X45rzEP8x5wwLBbukEUVCg4KE') {
-      return [
-        {
-          asset: '0xfusd',
-          symbol: 'FUSD',
-          assetName: 'Flamingo USD',
-          balance: 100,
-        },
-        {
-          asset: '0xbneo',
-          symbol: 'bNEO',
-          assetName: 'BurgerNEO',
-          balance: 10,
-        },
-      ];
-    }
-
-    if (address === 'NenPXJNsJoVHT9XH78QVCMZiUmx7HetkXY') {
-      return [
-        {
-          asset: '0xfusd',
-          symbol: 'FUSD',
-          assetName: 'Flamingo USD',
-          balance: 50,
-        },
-        {
-          asset: '0xgas',
-          symbol: 'GAS',
-          assetName: 'GasToken',
-          balance: 5,
-        },
-      ];
-    }
-
-    return [];
+    return decimalsByAsset.get(asset) ?? null;
   }
 }
 
@@ -76,105 +53,6 @@ class TokenPerformanceServiceStub {
         unwrappedSymbol: 'GAS',
         usdPrice: 11,
       },
-    ];
-  }
-}
-
-class NeoClientUsdcMixStub implements NeoClient {
-  async fetchTransactionsForDay() {
-    return { transactions: [] };
-  }
-
-  async getAddressBalances(address: string): Promise<NeoBalance[]> {
-    if (address === 'NSy3Gffa2X45rzEP8x5wwLBbukEUVCg4KE') {
-      return [
-        {
-          asset: '0xfusd',
-          symbol: 'FUSD',
-          assetName: 'Flamingo USD',
-          balance: 100,
-        },
-        {
-          asset: '0xbneo',
-          symbol: 'bNEO',
-          assetName: 'BurgerNEO',
-          balance: 10,
-        },
-        {
-          asset: '0xfusdc',
-          symbol: 'fUSDC',
-          assetName: 'Flamingo USD Coin',
-          balance: 6,
-        },
-        {
-          asset: '0xbnb',
-          symbol: 'BNB',
-          assetName: 'BNB',
-          balance: 3,
-        },
-      ];
-    }
-
-    if (address === 'NenPXJNsJoVHT9XH78QVCMZiUmx7HetkXY') {
-      return [
-        {
-          asset: '0xfusd',
-          symbol: 'FUSD',
-          assetName: 'Flamingo USD',
-          balance: 50,
-        },
-        {
-          asset: '0xgas',
-          symbol: 'GAS',
-          assetName: 'GasToken',
-          balance: 5,
-        },
-        {
-          asset: '0xusdt',
-          symbol: 'USDT',
-          assetName: 'Tether',
-          balance: 25,
-        },
-        {
-          asset: '0xwbtc',
-          symbol: 'WBTC',
-          assetName: 'Wrapped Bitcoin',
-          balance: 1,
-        },
-        {
-          asset: '0xcake',
-          symbol: 'CAKE',
-          assetName: 'PancakeSwap',
-          balance: 5,
-        },
-        {
-          asset: '0xflm',
-          symbol: 'FLM',
-          assetName: 'Flamingo',
-          balance: 10,
-        },
-      ];
-    }
-
-    return [];
-  }
-}
-
-class TokenPerformanceServiceUsdcMixStub {
-  async getLatestPriceRows(): Promise<FlamingoPriceRow[]> {
-    return [
-      {
-        hash: '0xfusd',
-        symbol: 'FUSD',
-        unwrappedSymbol: 'FUSD',
-        usdPrice: 0.98,
-      },
-      {
-        hash: '0xbneo',
-        symbol: 'bNEO',
-        unwrappedSymbol: 'bNEO',
-        usdPrice: 2,
-      },
       {
         hash: '0xfusdc',
         symbol: 'USDC',
@@ -186,12 +64,6 @@ class TokenPerformanceServiceUsdcMixStub {
         symbol: 'BNB',
         unwrappedSymbol: 'BNB',
         usdPrice: 4,
-      },
-      {
-        hash: '0xgas',
-        symbol: 'GAS',
-        unwrappedSymbol: 'GAS',
-        usdPrice: 11,
       },
       {
         hash: '0xusdt',
@@ -221,21 +93,75 @@ class TokenPerformanceServiceUsdcMixStub {
   }
 }
 
+const createService = (
+  neoClient: NeoClient = new NeoClientStub(),
+  tokenPerformanceService: TokenPerformanceServiceStub = new TokenPerformanceServiceStub(),
+) => {
+  const configService = new ConfigService({
+    app: {
+      flamingoPoolDataApiUrl: poolDataUrl,
+      flamingoTvlApiUrl: tvlUrl,
+    },
+  });
+
+  return Reflect.construct(DefiLiquidityService, [
+    neoClient,
+    tokenPerformanceService,
+    configService,
+  ]) as DefiLiquidityService;
+};
+
 describe('DefiLiquidityService', () => {
-  it('builds a tracked liquidity snapshot from known swap contract balances', async () => {
-    const neoClient = new NeoClientStub();
-    const tokenPerformanceService = new TokenPerformanceServiceStub();
-    const service = Reflect.construct(DefiLiquidityService, [
-      neoClient,
-      tokenPerformanceService,
-    ]) as DefiLiquidityService;
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('builds a real liquidity snapshot from Flamingo pool balances', async () => {
+    const service = createService();
+
+    jest.spyOn(global, 'fetch').mockImplementation(async (input) => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url === poolDataUrl) {
+        return new Response(
+          JSON.stringify({
+            data: {
+              pool_data: {
+                '0xpool-1': {
+                  hash: '0xpool-1',
+                  balances: {
+                    '0xfusd': '10000',
+                    '0xbneo': '1000',
+                  },
+                  total_usd_value: '120',
+                },
+                '0xpool-2': {
+                  hash: '0xpool-2',
+                  balances: {
+                    '0xfusd': '5000',
+                    '0xgas': '500',
+                  },
+                  total_usd_value: '102',
+                },
+              },
+            },
+          }),
+          { status: 200 },
+        );
+      }
+
+      if (url === tvlUrl) {
+        return new Response(JSON.stringify('222'), { status: 200 });
+      }
+
+      return new Response('error', { status: 404 });
+    });
 
     const result = await service.getTrackedLiquiditySnapshot();
 
     expect(result).toEqual({
       trackedTvlUsd: 222,
       stablecoinLiquidityUsd: 147,
-      trackedContracts: 4,
+      poolCount: 2,
       pricedAssets: 3,
       topAssets: [
         {
@@ -263,20 +189,58 @@ describe('DefiLiquidityService', () => {
     });
   });
 
-  it('keeps USDC in the tracked liquidity mix when the feed labels it differently', async () => {
-    const neoClient = new NeoClientUsdcMixStub();
-    const tokenPerformanceService = new TokenPerformanceServiceUsdcMixStub();
-    const service = Reflect.construct(DefiLiquidityService, [
-      neoClient,
-      tokenPerformanceService,
-    ]) as DefiLiquidityService;
+  it('keeps USDC in the Flamingo liquidity mix when the feed labels it differently', async () => {
+    const service = createService();
+
+    jest.spyOn(global, 'fetch').mockImplementation(async (input) => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url === poolDataUrl) {
+        return new Response(
+          JSON.stringify({
+            data: {
+              pool_data: {
+                '0xpool-1': {
+                  hash: '0xpool-1',
+                  balances: {
+                    '0xfusd': '10000',
+                    '0xbneo': '1000',
+                    '0xfusdc': '600',
+                    '0xbnb': '300',
+                  },
+                  total_usd_value: '185',
+                },
+                '0xpool-2': {
+                  hash: '0xpool-2',
+                  balances: {
+                    '0xfusd': '5000',
+                    '0xgas': '500',
+                    '0xusdt': '2500',
+                    '0xwbtc': '100',
+                    '0xcake': '500',
+                    '0xflm': '1000',
+                  },
+                  total_usd_value: '120',
+                },
+              },
+            },
+          }),
+          { status: 200 },
+        );
+      }
+
+      if (url === tvlUrl) {
+        return new Response(JSON.stringify('305'), { status: 200 });
+      }
+
+      return new Response('error', { status: 404 });
+    });
 
     const result = await service.getTrackedLiquiditySnapshot();
 
     expect(result).toEqual({
       trackedTvlUsd: 305,
       stablecoinLiquidityUsd: 178,
-      trackedContracts: 4,
+      poolCount: 2,
       pricedAssets: 9,
       topAssets: [
         {
@@ -332,13 +296,80 @@ describe('DefiLiquidityService', () => {
     });
   });
 
+  it('falls back to summed pool TVL when the dedicated Flamingo TVL endpoint fails', async () => {
+    const service = createService();
+
+    jest.spyOn(global, 'fetch').mockImplementation(async (input) => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url === poolDataUrl) {
+        return new Response(
+          JSON.stringify({
+            data: {
+              pool_data: {
+                '0xpool-1': {
+                  hash: '0xpool-1',
+                  balances: {
+                    '0xfusd': '10000',
+                  },
+                  total_usd_value: '98',
+                },
+                '0xpool-2': {
+                  hash: '0xpool-2',
+                  balances: {
+                    '0xusdt': '2500',
+                  },
+                  total_usd_value: '25',
+                },
+              },
+            },
+          }),
+          { status: 200 },
+        );
+      }
+
+      if (url === tvlUrl) {
+        return new Response('error', { status: 500 });
+      }
+
+      return new Response('error', { status: 404 });
+    });
+
+    const result = await service.getTrackedLiquiditySnapshot();
+
+    expect(result?.trackedTvlUsd).toBe(123);
+    expect(result?.poolCount).toBe(2);
+  });
+
   it('reuses cached liquidity snapshots across concurrent requests', async () => {
-    const neoClient = new NeoClientStub();
     const tokenPerformanceService = new TokenPerformanceServiceStub();
-    const service = Reflect.construct(DefiLiquidityService, [
-      neoClient,
-      tokenPerformanceService,
-    ]) as DefiLiquidityService;
+    const service = createService(new NeoClientStub(), tokenPerformanceService);
+    const fetchSpy = jest.spyOn(global, 'fetch').mockImplementation(async (input) => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url === poolDataUrl) {
+        return new Response(
+          JSON.stringify({
+            data: {
+              pool_data: {
+                '0xpool-1': {
+                  hash: '0xpool-1',
+                  balances: {
+                    '0xfusd': '10000',
+                  },
+                  total_usd_value: '98',
+                },
+              },
+            },
+          }),
+          { status: 200 },
+        );
+      }
+
+      if (url === tvlUrl) {
+        return new Response(JSON.stringify('98'), { status: 200 });
+      }
+
+      return new Response('error', { status: 404 });
+    });
 
     const [first, second] = await Promise.all([
       service.getTrackedLiquiditySnapshot(),
@@ -349,6 +380,6 @@ describe('DefiLiquidityService', () => {
     expect(first).toEqual(second);
     expect(third).toEqual(first);
     expect(tokenPerformanceService.latestPriceRowsCalls).toBe(1);
-    expect(neoClient.balanceRequests).toHaveLength(defaultSwapContracts.length);
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
   });
 });
