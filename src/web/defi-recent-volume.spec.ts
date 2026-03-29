@@ -62,7 +62,7 @@ describe('defi recent volume helpers', () => {
     expect(result?.latestDayLabel).toBe('2026-03-28');
     expect(result?.latestDayVolume).toBeCloseTo(29175.2921, 6);
     expect(result?.last7dLabel).toBe('2026-03-22 to 2026-03-28');
-    expect(result?.last7dVolume).toBeCloseTo(419322.18229999996, 6);
+    expect(result?.last7dVolume).toBeCloseTo(419322.1823, 6);
     expect(result?.notice).toBeNull();
   });
 
