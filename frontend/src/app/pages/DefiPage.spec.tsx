@@ -1,12 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { initDefiCharts } from '../../charts/defi';
 import { ThemeProvider } from '../theme';
 import type { DefiChartData, DefiData } from '../types';
 import { DefiPage } from './DefiPage';
-
-jest.mock('../../charts/defi', () => ({
-  initDefiCharts: jest.fn(),
-}));
 
 describe('DefiPage', () => {
   const chartData: DefiChartData = {
@@ -25,7 +20,7 @@ describe('DefiPage', () => {
     jest.clearAllMocks();
   });
 
-  it('renders blockchain-first DeFi metrics and initializes charts', async () => {
+  it('renders live DeFi overview sections without range analytics controls', async () => {
     const data: DefiData = {
       marketPrices: {
         neo: {
@@ -179,18 +174,23 @@ describe('DefiPage', () => {
       </ThemeProvider>,
     );
 
-    const mockedInit = jest.mocked(initDefiCharts);
     await waitFor(() => {
-      expect(mockedInit).toHaveBeenCalledWith(chartData, 'dark');
+      expect(screen.getByText('DeFi overview')).toBeInTheDocument();
     });
 
     expect(document.body).toHaveTextContent('NEO $12.34 (+2.40%)');
     expect(document.body).toHaveTextContent('GAS $3.21 (-1.10%)');
-    expect(screen.getByText('2026-03-01 to 2026-03-10')).toBeInTheDocument();
-    expect(screen.getByText('DEX volume')).toBeInTheDocument();
-    expect(screen.getByText('$2,180.75')).toBeInTheDocument();
-    expect(screen.getByText('Active swap wallets')).toBeInTheDocument();
-    expect(screen.getByText('21.30%')).toBeInTheDocument();
+    expect(screen.queryByText('2026-03-01 to 2026-03-10')).not.toBeInTheDocument();
+    expect(screen.queryByText('Selected range')).not.toBeInTheDocument();
+    expect(screen.queryByText('Top swap assets')).not.toBeInTheDocument();
+    expect(screen.queryByText('Largest swaps')).not.toBeInTheDocument();
+    expect(screen.queryByText('Recent swaps')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'Estimated swap USD value' }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('From')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('To')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Apply' })).not.toBeInTheDocument();
     expect(screen.getByText('Yesterday DEX volume')).toBeInTheDocument();
     expect(screen.getByText('Flamingo TVL')).toBeInTheDocument();
     expect(screen.getByText('$719,999.31')).toBeInTheDocument();
@@ -203,12 +203,6 @@ describe('DefiPage', () => {
     ).toBeInTheDocument();
     expect(screen.getByText('Flamingo liquidity mix')).toBeInTheDocument();
     expect(screen.getByText('Stablecoin')).toBeInTheDocument();
-    expect(screen.getByText('Top swap assets')).toBeInTheDocument();
-    expect(screen.getByText('Largest swaps')).toBeInTheDocument();
-    expect(screen.getByText('Recent swaps')).toBeInTheDocument();
-    expect(screen.getByText('0xabc1...c123')).toBeInTheDocument();
-    expect(screen.getByText('0xdef4...f456')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Estimated swap USD value' })).toBeInTheDocument();
     expect(screen.getByText('Top gainer · Last 24h')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('tab', { name: '7 days' }));
