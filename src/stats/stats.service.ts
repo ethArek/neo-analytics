@@ -1,12 +1,14 @@
 import { u, wallet } from '@cityofzion/neon-js';
 import { Inject, Injectable } from '@nestjs/common';
-import { TxType } from '@prisma/client';
+import { Prisma, TxType } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 import { decimalToBigInt } from '../common/prisma-decimal';
 import { parseDate } from '../ingestion/date-utils';
 import type {
   AggregatedAssetStat,
   AggregatedCount,
+  AssetRecentTransaction,
+  AssetTransactionTypeCount,
   DailyAssetStatWithBigInt,
   DailyStatRow,
   DailyStatWithBigInt,
@@ -124,6 +126,193 @@ export class StatsService {
 
       return a.volumeRaw > b.volumeRaw ? -1 : 1;
     });
+  }
+
+  async getAssetDailyStatsRange(
+    asset: string,
+    from: string,
+    to: string,
+  ): Promise<DailyAssetStatWithBigInt[]> {
+    const stats = await this.prisma.dailyAssetStat.findMany({
+      where: {
+        asset,
+        date: {
+          gte: parseDate(from),
+          lte: parseDate(to),
+        },
+      },
+      orderBy: { date: 'asc' },
+    });
+
+    return stats.map((stat) => ({
+      ...stat,
+      volumeRaw: decimalToBigInt(stat.volumeRaw),
+    }));
+  }
+
+  async getAssetUniqueAddressStatsRange(
+    asset: string,
+    from: string,
+    to: string,
+  ): Promise<UniqueAddressStats> {
+    const dateRange = {
+      gte: parseDate(from),
+      lte: parseDate(to),
+    };
+    const [senders, receivers] = await Promise.all([
+      this.prisma.dailyTransfer.groupBy({
+        by: ['from'],
+        where: {
+          asset,
+          date: dateRange,
+          from: { not: null, notIn: [''] },
+        },
+      }),
+      this.prisma.dailyTransfer.groupBy({
+        by: ['to'],
+        where: {
+          asset,
+          date: dateRange,
+          to: { not: null, notIn: [''] },
+        },
+      }),
+    ]);
+    const senderSet = new Set(senders.map((row) => row.from).filter(Boolean));
+    const receiverSet = new Set(receivers.map((row) => row.to).filter(Boolean));
+    const uniqueAddresses = new Set([...senderSet, ...receiverSet]);
+
+    return {
+      uniqueSenders: senderSet.size,
+      uniqueReceivers: receiverSet.size,
+      uniqueAddresses: uniqueAddresses.size,
+    };
+  }
+
+  async getTopAssetAddresses(
+    asset: string,
+    from: string,
+    to: string,
+    direction: 'from' | 'to',
+    limit = 8,
+  ): Promise<TopAddress[]> {
+    const dateRange = {
+      gte: parseDate(from),
+      lte: parseDate(to),
+    };
+
+    if (direction === 'from') {
+      const grouped = await this.prisma.dailyTransfer.groupBy({
+        by: ['from'],
+        where: {
+          asset,
+          date: dateRange,
+          from: { not: null, notIn: [''] },
+        },
+        _sum: { amountRaw: true },
+        _count: { from: true },
+        orderBy: { _count: { from: 'desc' } },
+        take: limit,
+      });
+
+      return grouped.map((row) => ({
+        address: this.toN3Address(row.from ?? ''),
+        transferCount: row._count.from ?? 0,
+        volumeRaw: decimalToBigInt(row._sum.amountRaw),
+      }));
+    }
+
+    const grouped = await this.prisma.dailyTransfer.groupBy({
+      by: ['to'],
+      where: {
+        asset,
+        date: dateRange,
+        to: { not: null, notIn: [''] },
+      },
+      _sum: { amountRaw: true },
+      _count: { to: true },
+      orderBy: { _count: { to: 'desc' } },
+      take: limit,
+    });
+
+    return grouped.map((row) => ({
+      address: this.toN3Address(row.to ?? ''),
+      transferCount: row._count.to ?? 0,
+      volumeRaw: decimalToBigInt(row._sum.amountRaw),
+    }));
+  }
+
+  async getAssetTransactionTypeBreakdownRange(
+    asset: string,
+    from: string,
+    to: string,
+  ): Promise<AssetTransactionTypeCount[]> {
+    const rows = await this.prisma.$queryRaw<
+      Array<{
+        type: TxType;
+        txCount: bigint | number | string;
+      }>
+    >`
+      SELECT tx."type", COUNT(DISTINCT tx."txid")::bigint AS "txCount"
+      FROM "DailyTransfer" AS transfer
+      INNER JOIN "DailyTx" AS tx ON tx."txid" = transfer."txid"
+      WHERE transfer."asset" = ${asset}
+        AND transfer."date" >= ${parseDate(from)}
+        AND transfer."date" <= ${parseDate(to)}
+      GROUP BY tx."type"
+    `;
+
+    return rows
+      .map((row) => ({
+        type: row.type,
+        txCount: this.toCount(row.txCount),
+      }))
+      .sort((left, right) => right.txCount - left.txCount);
+  }
+
+  async getRecentAssetTransactionsRange(
+    asset: string,
+    from: string,
+    to: string,
+    limit = 10,
+  ): Promise<AssetRecentTransaction[]> {
+    const rows = await this.prisma.$queryRaw<
+      Array<{
+        date: Date;
+        txid: string;
+        type: TxType;
+        timestamp: Date;
+        amountRaw: Prisma.Decimal | string | number | bigint;
+        transferCount: bigint | number | string;
+        method: string | null;
+      }>
+    >`
+      SELECT
+        tx."date",
+        tx."txid",
+        tx."type",
+        tx."timestamp",
+        tx."method",
+        SUM(transfer."amountRaw") AS "amountRaw",
+        COUNT(*)::bigint AS "transferCount"
+      FROM "DailyTransfer" AS transfer
+      INNER JOIN "DailyTx" AS tx ON tx."txid" = transfer."txid"
+      WHERE transfer."asset" = ${asset}
+        AND transfer."date" >= ${parseDate(from)}
+        AND transfer."date" <= ${parseDate(to)}
+      GROUP BY tx."date", tx."txid", tx."type", tx."timestamp", tx."method"
+      ORDER BY tx."timestamp" DESC, tx."txid" DESC
+      LIMIT ${limit}
+    `;
+
+    return rows.map((row) => ({
+      date: row.date,
+      txid: row.txid,
+      type: row.type,
+      timestamp: row.timestamp,
+      amountRaw: decimalToBigInt(row.amountRaw),
+      transferCount: this.toCount(row.transferCount),
+      method: row.method,
+    }));
   }
 
   async getMethodStatsRange(from: string, to: string): Promise<AggregatedCount[]> {
@@ -511,6 +700,14 @@ export class StatsService {
 
   private isScriptHash(value: string): boolean {
     return /^0x[0-9a-f]{40}$/i.test(value);
+  }
+
+  private toCount(value: bigint | number | string): number {
+    if (typeof value === 'bigint') {
+      return Number(value);
+    }
+
+    return Number(value);
   }
 
   private mapDailyStat(stat: DailyStatRow): DailyStatWithBigInt {
