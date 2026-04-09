@@ -1,10 +1,5 @@
 export type ChangeTone = 'positive' | 'negative' | 'neutral';
 
-export type CacheEntry<T> = {
-  value: T;
-  expiresAt: number;
-};
-
 export type DashboardTokenPerformanceEntry = {
   symbol: string;
   detail: string;
@@ -45,6 +40,14 @@ export type FlamingoPriceRow = {
   unwrappedSymbol: string;
   hash: string;
   usdPrice: number;
+};
+
+export type AssetMarketSnapshot = {
+  symbol: string;
+  currentPrice: string;
+  change24h: string | null;
+  change7d: string | null;
+  change30d: string | null;
 };
 
 export type FlamingoDexVolumeRow = {

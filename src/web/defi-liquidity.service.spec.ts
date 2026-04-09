@@ -1,6 +1,6 @@
 import { ConfigService } from '@nestjs/config';
-import { DefiLiquidityService } from './defi-liquidity.service';
 import type { NeoClient } from '../neo-client/neo-client.interface';
+import { DefiLiquidityService } from './defi-liquidity.service';
 import type { FlamingoPriceRow } from './token-performance.service.types';
 
 const poolDataUrl = 'https://example.test/flamingo/live-data/pool-data/latest';
@@ -296,6 +296,63 @@ describe('DefiLiquidityService', () => {
     });
   });
 
+  it('finds tracked liquidity details for an asset outside the top liquidity list', async () => {
+    const service = createService();
+
+    jest.spyOn(global, 'fetch').mockImplementation(async (input) => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url === poolDataUrl) {
+        return new Response(
+          JSON.stringify({
+            data: {
+              pool_data: {
+                '0xpool-1': {
+                  hash: '0xpool-1',
+                  balances: {
+                    '0xfusd': '10000',
+                    '0xbneo': '1000',
+                    '0xfusdc': '600',
+                    '0xbnb': '300',
+                  },
+                  total_usd_value: '185',
+                },
+                '0xpool-2': {
+                  hash: '0xpool-2',
+                  balances: {
+                    '0xfusd': '5000',
+                    '0xgas': '500',
+                    '0xusdt': '2500',
+                    '0xwbtc': '100',
+                    '0xcake': '500',
+                    '0xflm': '1000',
+                  },
+                  total_usd_value: '120',
+                },
+              },
+            },
+          }),
+          { status: 200 },
+        );
+      }
+
+      if (url === tvlUrl) {
+        return new Response(JSON.stringify('305'), { status: 200 });
+      }
+
+      return new Response('error', { status: 404 });
+    });
+
+    const result = await service.getTrackedLiquidityAsset('CAKE');
+
+    expect(result).toEqual({
+      asset: '0xcake',
+      symbol: 'CAKE',
+      balance: 5,
+      usdValue: 10,
+      stablecoin: false,
+    });
+  });
+
   it('falls back to summed pool TVL when the dedicated Flamingo TVL endpoint fails', async () => {
     const service = createService();
 
@@ -381,5 +438,39 @@ describe('DefiLiquidityService', () => {
     expect(third).toEqual(first);
     expect(tokenPerformanceService.latestPriceRowsCalls).toBe(1);
     expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it('caches null snapshot when upstream returns no data and reuses it until TTL expiry', async () => {
+    const tokenPerformanceService = new TokenPerformanceServiceStub();
+    const service = createService(new NeoClientStub(), tokenPerformanceService);
+    let callCount = 0;
+
+    jest.spyOn(global, 'fetch').mockImplementation(async (input) => {
+      callCount += 1;
+      const url = input instanceof Request ? input.url : String(input);
+
+      if (url === poolDataUrl) {
+        return new Response(JSON.stringify({ data: { pool_data: {} } }), { status: 200 });
+      }
+
+      if (url === tvlUrl) {
+        return new Response('error', { status: 500 });
+      }
+
+      return new Response('error', { status: 404 });
+    });
+
+    const first = await service.getTrackedLiquiditySnapshot();
+    expect(first).toBeNull();
+    expect(callCount).toBe(2);
+
+    const second = await service.getTrackedLiquiditySnapshot();
+    expect(second).toBeNull();
+
+    const third = await service.getTrackedLiquiditySnapshot();
+    expect(third).toBeNull();
+
+    expect(callCount).toBe(2);
+    expect(tokenPerformanceService.latestPriceRowsCalls).toBe(1);
   });
 });

@@ -6,11 +6,6 @@ export type TrackedLiquidityAsset = {
   stablecoin: boolean;
 };
 
-export type CacheEntry<T> = {
-  value: T;
-  expiresAt: number;
-};
-
 export type TrackedLiquiditySnapshot = {
   trackedTvlUsd: number;
   stablecoinLiquidityUsd: number;

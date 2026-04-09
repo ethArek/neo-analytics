@@ -283,6 +283,61 @@ describe('TokenPerformanceService', () => {
     expect(result.last30d.losers).toEqual([]);
   });
 
+  it('returns asset market snapshot with current price and historical changes', async () => {
+    const service = new TokenPerformanceService(
+      new ConfigService({
+        app: {
+          coinPaprikaApiUrl,
+          flamingoPriceApiUrl: latestUrl,
+        },
+      }),
+    );
+    const latestRows = [{ symbol: 'FUSD', unwrappedSymbol: 'FUSD', hash: '0xfusd', usd_price: 1 }];
+    const last24hRows = [
+      { symbol: 'FUSD', unwrappedSymbol: 'FUSD', hash: '0xfusd', usd_price: 0.95 },
+    ];
+    const last7dRows = [
+      { symbol: 'FUSD', unwrappedSymbol: 'FUSD', hash: '0xfusd', usd_price: 1.05 },
+    ];
+    const last30dRows = [
+      { symbol: 'FUSD', unwrappedSymbol: 'FUSD', hash: '0xfusd', usd_price: 1.1 },
+    ];
+    const last24hTimestamp = now - 24 * 60 * 60 * 1000;
+    const last7dTimestamp = now - 7 * 24 * 60 * 60 * 1000;
+    const last30dTimestamp = now - 30 * 24 * 60 * 60 * 1000;
+
+    jest.spyOn(global, 'fetch').mockImplementation(async (input) => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url === latestUrl) {
+        return new Response(JSON.stringify(latestRows), { status: 200 });
+      }
+
+      if (url === `${latestUrl.slice(0, -'/latest'.length)}/from-timestamp/${last24hTimestamp}`) {
+        return new Response(JSON.stringify(last24hRows), { status: 200 });
+      }
+
+      if (url === `${latestUrl.slice(0, -'/latest'.length)}/from-timestamp/${last7dTimestamp}`) {
+        return new Response(JSON.stringify(last7dRows), { status: 200 });
+      }
+
+      if (url === `${latestUrl.slice(0, -'/latest'.length)}/from-timestamp/${last30dTimestamp}`) {
+        return new Response(JSON.stringify(last30dRows), { status: 200 });
+      }
+
+      return new Response('[]', { status: 404 });
+    });
+
+    const result = await service.getAssetMarketSnapshot('FUSD');
+
+    expect(result).toEqual({
+      symbol: 'FUSD',
+      currentPrice: '$1.00',
+      change24h: '+5.26%',
+      change7d: '-4.76%',
+      change30d: '-9.09%',
+    });
+  });
+
   it('reuses cached CoinPaprika market prices across concurrent requests', async () => {
     const service = new TokenPerformanceService(
       new ConfigService({
@@ -455,17 +510,15 @@ describe('TokenPerformanceService', () => {
     await service.getMarketPrices();
 
     expect(fetchSpy).toHaveBeenCalledWith(`${coinPaprikaApiUrl}/tickers/neo-neo?quotes=USD`, {
-      method: 'GET',
       signal: expect.any(AbortSignal),
       headers: {
-        'Content-Type': 'application/json',
+        Accept: 'application/json',
       },
     });
     expect(fetchSpy).toHaveBeenCalledWith(`${coinPaprikaApiUrl}/tickers/gas-gas?quotes=USD`, {
-      method: 'GET',
       signal: expect.any(AbortSignal),
       headers: {
-        'Content-Type': 'application/json',
+        Accept: 'application/json',
       },
     });
   });
