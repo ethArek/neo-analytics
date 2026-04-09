@@ -1,17 +1,18 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { normalizeHash } from '../common/hash.utils';
+import { TtlCache } from '../common/cache.utils';
+import { getConfigUrl } from '../common/config.utils';
+import { fetchJsonWithTimeout } from '../common/fetch.utils';
+import { isStablecoinSymbol, normalizeHash, normalizeSymbol } from '../common/normalize.utils';
 import type { NeoClient } from '../neo-client/neo-client.interface';
 import { NEO_CLIENT } from '../neo-client/neo-client.provider';
 import { formatUnits } from '../stats/stats.utils';
-import { isStablecoinSymbol, normalizeSymbol } from './defi-liquidity.utils';
-import { TokenPerformanceService } from './token-performance.service';
-import type { FlamingoPriceRow } from './token-performance.service.types';
 import type {
-  CacheEntry,
   TrackedLiquidityAsset,
   TrackedLiquiditySnapshot,
 } from './defi-liquidity.service.types';
+import { TokenPerformanceService } from './token-performance.service';
+import type { FlamingoPriceRow } from './token-performance.service.types';
 
 const TOP_ASSET_COUNT = 6;
 const TRACKED_LIQUIDITY_CACHE_TTL_MS = 60 * 1000;
@@ -28,12 +29,17 @@ type FlamingoPoolDataRow = {
   totalUsdValue: number;
 };
 
+type TrackedLiquidityState = {
+  snapshot: TrackedLiquiditySnapshot | null;
+  assetsByAsset: Map<string, TrackedLiquidityAsset>;
+  assetsBySymbol: Map<string, TrackedLiquidityAsset>;
+};
+
 @Injectable()
 export class DefiLiquidityService {
   private readonly logger = new Logger(DefiLiquidityService.name);
   private readonly requestTimeoutMs = 8000;
-  private snapshotCache: CacheEntry<TrackedLiquiditySnapshot | null> | null = null;
-  private snapshotPromise: Promise<TrackedLiquiditySnapshot | null> | null = null;
+  private readonly snapshotCache = new TtlCache<TrackedLiquidityState>();
 
   constructor(
     @Inject(NEO_CLIENT) private readonly neoClient: NeoClient,
@@ -43,36 +49,63 @@ export class DefiLiquidityService {
   ) {}
 
   async getTrackedLiquiditySnapshot(): Promise<TrackedLiquiditySnapshot | null> {
-    const cached = this.getCachedValue(this.snapshotCache);
-    if (cached !== undefined) {
-      return cached;
+    const state = await this.getTrackedLiquidityState();
+
+    return state.snapshot;
+  }
+
+  async getTrackedLiquidityAsset(asset: string): Promise<TrackedLiquidityAsset | null> {
+    const state = await this.getTrackedLiquidityState();
+    const trimmed = asset.trim();
+    if (!trimmed) {
+      return null;
     }
 
-    if (this.snapshotPromise) {
-      return this.snapshotPromise;
+    if (/^0x[0-9a-f]+$/i.test(trimmed)) {
+      return state.assetsByAsset.get(normalizeHash(trimmed)) ?? null;
     }
 
-    const loader = this.loadTrackedLiquiditySnapshot();
-    this.snapshotPromise = loader;
+    return state.assetsBySymbol.get(normalizeSymbol(trimmed)) ?? null;
+  }
+
+  private async getTrackedLiquidityState(): Promise<TrackedLiquidityState> {
+    if (this.snapshotCache.hasValue()) {
+      const cached = this.snapshotCache.getValue();
+      if (cached) {
+        return cached;
+      }
+    }
+
+    const existingPromise = this.snapshotCache.getPromise();
+    if (existingPromise) {
+      return existingPromise;
+    }
+
+    const loader = this.loadTrackedLiquidityState();
+    this.snapshotCache.setPromise(loader);
 
     try {
       const result = await loader;
-      this.snapshotCache = this.createCacheEntry(result, TRACKED_LIQUIDITY_CACHE_TTL_MS);
+      this.snapshotCache.set(result, TRACKED_LIQUIDITY_CACHE_TTL_MS);
 
       return result;
     } finally {
-      this.snapshotPromise = null;
+      this.snapshotCache.setPromise(null);
     }
   }
 
-  private async loadTrackedLiquiditySnapshot(): Promise<TrackedLiquiditySnapshot | null> {
+  private async loadTrackedLiquidityState(): Promise<TrackedLiquidityState> {
     const [latestPriceRows, poolRows, totalTvlUsd] = await Promise.all([
       this.tokenPerformanceService.getLatestPriceRows(),
       this.fetchPoolRows(),
       this.fetchTotalTvlUsd(),
     ]);
     if (poolRows.length === 0 && totalTvlUsd === null) {
-      return null;
+      return {
+        snapshot: null,
+        assetsByAsset: new Map(),
+        assetsBySymbol: new Map(),
+      };
     }
 
     const priceByHash = new Map<string, LiquidityPriceMatch>();
@@ -135,17 +168,32 @@ export class DefiLiquidityService {
     const derivedTvlUsd = poolRows.reduce((total, pool) => total + pool.totalUsdValue, 0);
     const tvlUsd = totalTvlUsd ?? derivedTvlUsd;
     if (!Number.isFinite(tvlUsd) || tvlUsd <= 0) {
-      return null;
+      return {
+        snapshot: null,
+        assetsByAsset: new Map(),
+        assetsBySymbol: new Map(),
+      };
     }
 
+    const assets = [...aggregated.values()];
     const topAssets = this.selectTopAssets([...aggregated.values()]);
+    const assetsByAsset = new Map<string, TrackedLiquidityAsset>();
+    const assetsBySymbol = new Map<string, TrackedLiquidityAsset>();
+    for (const asset of assets) {
+      assetsByAsset.set(asset.asset, asset);
+      assetsBySymbol.set(asset.symbol, asset);
+    }
 
     return {
-      trackedTvlUsd: tvlUsd,
-      stablecoinLiquidityUsd,
-      poolCount: poolRows.length,
-      pricedAssets: aggregated.size,
-      topAssets,
+      snapshot: {
+        trackedTvlUsd: tvlUsd,
+        stablecoinLiquidityUsd,
+        poolCount: poolRows.length,
+        pricedAssets: aggregated.size,
+        topAssets,
+      },
+      assetsByAsset,
+      assetsBySymbol,
     };
   }
 
@@ -186,13 +234,13 @@ export class DefiLiquidityService {
   }
 
   private async fetchPoolRows(): Promise<FlamingoPoolDataRow[]> {
-    const url = this.getPoolDataUrl();
+    const url = getConfigUrl(this.configService, 'app.flamingoPoolDataApiUrl');
     if (!url) {
       return [];
     }
 
     try {
-      const payload = await this.fetchJson(url);
+      const payload = await fetchJsonWithTimeout<unknown>(url, this.requestTimeoutMs);
 
       return this.normalizePoolRows(payload);
     } catch (error) {
@@ -206,13 +254,13 @@ export class DefiLiquidityService {
   }
 
   private async fetchTotalTvlUsd(): Promise<number | null> {
-    const url = this.getTvlUrl();
+    const url = getConfigUrl(this.configService, 'app.flamingoTvlApiUrl');
     if (!url) {
       return null;
     }
 
     try {
-      const payload = await this.fetchJson(url);
+      const payload = await fetchJsonWithTimeout<unknown>(url, this.requestTimeoutMs);
 
       return this.parseTvlUsd(payload);
     } catch (error) {
@@ -220,47 +268,6 @@ export class DefiLiquidityService {
       this.logger.warn(`Failed to load Flamingo TVL (${reason}). Falling back to summed pool TVL.`);
 
       return null;
-    }
-  }
-
-  private getPoolDataUrl(): string | null {
-    const configured = this.configService.get<string>('app.flamingoPoolDataApiUrl')?.trim();
-    if (!configured) {
-      return null;
-    }
-
-    return configured.replace(/\/+$/, '');
-  }
-
-  private getTvlUrl(): string | null {
-    const configured = this.configService.get<string>('app.flamingoTvlApiUrl')?.trim();
-    if (!configured) {
-      return null;
-    }
-
-    return configured.replace(/\/+$/, '');
-  }
-
-  private async fetchJson(url: string): Promise<unknown> {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => {
-      controller.abort();
-    }, this.requestTimeoutMs);
-
-    try {
-      const response = await fetch(url, {
-        signal: controller.signal,
-        headers: {
-          Accept: 'application/json',
-        },
-      });
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      return await response.json();
-    } finally {
-      clearTimeout(timeout);
     }
   }
 
@@ -389,24 +396,5 @@ export class DefiLiquidityService {
     }
 
     return selectedAssets.sort((left, right) => right.usdValue - left.usdValue);
-  }
-
-  private createCacheEntry<T>(value: T, ttlMs: number): CacheEntry<T> {
-    return {
-      value,
-      expiresAt: Date.now() + ttlMs,
-    };
-  }
-
-  private getCachedValue<T>(entry: CacheEntry<T> | null): T | undefined {
-    if (!entry) {
-      return undefined;
-    }
-
-    if (entry.expiresAt <= Date.now()) {
-      return undefined;
-    }
-
-    return entry.value;
   }
 }

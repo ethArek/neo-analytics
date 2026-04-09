@@ -1,16 +1,20 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { TtlCache, TtlMapCache } from '../common/cache.utils';
+import { buildHistoricalUrl, getConfigUrl } from '../common/config.utils';
+import { fetchJsonWithTimeout } from '../common/fetch.utils';
+import { normalizeHash, normalizeSymbol } from '../common/normalize.utils';
 import type {
-  CacheEntry,
+  AssetMarketSnapshot,
   ChangeTone,
   CoinPaprikaTicker,
   DashboardTokenPerformance,
   DashboardTokenPerformanceEntry,
   DashboardTokenPerformanceFilters,
-  MarketPriceEntry,
   DashboardTokenPerformanceWindow,
   FlamingoDexVolumeRow,
   FlamingoPriceRow,
+  MarketPriceEntry,
   MarketPrices,
 } from './token-performance.service.types';
 
@@ -27,40 +31,38 @@ const ROLLING_DEX_VOLUME_CACHE_TTL_MS = 60 * 1000;
 export class TokenPerformanceService {
   private readonly logger = new Logger(TokenPerformanceService.name);
   private readonly requestTimeoutMs = 8000;
-  private marketPricesCache: CacheEntry<MarketPrices> | null = null;
-  private marketPricesPromise: Promise<MarketPrices> | null = null;
-  private rollingDexVolumeCache: CacheEntry<FlamingoDexVolumeRow[]> | null = null;
-  private rollingDexVolumePromise: Promise<FlamingoDexVolumeRow[]> | null = null;
-  private readonly priceRowsCache = new Map<string, CacheEntry<FlamingoPriceRow[]>>();
-  private readonly priceRowsPromises = new Map<string, Promise<FlamingoPriceRow[]>>();
+  private readonly marketPricesCache = new TtlCache<MarketPrices>();
+  private readonly rollingDexVolumeCache = new TtlCache<FlamingoDexVolumeRow[]>();
+  private readonly priceRowsCache = new TtlMapCache<FlamingoPriceRow[]>();
 
   constructor(@Inject(ConfigService) private readonly configService: ConfigService) {}
 
   async getMarketPrices(): Promise<MarketPrices> {
-    const cached = this.getCachedValue(this.marketPricesCache);
-    if (cached) {
+    const cached = this.marketPricesCache.getValue();
+    if (cached !== null) {
       return cached;
     }
 
-    if (this.marketPricesPromise) {
-      return this.marketPricesPromise;
+    const existingPromise = this.marketPricesCache.getPromise();
+    if (existingPromise) {
+      return existingPromise;
     }
 
     const loader = this.loadMarketPrices();
-    this.marketPricesPromise = loader;
+    this.marketPricesCache.setPromise(loader);
 
     try {
       const result = await loader;
-      this.marketPricesCache = this.createCacheEntry(result, MARKET_PRICES_CACHE_TTL_MS);
+      this.marketPricesCache.set(result, MARKET_PRICES_CACHE_TTL_MS);
 
       return result;
     } finally {
-      this.marketPricesPromise = null;
+      this.marketPricesCache.setPromise(null);
     }
   }
 
   async getLatestPriceRows(): Promise<FlamingoPriceRow[]> {
-    const latestUrl = this.getLatestPriceUrl();
+    const latestUrl = getConfigUrl(this.configService, 'app.flamingoPriceApiUrl');
     if (!latestUrl) {
       return [];
     }
@@ -78,26 +80,27 @@ export class TokenPerformanceService {
   }
 
   async getRollingDexVolumeRows(): Promise<FlamingoDexVolumeRow[]> {
-    const analyticsUrl = this.getRollingDexVolumeUrl();
+    const analyticsUrl = getConfigUrl(this.configService, 'app.flamingoAnalyticsApiUrl');
     if (!analyticsUrl) {
       return [];
     }
 
-    const cached = this.getCachedValue(this.rollingDexVolumeCache);
-    if (cached) {
+    const cached = this.rollingDexVolumeCache.getValue();
+    if (cached !== null) {
       return cached;
     }
 
-    if (this.rollingDexVolumePromise) {
-      return this.rollingDexVolumePromise;
+    const existingPromise = this.rollingDexVolumeCache.getPromise();
+    if (existingPromise) {
+      return existingPromise;
     }
 
     const loader = this.fetchRollingDexVolumeRows(analyticsUrl);
-    this.rollingDexVolumePromise = loader;
+    this.rollingDexVolumeCache.setPromise(loader);
 
     try {
       const result = await loader;
-      this.rollingDexVolumeCache = this.createCacheEntry(result, ROLLING_DEX_VOLUME_CACHE_TTL_MS);
+      this.rollingDexVolumeCache.set(result, ROLLING_DEX_VOLUME_CACHE_TTL_MS);
 
       return result;
     } catch (error) {
@@ -108,22 +111,22 @@ export class TokenPerformanceService {
 
       return [];
     } finally {
-      this.rollingDexVolumePromise = null;
+      this.rollingDexVolumeCache.setPromise(null);
     }
   }
 
   async getDashboardTokenPerformance(
     filters?: DashboardTokenPerformanceFilters,
   ): Promise<DashboardTokenPerformance> {
-    const latestUrl = this.getLatestPriceUrl();
+    const latestUrl = getConfigUrl(this.configService, 'app.flamingoPriceApiUrl');
     if (!latestUrl) {
       return this.emptyDashboardTokenPerformance();
     }
 
     const anchorTimestamp = this.normalizeHistoricalTimestamp(Date.now());
-    const last24hUrl = this.buildHistoricalPriceUrl(latestUrl, anchorTimestamp - DAY_IN_MS);
-    const last7dUrl = this.buildHistoricalPriceUrl(latestUrl, anchorTimestamp - 7 * DAY_IN_MS);
-    const last30dUrl = this.buildHistoricalPriceUrl(latestUrl, anchorTimestamp - 30 * DAY_IN_MS);
+    const last24hUrl = buildHistoricalUrl(latestUrl, anchorTimestamp - DAY_IN_MS);
+    const last7dUrl = buildHistoricalUrl(latestUrl, anchorTimestamp - 7 * DAY_IN_MS);
+    const last30dUrl = buildHistoricalUrl(latestUrl, anchorTimestamp - 30 * DAY_IN_MS);
     if (!last24hUrl || !last7dUrl || !last30dUrl) {
       return this.emptyDashboardTokenPerformance();
     }
@@ -151,8 +154,65 @@ export class TokenPerformanceService {
     }
   }
 
+  async getAssetMarketSnapshot(asset: string): Promise<AssetMarketSnapshot | null> {
+    const latestUrl = getConfigUrl(this.configService, 'app.flamingoPriceApiUrl');
+    if (!latestUrl) {
+      return null;
+    }
+
+    const assetLookup = this.normalizeAssetLookup(asset);
+    if (!assetLookup.hash && !assetLookup.symbol) {
+      return null;
+    }
+
+    const anchorTimestamp = this.normalizeHistoricalTimestamp(Date.now());
+    const last24hUrl = buildHistoricalUrl(latestUrl, anchorTimestamp - DAY_IN_MS);
+    const last7dUrl = buildHistoricalUrl(latestUrl, anchorTimestamp - 7 * DAY_IN_MS);
+    const last30dUrl = buildHistoricalUrl(latestUrl, anchorTimestamp - 30 * DAY_IN_MS);
+    if (!last24hUrl || !last7dUrl || !last30dUrl) {
+      return null;
+    }
+
+    try {
+      const [latestRows, last24hRows, last7dRows, last30dRows] = await Promise.all([
+        this.getLatestPriceRows(),
+        this.getCachedPriceRows(last24hUrl),
+        this.getCachedPriceRows(last7dUrl),
+        this.getCachedPriceRows(last30dUrl),
+      ]);
+      const latest = this.findPriceRowForAsset(assetLookup, latestRows);
+      if (!latest) {
+        return null;
+      }
+
+      return {
+        symbol: latest.symbol,
+        currentPrice: this.formatUsd(latest.usdPrice),
+        change24h: this.formatAssetPriceChange(
+          latest,
+          this.findPriceRowForAsset(assetLookup, last24hRows),
+        ),
+        change7d: this.formatAssetPriceChange(
+          latest,
+          this.findPriceRowForAsset(assetLookup, last7dRows),
+        ),
+        change30d: this.formatAssetPriceChange(
+          latest,
+          this.findPriceRowForAsset(assetLookup, last30dRows),
+        ),
+      };
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Failed to load asset market snapshot (${reason}). Continuing without asset-specific market context.`,
+      );
+
+      return null;
+    }
+  }
+
   private async loadMarketPrices(): Promise<MarketPrices> {
-    const apiUrl = this.getCoinPaprikaApiUrl();
+    const apiUrl = getConfigUrl(this.configService, 'app.coinPaprikaApiUrl');
     if (!apiUrl) {
       return this.emptyMarketPrices();
     }
@@ -204,6 +264,31 @@ export class TokenPerformanceService {
     };
   }
 
+  private normalizeAssetLookup(asset: string): {
+    hash: string | null;
+    symbol: string | null;
+  } {
+    const trimmed = asset.trim();
+    if (!trimmed) {
+      return {
+        hash: null,
+        symbol: null,
+      };
+    }
+
+    if (/^0x[0-9a-f]+$/i.test(trimmed)) {
+      return {
+        hash: normalizeHash(trimmed),
+        symbol: null,
+      };
+    }
+
+    return {
+      hash: null,
+      symbol: normalizeSymbol(trimmed),
+    };
+  }
+
   private emptyMarketPriceEntry(): MarketPriceEntry {
     return {
       price: null,
@@ -212,132 +297,53 @@ export class TokenPerformanceService {
     };
   }
 
-  private getCoinPaprikaApiUrl(): string | null {
-    const configured = this.configService.get<string>('app.coinPaprikaApiUrl')?.trim();
-    if (!configured) {
-      return null;
-    }
-
-    return configured.replace(/\/+$/, '');
-  }
-
-  private getLatestPriceUrl(): string | null {
-    const configured = this.configService.get<string>('app.flamingoPriceApiUrl')?.trim();
-    if (!configured) {
-      return null;
-    }
-
-    return configured.replace(/\/+$/, '');
-  }
-
-  private getRollingDexVolumeUrl(): string | null {
-    const configured = this.configService.get<string>('app.flamingoAnalyticsApiUrl')?.trim();
-    if (!configured) {
-      return null;
-    }
-
-    return configured.replace(/\/+$/, '');
-  }
-
-  private buildHistoricalPriceUrl(latestUrl: string, timestamp: number): string | null {
-    if (!Number.isFinite(timestamp) || timestamp <= 0) {
-      return null;
-    }
-
-    if (latestUrl.endsWith('/latest')) {
-      return `${latestUrl.slice(0, -'/latest'.length)}/from-timestamp/${Math.floor(timestamp)}`;
-    }
-
-    return `${latestUrl}/from-timestamp/${Math.floor(timestamp)}`;
-  }
-
   private normalizeHistoricalTimestamp(timestamp: number): number {
     return Math.floor(timestamp / MINUTE_IN_MS) * MINUTE_IN_MS;
   }
 
   private async getCachedPriceRows(url: string): Promise<FlamingoPriceRow[]> {
-    this.pruneExpiredPriceRowsCache();
+    this.priceRowsCache.prune();
 
     const cached = this.priceRowsCache.get(url);
-    if (cached && cached.expiresAt > Date.now()) {
-      return cached.value;
+    if (cached !== null) {
+      return cached;
     }
 
-    const inFlight = this.priceRowsPromises.get(url);
+    const inFlight = this.priceRowsCache.getPromise(url);
     if (inFlight) {
       return inFlight;
     }
 
     const loader = this.fetchPriceRows(url);
-    this.priceRowsPromises.set(url, loader);
+    this.priceRowsCache.setPromise(url, loader);
 
     try {
       const result = await loader;
-      this.priceRowsCache.set(url, this.createCacheEntry(result, PRICE_ROWS_CACHE_TTL_MS));
+      this.priceRowsCache.set(url, result, PRICE_ROWS_CACHE_TTL_MS);
 
       return result;
     } finally {
-      this.priceRowsPromises.delete(url);
+      this.priceRowsCache.deletePromise(url);
     }
   }
 
   private async fetchPriceRows(url: string): Promise<FlamingoPriceRow[]> {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => {
-      controller.abort();
-    }, this.requestTimeoutMs);
-
     try {
-      const response = await fetch(url, {
-        signal: controller.signal,
-        headers: {
-          Accept: 'application/json',
-        },
-      });
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const payload: unknown = await response.json();
+      const payload = await fetchJsonWithTimeout<unknown[]>(url, this.requestTimeoutMs);
 
       return this.normalizePriceRows(payload);
-    } finally {
-      clearTimeout(timeout);
+    } catch (error) {
+      throw error;
     }
   }
 
   private async fetchRollingDexVolumeRows(url: string): Promise<FlamingoDexVolumeRow[]> {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => {
-      controller.abort();
-    }, this.requestTimeoutMs);
-
     try {
-      const response = await fetch(url, {
-        signal: controller.signal,
-        headers: {
-          Accept: 'application/json',
-        },
-      });
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const payload: unknown = await response.json();
+      const payload = await fetchJsonWithTimeout<unknown[]>(url, this.requestTimeoutMs);
 
       return this.normalizeRollingDexVolumeRows(payload);
-    } finally {
-      clearTimeout(timeout);
-    }
-  }
-
-  private pruneExpiredPriceRowsCache() {
-    const now = Date.now();
-
-    for (const [url, entry] of this.priceRowsCache.entries()) {
-      if (entry.expiresAt <= now) {
-        this.priceRowsCache.delete(url);
-      }
+    } catch (error) {
+      throw error;
     }
   }
 
@@ -424,24 +430,11 @@ export class TokenPerformanceService {
     apiUrl: string,
     coinId: string,
   ): Promise<MarketPriceEntry> {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => {
-      controller.abort();
-    }, this.requestTimeoutMs);
-
     try {
-      const response = await fetch(`${apiUrl}/tickers/${coinId}?quotes=USD`, {
-        method: 'GET',
-        signal: controller.signal,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const payload: unknown = await response.json();
+      const payload = await fetchJsonWithTimeout<CoinPaprikaTicker>(
+        `${apiUrl}/tickers/${coinId}?quotes=USD`,
+        this.requestTimeoutMs,
+      );
       const { price, percentChange24h } = this.parseCoinPaprikaTicker(payload);
       if (price === null || price <= 0) {
         return this.emptyMarketPriceEntry();
@@ -452,8 +445,8 @@ export class TokenPerformanceService {
         change24h: percentChange24h === null ? null : this.formatPercent(percentChange24h),
         tone: this.resolveTone(percentChange24h),
       };
-    } finally {
-      clearTimeout(timeout);
+    } catch (error) {
+      throw error;
     }
   }
 
@@ -561,6 +554,30 @@ export class TokenPerformanceService {
     };
   }
 
+  private findPriceRowForAsset(
+    assetLookup: {
+      hash: string | null;
+      symbol: string | null;
+    },
+    rows: FlamingoPriceRow[],
+  ): FlamingoPriceRow | null {
+    for (const row of rows) {
+      if (assetLookup.hash && row.hash.toLowerCase() === assetLookup.hash) {
+        return row;
+      }
+
+      if (
+        assetLookup.symbol &&
+        (normalizeSymbol(row.symbol) === assetLookup.symbol ||
+          normalizeSymbol(row.unwrappedSymbol) === assetLookup.symbol)
+      ) {
+        return row;
+      }
+    }
+
+    return null;
+  }
+
   private hasTrackedSwapActivity(
     row: FlamingoPriceRow,
     activeAssets: ReadonlySet<string>,
@@ -587,6 +604,22 @@ export class TokenPerformanceService {
       changeLabel: this.formatPercent(entry.changePercent),
       tone: this.resolveTone(entry.changePercent),
     };
+  }
+
+  private formatAssetPriceChange(
+    latest: FlamingoPriceRow,
+    previous: FlamingoPriceRow | null,
+  ): string | null {
+    if (!previous || previous.usdPrice <= 0) {
+      return null;
+    }
+
+    const changePercent = ((latest.usdPrice - previous.usdPrice) / previous.usdPrice) * 100;
+    if (!Number.isFinite(changePercent)) {
+      return null;
+    }
+
+    return this.formatPercent(changePercent);
   }
 
   private formatDetail(entry: FlamingoPriceRow): string {
@@ -644,24 +677,5 @@ export class TokenPerformanceService {
     }
 
     return 8;
-  }
-
-  private createCacheEntry<T>(value: T, ttlMs: number): CacheEntry<T> {
-    return {
-      value,
-      expiresAt: Date.now() + ttlMs,
-    };
-  }
-
-  private getCachedValue<T>(entry: CacheEntry<T> | null): T | null {
-    if (!entry) {
-      return null;
-    }
-
-    if (entry.expiresAt <= Date.now()) {
-      return null;
-    }
-
-    return entry.value;
   }
 }
