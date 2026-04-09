@@ -45,6 +45,53 @@ describe('App', () => {
     expect(screen.getByText(/Clear answers to how Neo Analytics works/i)).toBeInTheDocument();
   });
 
+  it('renders the asset page when requested', () => {
+    window.__PAGE__ = 'asset';
+    window.__PAGE_DATA__ = {
+      assetLabel: 'FUSD',
+      assetId: '0xfusd',
+      rangeLabel: '2026-03-01 to 2026-03-07',
+      summary: {
+        volumeLabel: '1,000.00',
+        transferCount: '10',
+        txCount: '8',
+        activeAddresses: '6',
+        uniqueSenders: '3',
+        uniqueReceivers: '4',
+        swapsCount: '5',
+        transfersCount: '2',
+        otherCount: '1',
+        swapShare: '62.50%',
+        transferShare: '25.00%',
+        oracleCount: '1',
+        gasClaimsCount: '0',
+        ignoredCount: '0',
+      },
+      defiRelation: {
+        marketSymbol: 'FUSD',
+        currentPrice: '$1.00',
+        change24h: '+0.10%',
+        change7d: null,
+        change30d: null,
+        trackedLiquidityUsd: '$100.00',
+        trackedLiquidityBalance: '100.00',
+        stablecoin: true,
+        hasMarketPrice: true,
+        hasTrackedLiquidity: true,
+      },
+      typeBreakdown: [],
+      dailyActivity: [],
+      topSenders: [],
+      topReceivers: [],
+      recentTransactions: [],
+    };
+
+    render(<App />);
+
+    expect(screen.getByRole('heading', { name: 'FUSD' })).toBeInTheDocument();
+    expect(screen.getByText('DeFi relation')).toBeInTheDocument();
+  });
+
   it('falls back to the dashboard page', () => {
     render(<App />);
 

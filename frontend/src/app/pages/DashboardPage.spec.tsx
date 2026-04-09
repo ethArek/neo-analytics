@@ -84,6 +84,7 @@ describe('DashboardPage', () => {
       assetBreakdown: [
         {
           assetLabel: 'NEO',
+          assetHref: '/asset/NEO?from=2024-01-01&to=2024-01-01',
           transferCount: '33',
           volumeLabel: '1234',
         },
@@ -117,6 +118,10 @@ describe('DashboardPage', () => {
     expect(screen.getByText('receiver-1')).toBeInTheDocument();
     expect(screen.getByText('Asset transfer volume')).toBeInTheDocument();
     expect(screen.getByText('33 transfers')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'NEO' })).toHaveAttribute(
+      'href',
+      '/asset/NEO?from=2024-01-01&to=2024-01-01',
+    );
     expect(screen.getByRole('link', { name: 'Daily table' })).toHaveAttribute(
       'href',
       '/days?from=2024-01-01&to=2024-01-01',
