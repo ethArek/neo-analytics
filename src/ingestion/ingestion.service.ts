@@ -2,6 +2,14 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { ClassifiedType, classifyTransaction, defaultSwapMethods } from '../classifier/classifier';
+import { buildHistoricalUrl, getConfigUrl } from '../common/config.utils';
+import { DEFAULT_FETCH_TIMEOUT_MS, fetchJsonWithTimeout } from '../common/fetch.utils';
+import {
+  normalizeAddress,
+  normalizeAsset,
+  normalizeContract,
+  normalizeMethod,
+} from '../common/normalize.utils';
 import { PrismaService } from '../common/prisma.service';
 import type {
   NeoClient,
@@ -46,7 +54,6 @@ export class IngestionService {
   private readonly txBatchSize = 1000;
   private readonly transferBatchSize = 5000;
   private readonly swapUsdUpdateBatchSize = 250;
-  private readonly flamingoPriceTimeoutMs = 8000;
 
   constructor(
     @Inject(NEO_CLIENT) private readonly neoClient: NeoClient,
@@ -303,12 +310,12 @@ export class IngestionService {
         swapMethodAllowlist: defaultSwapMethods,
       });
       const primaryTransfer = this.getPrimaryTransfer(transfers);
-      const primaryAsset = this.normalizeAsset(primaryTransfer?.asset);
+      const primaryAsset = normalizeAsset(primaryTransfer?.asset);
       const primaryAmountRaw = this.toBigInt(primaryTransfer?.amount);
-      const normalizedFrom = this.normalizeAddress(classification.from);
-      const normalizedTo = this.normalizeAddress(classification.to);
-      const method = this.normalizeMethod(transaction.invocation?.method);
-      const contract = this.normalizeContract(transaction.invocation?.contract);
+      const normalizedFrom = normalizeAddress(classification.from);
+      const normalizedTo = normalizeAddress(classification.to);
+      const method = normalizeMethod(transaction.invocation?.method);
+      const contract = normalizeContract(transaction.invocation?.contract);
       const swapUsdValue =
         classification.type === ClassifiedType.SWAP
           ? await this.calculateSwapUsdValue(transfers, pricingContext)
@@ -357,14 +364,14 @@ export class IngestionService {
 
       const assetsInTx = new Set<string>();
       transfers.forEach((transfer, index) => {
-        const asset = this.normalizeAsset(transfer.asset);
+        const asset = normalizeAsset(transfer.asset);
         const amountRaw = this.toBigInt(transfer.amount);
         if (!asset || amountRaw === null) {
           return;
         }
 
-        const from = this.normalizeAddress(transfer.from);
-        const to = this.normalizeAddress(transfer.to);
+        const from = normalizeAddress(transfer.from);
+        const to = normalizeAddress(transfer.to);
 
         dailyTransfers.push({
           date: day,
@@ -740,12 +747,12 @@ export class IngestionService {
         swapMethodAllowlist: defaultSwapMethods,
       });
       const primaryTransfer = this.getPrimaryTransfer(transfers);
-      const primaryAsset = this.normalizeAsset(primaryTransfer?.asset);
+      const primaryAsset = normalizeAsset(primaryTransfer?.asset);
       const primaryAmountRaw = this.toBigInt(primaryTransfer?.amount);
-      const normalizedFrom = this.normalizeAddress(classification.from);
-      const normalizedTo = this.normalizeAddress(classification.to);
-      const method = this.normalizeMethod(transaction.invocation?.method);
-      const contract = this.normalizeContract(transaction.invocation?.contract);
+      const normalizedFrom = normalizeAddress(classification.from);
+      const normalizedTo = normalizeAddress(classification.to);
+      const method = normalizeMethod(transaction.invocation?.method);
+      const contract = normalizeContract(transaction.invocation?.contract);
       const swapUsdValue =
         classification.type === ClassifiedType.SWAP
           ? await this.calculateSwapUsdValue(transfers, pricingContext)
@@ -800,14 +807,14 @@ export class IngestionService {
 
       for (let index = 0; index < transfers.length; index += 1) {
         const transfer = transfers[index];
-        const asset = this.normalizeAsset(transfer.asset);
+        const asset = normalizeAsset(transfer.asset);
         const amountRaw = this.toBigInt(transfer.amount);
         if (!asset || amountRaw === null) {
           continue;
         }
 
-        const from = this.normalizeAddress(transfer.from);
-        const to = this.normalizeAddress(transfer.to);
+        const from = normalizeAddress(transfer.from);
+        const to = normalizeAddress(transfer.to);
 
         state.transferBuffer.push({
           date: state.day,
@@ -1037,78 +1044,6 @@ export class IngestionService {
     return primary ?? transfers[0];
   }
 
-  private normalizeMethod(method?: string): string | undefined {
-    if (!method) {
-      return undefined;
-    }
-
-    const trimmed = method.trim();
-    if (!trimmed) {
-      return undefined;
-    }
-
-    return trimmed.toLowerCase();
-  }
-
-  private normalizeContract(contract?: string): string | undefined {
-    if (!contract) {
-      return undefined;
-    }
-
-    const trimmed = contract.trim();
-    if (!trimmed) {
-      return undefined;
-    }
-
-    const lower = trimmed.toLowerCase();
-    if (lower.startsWith('0x')) {
-      return lower;
-    }
-
-    return `0x${lower}`;
-  }
-
-  private normalizeAsset(asset?: string): string | undefined {
-    if (!asset) {
-      return undefined;
-    }
-
-    const trimmed = asset.trim();
-    if (!trimmed) {
-      return undefined;
-    }
-
-    const upper = trimmed.toUpperCase();
-    if (upper === 'NEO' || upper === 'GAS') {
-      return upper;
-    }
-
-    const lower = trimmed.toLowerCase();
-    if (lower.startsWith('0x')) {
-      return lower;
-    }
-
-    return `0x${lower}`;
-  }
-
-  private normalizeAddress(value?: string): string | undefined {
-    if (value === undefined) {
-      return undefined;
-    }
-
-    const trimmed = value.trim();
-    if (!trimmed) {
-      return '';
-    }
-
-    const lower = trimmed.toLowerCase();
-    if (lower.startsWith('0x')) {
-      return lower;
-    }
-
-    return `0x${lower}`;
-  }
-
   private toBigInt(value?: string): bigint | null {
     if (!value) {
       return null;
@@ -1140,7 +1075,7 @@ export class IngestionService {
   }
 
   private async fetchSwapUsdPrices(): Promise<Map<string, Prisma.Decimal>> {
-    const endpoint = this.configService.get<string>('app.flamingoPriceApiUrl')?.trim();
+    const endpoint = getConfigUrl(this.configService, 'app.flamingoPriceApiUrl');
     if (!endpoint) {
       return new Map();
     }
@@ -1151,12 +1086,12 @@ export class IngestionService {
   private async fetchSwapUsdPricesForTimestamp(
     timestamp: number,
   ): Promise<Map<string, Prisma.Decimal>> {
-    const latestUrl = this.configService.get<string>('app.flamingoPriceApiUrl')?.trim();
+    const latestUrl = getConfigUrl(this.configService, 'app.flamingoPriceApiUrl');
     if (!latestUrl) {
       return new Map();
     }
 
-    const historicalUrl = this.buildHistoricalSwapUsdPriceUrl(latestUrl, timestamp);
+    const historicalUrl = buildHistoricalUrl(latestUrl, timestamp);
     if (!historicalUrl) {
       return new Map();
     }
@@ -1164,41 +1099,9 @@ export class IngestionService {
     return this.fetchSwapUsdPricesFromUrl(historicalUrl);
   }
 
-  private buildHistoricalSwapUsdPriceUrl(latestUrl: string, timestamp: number): string | null {
-    if (!Number.isFinite(timestamp) || timestamp <= 0) {
-      return null;
-    }
-
-    if (latestUrl.endsWith('/latest')) {
-      return `${latestUrl.slice(0, -'/latest'.length)}/from-timestamp/${Math.floor(timestamp)}`;
-    }
-
-    return `${latestUrl}/from-timestamp/${Math.floor(timestamp)}`;
-  }
-
   private async fetchSwapUsdPricesFromUrl(url: string): Promise<Map<string, Prisma.Decimal>> {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => {
-      controller.abort();
-    }, this.flamingoPriceTimeoutMs);
-
     try {
-      const response = await fetch(url, {
-        signal: controller.signal,
-        headers: {
-          Accept: 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        this.logger.warn(
-          `Failed to fetch swap USD prices (HTTP ${response.status}). Continuing without USD pricing.`,
-        );
-
-        return new Map();
-      }
-
-      const payload: unknown = await response.json();
+      const payload = await fetchJsonWithTimeout<unknown[]>(url, DEFAULT_FETCH_TIMEOUT_MS);
       if (!Array.isArray(payload)) {
         this.logger.warn(
           'Swap USD prices response is not an array. Continuing without USD pricing.',
@@ -1229,8 +1132,6 @@ export class IngestionService {
       );
 
       return new Map();
-    } finally {
-      clearTimeout(timeout);
     }
   }
 
@@ -1273,7 +1174,7 @@ export class IngestionService {
     usdPrice: Prisma.Decimal,
   ): void {
     if (typeof row.hash === 'string') {
-      const normalizedHash = this.normalizeAsset(row.hash);
+      const normalizedHash = normalizeAsset(row.hash);
       if (normalizedHash) {
         prices.set(normalizedHash, usdPrice);
       }
@@ -1301,7 +1202,7 @@ export class IngestionService {
     let total = new Prisma.Decimal(0);
 
     for (const transfer of transfers) {
-      const asset = this.normalizeAsset(transfer.asset);
+      const asset = normalizeAsset(transfer.asset);
       const amountRaw = this.toBigInt(transfer.amount);
       if (!asset || amountRaw === null || amountRaw <= 0n) {
         continue;
