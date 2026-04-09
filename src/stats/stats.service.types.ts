@@ -1,3 +1,4 @@
+import type { TxType } from '@prisma/client';
 import type { PrismaService } from '../common/prisma.service';
 
 export type DateRange = {
@@ -47,6 +48,21 @@ export type SwapAssetStat = {
 export type SwapAssetActivity = {
   date: Date;
   asset: string;
+};
+
+export type AssetTransactionTypeCount = {
+  type: TxType;
+  txCount: number;
+};
+
+export type AssetRecentTransaction = {
+  date: Date;
+  txid: string;
+  type: TxType;
+  timestamp: Date;
+  amountRaw: bigint;
+  transferCount: number;
+  method: string | null;
 };
 
 export type DailyStatRow = Awaited<ReturnType<PrismaService['dailyStat']['findMany']>>[number];

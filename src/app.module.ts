@@ -12,6 +12,7 @@ import { WebController } from './web/web.controller';
 import { ApiController } from './web/api.controller';
 import { AdminController } from './admin/admin.controller';
 import { AdminService } from './admin/admin.service';
+import { AssetMetadataService } from './web/asset-metadata.service';
 import { DefiLiquidityService } from './web/defi-liquidity.service';
 import { TokenPerformanceService } from './web/token-performance.service';
 
@@ -30,6 +31,7 @@ import { TokenPerformanceService } from './web/token-performance.service';
     IngestionJob,
     StatsService,
     AdminService,
+    AssetMetadataService,
     TokenPerformanceService,
     DefiLiquidityService,
     {

@@ -3,13 +3,13 @@ import { ConfigService } from '@nestjs/config';
 import { ApiExcludeController } from '@nestjs/swagger';
 import { Prisma } from '@prisma/client';
 import type { Response } from 'express';
+import { isStablecoinSymbol, normalizeAsset } from '../common/normalize.utils';
 import { formatDate, parseDate, yesterdayInTimeZone } from '../ingestion/date-utils';
-import type { NeoClient } from '../neo-client/neo-client.interface';
-import { NEO_CLIENT } from '../neo-client/neo-client.provider';
 import { StatsService } from '../stats/stats.service';
 import type { SwapUsdCoverage } from '../stats/stats.service.types';
 import { formatNumber, formatUnits, toNumber } from '../stats/stats.utils';
 import { getAddressLabel } from './address-labels';
+import { AssetMetadataService } from './asset-metadata.service';
 import { DefiLiquidityService } from './defi-liquidity.service';
 import { countInclusiveDays, normalizeIsoDate, resolveDefiWindow } from './defi-metrics';
 import {
@@ -31,8 +31,9 @@ export class WebController {
 
   constructor(
     @Inject(StatsService) private readonly statsService: StatsService,
-    @Inject(NEO_CLIENT) private readonly neoClient: NeoClient,
     @Inject(ConfigService) private readonly configService: ConfigService,
+    @Inject(AssetMetadataService)
+    private readonly assetMetadataService: AssetMetadataService,
     @Inject(TokenPerformanceService)
     private readonly tokenPerformanceService: TokenPerformanceService,
     @Inject(DefiLiquidityService)
@@ -138,6 +139,7 @@ export class WebController {
       .slice(0, 10)
       .map((asset) => ({
         assetLabel: this.normalizeAssetLabel(asset.assetLabel, asset.asset),
+        assetHref: this.buildAssetHref(asset.asset, rangeFrom, rangeTo),
         transferCount: formatNumber(asset.transferCount),
         volumeLabel: this.formatAmount(
           asset.asset,
@@ -424,6 +426,183 @@ export class WebController {
     );
   }
 
+  @Get('/asset/:asset')
+  async asset(
+    @Res() res: Response,
+    @Param('asset') asset: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    const normalizedAsset = normalizeAsset(asset) ?? asset.trim();
+    const [{ range }, marketPrices] = await Promise.all([
+      this.statsService.getRangeOrLatest(from, to, 30),
+      this.getMarketPrices(),
+    ]);
+    const [assetMetadata, assetMarketSnapshot, trackedLiquidityAsset] = await Promise.all([
+      this.assetMetadataService.getAssetMetadata(normalizedAsset),
+      this.tokenPerformanceService.getAssetMarketSnapshot(normalizedAsset),
+      this.defiLiquidityService.getTrackedLiquidityAsset(normalizedAsset),
+    ]);
+    const { label: assetLabel, decimals: assetDecimals } = assetMetadata;
+    const rangeFrom = range ? formatDate(range.from) : '';
+    const rangeTo = range ? formatDate(range.to) : '';
+    const rangeLabel = range ? `${rangeFrom} to ${rangeTo}` : 'No data available';
+
+    if (!range) {
+      return res.send(
+        renderReactPage({
+          title: `Neo Analytics - ${assetLabel}`,
+          page: 'asset',
+          data: {
+            marketPrices,
+            nav: {
+              dashboard: true,
+            },
+            assetLabel,
+            assetId: normalizedAsset,
+            rangeLabel,
+            rangeFrom,
+            rangeTo,
+            summary: null,
+            defiRelation: this.buildAssetDefiRelation({
+              assetLabel,
+              assetMarketSnapshot,
+              trackedLiquidityAsset,
+            }),
+            typeBreakdown: [],
+            dailyActivity: [],
+            topSenders: [],
+            topReceivers: [],
+            recentTransactions: [],
+          },
+        }),
+      );
+    }
+
+    const [
+      assetDailyStats,
+      uniqueAddressStats,
+      typeBreakdown,
+      topSenders,
+      topReceivers,
+      recentTransactions,
+    ] = await Promise.all([
+      this.statsService.getAssetDailyStatsRange(normalizedAsset, rangeFrom, rangeTo),
+      this.statsService.getAssetUniqueAddressStatsRange(normalizedAsset, rangeFrom, rangeTo),
+      this.statsService.getAssetTransactionTypeBreakdownRange(normalizedAsset, rangeFrom, rangeTo),
+      this.statsService.getTopAssetAddresses(normalizedAsset, rangeFrom, rangeTo, 'from', 6),
+      this.statsService.getTopAssetAddresses(normalizedAsset, rangeFrom, rangeTo, 'to', 6),
+      this.statsService.getRecentAssetTransactionsRange(normalizedAsset, rangeFrom, rangeTo, 12),
+    ]);
+    const totalTransferCount = assetDailyStats.reduce(
+      (total, stat) => total + stat.transferCount,
+      0,
+    );
+    const totalTxCount = assetDailyStats.reduce((total, stat) => total + stat.txCount, 0);
+    const totalVolumeRaw = assetDailyStats.reduce((total, stat) => total + stat.volumeRaw, 0n);
+    const typeCountByType = new Map(typeBreakdown.map((entry) => [entry.type, entry.txCount]));
+    const swapCount = typeCountByType.get('SWAP') ?? 0;
+    const transferCount = typeCountByType.get('NORMAL_TRANSFER') ?? 0;
+    const oracleCount = typeCountByType.get('ORACLE') ?? 0;
+    const gasClaimCount = typeCountByType.get('GAS_CLAIM') ?? 0;
+    const ignoredCount = typeCountByType.get('IGNORED') ?? 0;
+    const remainingCount = Math.max(0, totalTxCount - swapCount - transferCount);
+    const hasAssetActivity =
+      totalTransferCount > 0 ||
+      totalTxCount > 0 ||
+      uniqueAddressStats.uniqueAddresses > 0 ||
+      recentTransactions.length > 0;
+
+    return res.send(
+      renderReactPage({
+        title: `Neo Analytics - ${assetLabel}`,
+        page: 'asset',
+        data: {
+          marketPrices,
+          nav: {
+            dashboard: true,
+          },
+          assetLabel,
+          assetId: normalizedAsset,
+          rangeLabel,
+          rangeFrom,
+          rangeTo,
+          summary: hasAssetActivity
+            ? {
+                volumeLabel: this.formatAmount(normalizedAsset, totalVolumeRaw, assetDecimals),
+                transferCount: formatNumber(totalTransferCount),
+                txCount: formatNumber(totalTxCount),
+                activeAddresses: formatNumber(uniqueAddressStats.uniqueAddresses),
+                uniqueSenders: formatNumber(uniqueAddressStats.uniqueSenders),
+                uniqueReceivers: formatNumber(uniqueAddressStats.uniqueReceivers),
+                swapsCount: formatNumber(swapCount),
+                transfersCount: formatNumber(transferCount),
+                otherCount: formatNumber(remainingCount),
+                swapShare: this.formatPercentValue(swapCount, totalTxCount),
+                transferShare: this.formatPercentValue(transferCount, totalTxCount),
+                oracleCount: formatNumber(oracleCount),
+                gasClaimsCount: formatNumber(gasClaimCount),
+                ignoredCount: formatNumber(ignoredCount),
+              }
+            : null,
+          defiRelation: this.buildAssetDefiRelation({
+            assetLabel,
+            assetMarketSnapshot,
+            trackedLiquidityAsset,
+          }),
+          typeBreakdown: typeBreakdown.map((entry) => ({
+            key: entry.type,
+            label: this.formatTransactionTypeLabel(entry.type),
+            count: formatNumber(entry.txCount),
+            share: this.formatPercentValue(entry.txCount, totalTxCount),
+          })),
+          dailyActivity: assetDailyStats.map((stat) => {
+            const dateLabel = formatDate(stat.date, 'UTC');
+
+            return {
+              dateLabel,
+              dayHref: this.buildDayHref(dateLabel),
+              transferCount: formatNumber(stat.transferCount),
+              txCount: formatNumber(stat.txCount),
+              uniqueSenders: formatNumber(stat.uniqueSenders),
+              uniqueReceivers: formatNumber(stat.uniqueReceivers),
+              volumeLabel: this.formatAmount(normalizedAsset, stat.volumeRaw, assetDecimals),
+            };
+          }),
+          topSenders: topSenders.map((entry) => ({
+            address: entry.address,
+            shortAddress: this.shortenAddress(entry.address),
+            addressLabel: getAddressLabel(entry.address),
+            transferCount: formatNumber(entry.transferCount),
+            volumeLabel: this.formatAmount(normalizedAsset, entry.volumeRaw, assetDecimals),
+          })),
+          topReceivers: topReceivers.map((entry) => ({
+            address: entry.address,
+            shortAddress: this.shortenAddress(entry.address),
+            addressLabel: getAddressLabel(entry.address),
+            transferCount: formatNumber(entry.transferCount),
+            volumeLabel: this.formatAmount(normalizedAsset, entry.volumeRaw, assetDecimals),
+          })),
+          recentTransactions: recentTransactions.map((transaction) => {
+            const dayLabel = formatDate(transaction.date, 'UTC');
+
+            return {
+              txid: transaction.txid,
+              shortTxid: this.shortenAddress(transaction.txid),
+              timestampLabel: this.formatTimestampLabel(transaction.timestamp),
+              dayLabel,
+              dayHref: this.buildDayHref(dayLabel),
+              type: this.formatTransactionTypeLabel(transaction.type),
+              amountLabel: this.formatAmount(normalizedAsset, transaction.amountRaw, assetDecimals),
+              transferCount: formatNumber(transaction.transferCount),
+              method: transaction.method,
+            };
+          }),
+        },
+      }),
+    );
+  }
+
   @Get('/day/:date')
   async day(
     @Res() res: Response,
@@ -483,6 +662,7 @@ export class WebController {
           },
           assetStats: assetStats.map((asset) => ({
             assetLabel: this.getAssetLabel(asset.asset, assetLabelMap),
+            assetHref: this.buildAssetHref(asset.asset, date, date),
             transferCount: asset.transferCount,
             volumeLabel: this.formatAmount(
               asset.asset,
@@ -764,13 +944,14 @@ export class WebController {
     for (const asset of uniqueAssets) {
       resolutionPromises.push(
         (async () => {
-          const label = await this.resolveAssetLabel(asset);
-          labels.set(asset, label);
+          const metadata = await this.assetMetadataService.getAssetMetadata(asset);
+          labels.set(asset, metadata.label);
         })(),
       );
     }
 
     await Promise.all(resolutionPromises);
+
     return labels;
   }
 
@@ -791,9 +972,9 @@ export class WebController {
     for (const asset of uniqueAssets) {
       resolutionPromises.push(
         (async () => {
-          const resolved = await this.resolveAssetDecimals(asset);
-          if (resolved !== null) {
-            decimals.set(asset, resolved);
+          const metadata = await this.assetMetadataService.getAssetMetadata(asset);
+          if (metadata.decimals !== null) {
+            decimals.set(asset, metadata.decimals);
           }
         })(),
       );
@@ -821,48 +1002,6 @@ export class WebController {
     }
 
     return decimalsMap.get(asset) ?? null;
-  }
-
-  private async resolveAssetLabel(asset: string): Promise<string> {
-    if (!this.neoClient.resolveAssetLabel) {
-      return asset;
-    }
-
-    try {
-      const resolved = await this.neoClient.resolveAssetLabel(asset);
-      if (resolved) {
-        return resolved;
-      }
-
-      console.debug(
-        `Asset label resolution returned no value for asset "${asset}", falling back to asset hash.`,
-      );
-    } catch (error) {
-      console.warn(
-        `Failed to resolve asset label for asset "${asset}", falling back to asset hash.`,
-        error,
-      );
-      return asset;
-    }
-
-    return asset;
-  }
-
-  private async resolveAssetDecimals(asset: string): Promise<number | null> {
-    if (!this.neoClient.resolveAssetDecimals) {
-      return null;
-    }
-
-    try {
-      return await this.neoClient.resolveAssetDecimals(asset);
-    } catch (error) {
-      console.warn(
-        `Failed to resolve asset decimals for "${asset}", falling back to defaults.`,
-        error,
-      );
-
-      return null;
-    }
   }
 
   private formatPercentValue(value: number, total: number): string {
@@ -895,12 +1034,65 @@ export class WebController {
     return value.toISOString().replace('T', ' ').replace('.000Z', ' UTC');
   }
 
+  private buildAssetDefiRelation(params: {
+    assetLabel: string;
+    assetMarketSnapshot: Awaited<ReturnType<TokenPerformanceService['getAssetMarketSnapshot']>>;
+    trackedLiquidityAsset: Awaited<ReturnType<DefiLiquidityService['getTrackedLiquidityAsset']>>;
+  }) {
+    const { assetLabel, assetMarketSnapshot, trackedLiquidityAsset } = params;
+    if (!assetMarketSnapshot && !trackedLiquidityAsset) {
+      return null;
+    }
+
+    const marketSymbol = assetMarketSnapshot?.symbol ?? trackedLiquidityAsset?.symbol ?? assetLabel;
+
+    return {
+      marketSymbol,
+      currentPrice: assetMarketSnapshot?.currentPrice ?? null,
+      change24h: assetMarketSnapshot?.change24h ?? null,
+      change7d: assetMarketSnapshot?.change7d ?? null,
+      change30d: assetMarketSnapshot?.change30d ?? null,
+      trackedLiquidityUsd: trackedLiquidityAsset
+        ? this.formatUsd(trackedLiquidityAsset.usdValue)
+        : null,
+      trackedLiquidityBalance: trackedLiquidityAsset
+        ? this.formatTokenBalance(trackedLiquidityAsset.balance)
+        : null,
+      stablecoin: trackedLiquidityAsset?.stablecoin ?? isStablecoinSymbol(marketSymbol),
+      hasMarketPrice: Boolean(assetMarketSnapshot),
+      hasTrackedLiquidity: Boolean(trackedLiquidityAsset),
+    };
+  }
+
   private buildDayHref(date: string): string {
     if (!date) {
       return '/days';
     }
 
     return `/day/${encodeURIComponent(date)}`;
+  }
+
+  private buildAssetHref(asset: string | null | undefined, from?: string, to?: string): string {
+    if (!asset) {
+      return '/dashboard';
+    }
+
+    const searchParams = new URLSearchParams();
+    if (from) {
+      searchParams.set('from', from);
+    }
+
+    if (to) {
+      searchParams.set('to', to);
+    }
+
+    const query = searchParams.toString();
+    const path = `/asset/${encodeURIComponent(asset)}`;
+    if (!query) {
+      return path;
+    }
+
+    return `${path}?${query}`;
   }
 
   private resolveDayPageSize(value?: string): number {
