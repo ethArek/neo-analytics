@@ -47,8 +47,9 @@ export const FaqPage: React.FC = () => {
           <details open>
             <summary>How often is data updated?</summary>
             <p>
-              The ingestion job runs daily at 00:30 UTC, processing all blocks from the previous
-              day. Data is typically available within half an hour of completion.
+              The scheduled ingestion job runs daily at 01:10 in the Europe/Warsaw timezone and
+              processes the previous UTC day. If the latest day is still missing, an hourly retry
+              job keeps checking until ingestion completes.
             </p>
           </details>
           <details>
@@ -79,7 +80,7 @@ export const FaqPage: React.FC = () => {
           </details>
           <details>
             <summary>Is this open source?</summary>
-            <p>The codebase is maintained privately for now.</p>
+            <p>Yes. The project source is published on GitHub together with setup instructions.</p>
           </details>
           <details>
             <summary>Do you store user data?</summary>

@@ -1,4 +1,5 @@
 import { ConfigService } from '@nestjs/config';
+import { IngestionBusyError } from '../ingestion/ingestion.service';
 import { ApiController } from './api.controller';
 
 class StatsServiceStub {
@@ -132,6 +133,49 @@ describe('ApiController', () => {
       to: '2026-03-02',
       days: 2,
       transactions: 3,
+    });
+  });
+
+  it('rejects manual ingestion when unauthorized', async () => {
+    const controller = Reflect.construct(ApiController, [
+      new StatsServiceStub(),
+      new IngestionServiceStub(),
+      new ConfigService({
+        app: {
+          adminToken: 'secret',
+        },
+      }),
+    ]) as ApiController;
+
+    const result = await controller.runJob('2026-03-01', 'wrong');
+
+    expect(result).toEqual({
+      status: 'error',
+      message: 'Unauthorized',
+    });
+  });
+
+  it('returns a busy error when a day lock is already held', async () => {
+    const ingestionService = new IngestionServiceStub();
+    const controller = Reflect.construct(ApiController, [
+      new StatsServiceStub(),
+      ingestionService,
+      new ConfigService({
+        app: {
+          adminToken: 'secret',
+        },
+      }),
+    ]) as ApiController;
+    jest
+      .spyOn(ingestionService, 'ingestDay')
+      .mockRejectedValue(new IngestionBusyError('2026-03-01'));
+
+    const result = await controller.runJob('2026-03-01', 'secret');
+
+    expect(result).toEqual({
+      status: 'error',
+      message: 'Ingestion already running for 2026-03-01.',
+      date: '2026-03-01',
     });
   });
 });

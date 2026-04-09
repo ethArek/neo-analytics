@@ -94,6 +94,12 @@ export type DailyTransferPricingRecord = Pick<
   'txid' | 'transferIndex' | 'asset' | 'amountRaw' | 'from' | 'to'
 >;
 
+export type IngestionLockRecord = {
+  lockKey: string;
+  holder: string;
+  expiresAt: Date;
+};
+
 export type IngestionPrismaClient = {
   dailyTx: {
     createMany: (args: {
@@ -170,6 +176,21 @@ export type IngestionPrismaClient = {
       update: { lastProcessedBlock?: number; lastProcessedTimestamp?: Date };
       create: { network: string; lastProcessedBlock?: number; lastProcessedTimestamp?: Date };
     }) => Promise<IngestionCursor>;
+  };
+  ingestionLock: {
+    createMany: (args: {
+      data: IngestionLockRecord[];
+      skipDuplicates?: boolean;
+    }) => Promise<Prisma.BatchPayload>;
+    deleteMany: (args: {
+      where: {
+        lockKey?: string;
+        holder?: string;
+        expiresAt?: {
+          lte: Date;
+        };
+      };
+    }) => Promise<Prisma.BatchPayload>;
   };
   $executeRaw: (query: Prisma.Sql) => Promise<number>;
   $transaction: <T>(callback: (tx: IngestionPrismaClient) => Promise<T>) => Promise<T>;

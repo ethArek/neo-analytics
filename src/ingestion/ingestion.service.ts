@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
@@ -47,6 +48,19 @@ import type {
 } from './ingestion.types';
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
+const INGESTION_LOCK_TTL_MS = 6 * 60 * 60 * 1000;
+
+type SwapPricingResult = {
+  anchorTransfer?: NeoTransfer;
+  usdValue: Prisma.Decimal | null;
+};
+
+export class IngestionBusyError extends Error {
+  constructor(readonly date: string) {
+    super(`Ingestion already running for ${date}.`);
+    this.name = IngestionBusyError.name;
+  }
+}
 
 @Injectable()
 export class IngestionService {
@@ -62,133 +76,139 @@ export class IngestionService {
   ) {}
 
   async ingestDay(date: string): Promise<void> {
-    this.logger.log(`Starting ingestion for ${date}.`);
-    const day = parseDate(date);
+    const normalizedDate = formatDate(parseDate(date), 'UTC');
 
-    await this.clearDay(day);
+    await this.withDayLock(normalizedDate, async () => {
+      this.logger.log(`Starting ingestion for ${normalizedDate}.`);
+      const day = parseDate(normalizedDate);
 
-    const state: StreamState = {
-      day,
-      txBuffer: [],
-      transferBuffer: [],
-      assetMap: new Map<string, AssetAggregate>(),
-      methodMap: new Map<string, MethodAggregate>(),
-      contractMap: new Map<string, ContractAggregate>(),
-      senders: new Set<string>(),
-      receivers: new Set<string>(),
-      addresses: new Set<string>(),
-      swapsCount: 0,
-      swapsUsdValue: new Prisma.Decimal(0),
-      oracleCount: 0,
-      transfersCount: 0,
-      gasClaimsCount: 0,
-      othersCount: 0,
-      neoVolumeRaw: 0n,
-      gasVolumeRaw: 0n,
-      totalTxCount: 0,
-      totalTransfers: 0,
-    };
-    const pricingContext = await this.createSwapPricingContext();
+      await this.clearDay(day);
 
-    let cursor: string | undefined;
-    let blockRange: BlockRange | undefined;
-    let page = 0;
+      const state: StreamState = {
+        day,
+        txBuffer: [],
+        transferBuffer: [],
+        assetMap: new Map<string, AssetAggregate>(),
+        methodMap: new Map<string, MethodAggregate>(),
+        contractMap: new Map<string, ContractAggregate>(),
+        senders: new Set<string>(),
+        receivers: new Set<string>(),
+        addresses: new Set<string>(),
+        swapsCount: 0,
+        swapsUsdValue: new Prisma.Decimal(0),
+        oracleCount: 0,
+        transfersCount: 0,
+        gasClaimsCount: 0,
+        othersCount: 0,
+        neoVolumeRaw: 0n,
+        gasVolumeRaw: 0n,
+        totalTxCount: 0,
+        totalTransfers: 0,
+      };
+      const pricingContext = await this.createSwapPricingContext();
 
-    do {
-      const pageCursor = cursor;
-      const response = await this.neoClient.fetchTransactionsForDay(date, cursor);
-      page += 1;
-      cursor = response.nextCursor;
+      let cursor: string | undefined;
+      let blockRange: BlockRange | undefined;
+      let page = 0;
 
-      if (!blockRange && response.blockStart !== undefined && response.blockEnd !== undefined) {
-        blockRange = { start: response.blockStart, end: response.blockEnd };
+      do {
+        const pageCursor = cursor;
+        const response = await this.neoClient.fetchTransactionsForDay(normalizedDate, cursor);
+        page += 1;
+        cursor = response.nextCursor;
+
+        if (!blockRange && response.blockStart !== undefined && response.blockEnd !== undefined) {
+          blockRange = { start: response.blockStart, end: response.blockEnd };
+        }
+
+        await this.processTransactionBatch(response.transactions, state, pricingContext);
+        this.logDayIngestionProgress(normalizedDate, page, pageCursor, response, state, blockRange);
+      } while (cursor);
+
+      await this.flushBuffers(state);
+
+      const dailyAssetStats: DailyAssetStatRecord[] = Array.from(state.assetMap.entries()).map(
+        ([asset, aggregate]) => ({
+          date: day,
+          asset,
+          transferCount: aggregate.transferCount,
+          txCount: aggregate.txCount,
+          uniqueSenders: aggregate.senders.size,
+          uniqueReceivers: aggregate.receivers.size,
+          volumeRaw: aggregate.volumeRaw,
+        }),
+      );
+
+      const dailyMethodStats: DailyMethodStatRecord[] = Array.from(state.methodMap.values()).map(
+        (stat) => ({
+          date: day,
+          method: stat.key,
+          txCount: stat.count,
+        }),
+      );
+
+      const dailyContractStats: DailyContractStatRecord[] = Array.from(
+        state.contractMap.values(),
+      ).map((stat) => ({
+        date: day,
+        contract: stat.key,
+        txCount: stat.count,
+      }));
+
+      const blockCount = this.resolveBlockCount(blockRange, state);
+      const dailyStat: DailyStatRecord = {
+        date: day,
+        totalTxCount: state.totalTxCount,
+        swapsCount: state.swapsCount,
+        swapsUsdValue: this.toUsdStorageValue(state.swapsUsdValue),
+        oracleCount: state.oracleCount,
+        transfersCount: state.transfersCount,
+        gasClaimsCount: state.gasClaimsCount,
+        othersCount: state.othersCount,
+        realUsageTotal: state.totalTxCount - state.gasClaimsCount,
+        totalTransfers: state.totalTransfers,
+        uniqueSenders: state.senders.size,
+        uniqueReceivers: state.receivers.size,
+        uniqueAddresses: state.addresses.size,
+        neoVolumeRaw: state.neoVolumeRaw,
+        gasVolumeRaw: state.gasVolumeRaw,
+        blockCount,
+      };
+
+      await this.saveAggregates(day, {
+        dailyTx: [],
+        dailyTransfers: [],
+        dailyAssetStats,
+        dailyMethodStats,
+        dailyContractStats,
+        dailyStat,
+      });
+
+      if (state.lastProcessedBlock !== undefined) {
+        const network = this.configService.get<string>('app.neoNetwork') ?? 'MainNet';
+
+        await this.prisma.ingestionCursor.upsert({
+          where: { network },
+          update: {
+            lastProcessedBlock: state.lastProcessedBlock,
+            lastProcessedTimestamp: state.lastProcessedTimestamp,
+          },
+          create: {
+            network,
+            lastProcessedBlock: state.lastProcessedBlock,
+            lastProcessedTimestamp: state.lastProcessedTimestamp,
+          },
+        });
       }
 
-      await this.processTransactionBatch(response.transactions, state, pricingContext);
-      this.logDayIngestionProgress(date, page, pageCursor, response, state, blockRange);
-    } while (cursor);
-
-    await this.flushBuffers(state);
-
-    const dailyAssetStats: DailyAssetStatRecord[] = Array.from(state.assetMap.entries()).map(
-      ([asset, aggregate]) => ({
-        date: day,
-        asset,
-        transferCount: aggregate.transferCount,
-        txCount: aggregate.txCount,
-        uniqueSenders: aggregate.senders.size,
-        uniqueReceivers: aggregate.receivers.size,
-        volumeRaw: aggregate.volumeRaw,
-      }),
-    );
-
-    const dailyMethodStats: DailyMethodStatRecord[] = Array.from(state.methodMap.values()).map(
-      (stat) => ({
-        date: day,
-        method: stat.key,
-        txCount: stat.count,
-      }),
-    );
-
-    const dailyContractStats: DailyContractStatRecord[] = Array.from(
-      state.contractMap.values(),
-    ).map((stat) => ({
-      date: day,
-      contract: stat.key,
-      txCount: stat.count,
-    }));
-
-    const blockCount = this.resolveBlockCount(blockRange, state);
-    const dailyStat: DailyStatRecord = {
-      date: day,
-      totalTxCount: state.totalTxCount,
-      swapsCount: state.swapsCount,
-      swapsUsdValue: this.toUsdStorageValue(state.swapsUsdValue),
-      oracleCount: state.oracleCount,
-      transfersCount: state.transfersCount,
-      gasClaimsCount: state.gasClaimsCount,
-      othersCount: state.othersCount,
-      realUsageTotal: state.totalTxCount - state.gasClaimsCount,
-      totalTransfers: state.totalTransfers,
-      uniqueSenders: state.senders.size,
-      uniqueReceivers: state.receivers.size,
-      uniqueAddresses: state.addresses.size,
-      neoVolumeRaw: state.neoVolumeRaw,
-      gasVolumeRaw: state.gasVolumeRaw,
-      blockCount,
-    };
-
-    await this.saveAggregates(day, {
-      dailyTx: [],
-      dailyTransfers: [],
-      dailyAssetStats,
-      dailyMethodStats,
-      dailyContractStats,
-      dailyStat,
+      const rangeLabel =
+        blockRange && blockRange.start <= blockRange.end
+          ? ` (blocks ${blockRange.start}-${blockRange.end})`
+          : '';
+      this.logger.log(
+        `Ingested ${state.totalTxCount} transactions for ${normalizedDate}${rangeLabel}.`,
+      );
     });
-
-    if (state.lastProcessedBlock !== undefined) {
-      const network = this.configService.get<string>('app.neoNetwork') ?? 'MainNet';
-
-      await this.prisma.ingestionCursor.upsert({
-        where: { network },
-        update: {
-          lastProcessedBlock: state.lastProcessedBlock,
-          lastProcessedTimestamp: state.lastProcessedTimestamp,
-        },
-        create: {
-          network,
-          lastProcessedBlock: state.lastProcessedBlock,
-          lastProcessedTimestamp: state.lastProcessedTimestamp,
-        },
-      });
-    }
-
-    const rangeLabel =
-      blockRange && blockRange.start <= blockRange.end
-        ? ` (blocks ${blockRange.start}-${blockRange.end})`
-        : '';
-    this.logger.log(`Ingested ${state.totalTxCount} transactions for ${date}${rangeLabel}.`);
   }
 
   async isDayIngested(date: string): Promise<boolean> {
@@ -201,14 +221,9 @@ export class IngestionService {
   }
 
   async rebuildDay(date: string): Promise<void> {
-    const day = parseDate(date);
-    await this.prisma.dailyTx.deleteMany({ where: { date: day } });
-    await this.prisma.dailyTransfer.deleteMany({ where: { date: day } });
-    await this.prisma.dailyAssetStat.deleteMany({ where: { date: day } });
-    await this.prisma.dailyMethodStat.deleteMany({ where: { date: day } });
-    await this.prisma.dailyContractStat.deleteMany({ where: { date: day } });
-    await this.prisma.dailyStat.deleteMany({ where: { date: day } });
-    await this.ingestDay(date);
+    const normalizedDate = formatDate(parseDate(date), 'UTC');
+
+    await this.ingestDay(normalizedDate);
   }
 
   async backfillSwapUsdValues(
@@ -250,21 +265,12 @@ export class IngestionService {
     const startIso = start.toISOString();
     const endIso = end.toISOString();
     this.logger.log(`Starting ingestion window ${startIso} to ${endIso}.`);
+    const touchedDays = this.resolveTouchedDayLabels(start, end);
 
-    const { transactions, blockRange } = await this.fetchAllTransactionsForRange(start, end);
-    const dateLabel = formatDate(start, 'UTC');
-    const day = parseDate(dateLabel);
-    const summary = await this.buildDailySummary(transactions, day, blockRange);
-
-    await this.saveDailySummary(day, summary);
-
-    const rangeLabel =
-      blockRange && blockRange.start <= blockRange.end
-        ? ` (blocks ${blockRange.start}-${blockRange.end})`
-        : '';
-    this.logger.log(
-      `Ingested ${transactions.length} transactions for ${dateLabel} (${startIso} to ${endIso})${rangeLabel}.`,
-    );
+    for (const day of touchedDays) {
+      this.logger.log(`Repairing full UTC day ${day} for window ${startIso} to ${endIso}.`);
+      await this.ingestDay(day);
+    }
   }
 
   private async buildDailySummary(
@@ -309,17 +315,15 @@ export class IngestionService {
       const classification = classifyTransaction(transaction, {
         swapMethodAllowlist: defaultSwapMethods,
       });
-      const primaryTransfer = this.getPrimaryTransfer(transfers);
-      const primaryAsset = normalizeAsset(primaryTransfer?.asset);
-      const primaryAmountRaw = this.toBigInt(primaryTransfer?.amount);
+      const txSummary = await this.buildTransactionSummary(
+        classification.type,
+        transfers,
+        pricingContext,
+      );
       const normalizedFrom = normalizeAddress(classification.from);
       const normalizedTo = normalizeAddress(classification.to);
       const method = normalizeMethod(transaction.invocation?.method);
       const contract = normalizeContract(transaction.invocation?.contract);
-      const swapUsdValue =
-        classification.type === ClassifiedType.SWAP
-          ? await this.calculateSwapUsdValue(transfers, pricingContext)
-          : null;
 
       dailyTx.push({
         date: day,
@@ -327,9 +331,11 @@ export class IngestionService {
         type: classification.type,
         from: normalizedFrom,
         to: normalizedTo,
-        asset: primaryAsset,
-        amountRaw: primaryAmountRaw ?? undefined,
-        swapUsdValue: swapUsdValue ? this.toUsdStorageValue(swapUsdValue) : undefined,
+        asset: txSummary.asset,
+        amountRaw: txSummary.amountRaw ?? undefined,
+        swapUsdValue: txSummary.swapUsdValue
+          ? this.toUsdStorageValue(txSummary.swapUsdValue)
+          : undefined,
         transferCount,
         method,
         contract,
@@ -341,7 +347,7 @@ export class IngestionService {
       switch (classification.type) {
         case ClassifiedType.SWAP: {
           swapsCount += 1;
-          swapsUsdValue = swapsUsdValue.add(swapUsdValue ?? 0);
+          swapsUsdValue = swapsUsdValue.add(txSummary.swapUsdValue ?? 0);
           break;
         }
         case ClassifiedType.ORACLE: {
@@ -657,49 +663,64 @@ export class IngestionService {
       return 0;
     }
 
-    const txids = swapTransactions.map((transaction) => transaction.txid);
-    const transfers = await this.prisma.dailyTransfer.findMany({
-      where: {
-        date: day,
-        txid: { in: txids },
-      },
-      orderBy: [{ txid: 'asc' }, { transferIndex: 'asc' }],
-    });
-    const pricingContext = await this.createSwapPricingContextForDay(day);
-    const transfersByTx = this.groupTransfersForPricing(transfers);
-    const updates: Array<{ txid: string; swapUsdValue: string }> = [];
-    let total = new Prisma.Decimal(0);
+    const dateLabel = formatDate(day, 'UTC');
 
-    for (const transaction of swapTransactions) {
-      const value = await this.calculateSwapUsdValue(
-        transfersByTx.get(transaction.txid) ?? [],
-        pricingContext,
-      );
-      const swapUsdValue = this.toUsdStorageValue(value);
-      updates.push({
-        txid: transaction.txid,
-        swapUsdValue,
-      });
-      total = total.add(value);
-    }
-
-    await this.prisma.$transaction(async (tx) => {
-      await this.applySwapUsdUpdates(tx, updates);
-
-      await tx.dailyStat.update({
-        where: { date: day },
-        data: {
-          swapsUsdValue: this.toUsdStorageValue(total),
+    return this.withDayLock(dateLabel, async () => {
+      const txids = swapTransactions.map((transaction) => transaction.txid);
+      const transfers = await this.prisma.dailyTransfer.findMany({
+        where: {
+          date: day,
+          txid: { in: txids },
         },
+        orderBy: [{ txid: 'asc' }, { transferIndex: 'asc' }],
       });
-    });
+      const pricingContext = await this.createSwapPricingContextForDay(day);
+      const transfersByTx = this.groupTransfersForPricing(transfers);
+      const updates: Array<{
+        txid: string;
+        asset: string | null;
+        amountRaw: string | null;
+        swapUsdValue: string;
+      }> = [];
+      let total = new Prisma.Decimal(0);
 
-    return updates.length;
+      for (const transaction of swapTransactions) {
+        const transactionTransfers = transfersByTx.get(transaction.txid) ?? [];
+        const pricing = await this.calculateSwapPricing(transactionTransfers, pricingContext);
+        const preferredTransfer =
+          pricing.anchorTransfer ?? this.getPrimaryTransfer(transactionTransfers);
+        updates.push({
+          txid: transaction.txid,
+          asset: normalizeAsset(preferredTransfer?.asset) ?? null,
+          amountRaw: this.toBigInt(preferredTransfer?.amount)?.toString() ?? null,
+          swapUsdValue: this.toUsdStorageValue(pricing.usdValue ?? new Prisma.Decimal(0)),
+        });
+        total = total.add(pricing.usdValue ?? 0);
+      }
+
+      await this.prisma.$transaction(async (tx) => {
+        await this.applySwapUsdUpdates(tx, updates);
+
+        await tx.dailyStat.update({
+          where: { date: day },
+          data: {
+            swapsUsdValue: this.toUsdStorageValue(total),
+          },
+        });
+      });
+
+      return updates.length;
+    });
   }
 
   private async applySwapUsdUpdates(
     tx: IngestionPrismaClient,
-    updates: Array<{ txid: string; swapUsdValue: string }>,
+    updates: Array<{
+      txid: string;
+      asset: string | null;
+      amountRaw: string | null;
+      swapUsdValue: string;
+    }>,
   ): Promise<void> {
     if (updates.length === 0) {
       return;
@@ -707,13 +728,24 @@ export class IngestionService {
 
     for (const chunk of this.chunkValues(updates, this.swapUsdUpdateBatchSize)) {
       const values = chunk.map((update) => {
-        return Prisma.sql`(${update.txid}, CAST(${update.swapUsdValue} AS DECIMAL(65, 8)))`;
+        const assetValue = update.asset === null ? Prisma.sql`NULL` : Prisma.sql`${update.asset}`;
+        const amountValue =
+          update.amountRaw === null
+            ? Prisma.sql`NULL`
+            : Prisma.sql`CAST(${update.amountRaw} AS DECIMAL(78, 0))`;
+
+        return Prisma.sql`
+          (${update.txid}, CAST(${update.swapUsdValue} AS DECIMAL(65, 8)), ${assetValue}, ${amountValue})
+        `;
       });
 
       await tx.$executeRaw(Prisma.sql`
         UPDATE "DailyTx" AS "dailyTx"
-        SET "swapUsdValue" = updates."swapUsdValue"
-        FROM (VALUES ${Prisma.join(values)}) AS updates("txid", "swapUsdValue")
+        SET
+          "swapUsdValue" = updates."swapUsdValue",
+          "asset" = updates."asset",
+          "amountRaw" = updates."amountRaw"
+        FROM (VALUES ${Prisma.join(values)}) AS updates("txid", "swapUsdValue", "asset", "amountRaw")
         WHERE "dailyTx"."txid" = updates."txid"
       `);
     }
@@ -746,17 +778,15 @@ export class IngestionService {
       const classification = classifyTransaction(transaction, {
         swapMethodAllowlist: defaultSwapMethods,
       });
-      const primaryTransfer = this.getPrimaryTransfer(transfers);
-      const primaryAsset = normalizeAsset(primaryTransfer?.asset);
-      const primaryAmountRaw = this.toBigInt(primaryTransfer?.amount);
+      const txSummary = await this.buildTransactionSummary(
+        classification.type,
+        transfers,
+        pricingContext,
+      );
       const normalizedFrom = normalizeAddress(classification.from);
       const normalizedTo = normalizeAddress(classification.to);
       const method = normalizeMethod(transaction.invocation?.method);
       const contract = normalizeContract(transaction.invocation?.contract);
-      const swapUsdValue =
-        classification.type === ClassifiedType.SWAP
-          ? await this.calculateSwapUsdValue(transfers, pricingContext)
-          : null;
 
       state.txBuffer.push({
         date: state.day,
@@ -764,9 +794,11 @@ export class IngestionService {
         type: classification.type,
         from: normalizedFrom,
         to: normalizedTo,
-        asset: primaryAsset,
-        amountRaw: primaryAmountRaw?.toString(),
-        swapUsdValue: swapUsdValue ? this.toUsdStorageValue(swapUsdValue) : undefined,
+        asset: txSummary.asset,
+        amountRaw: txSummary.amountRaw?.toString(),
+        swapUsdValue: txSummary.swapUsdValue
+          ? this.toUsdStorageValue(txSummary.swapUsdValue)
+          : undefined,
         transferCount,
         method,
         contract,
@@ -782,7 +814,7 @@ export class IngestionService {
       switch (classification.type) {
         case ClassifiedType.SWAP: {
           state.swapsCount += 1;
-          state.swapsUsdValue = state.swapsUsdValue.add(swapUsdValue ?? 0);
+          state.swapsUsdValue = state.swapsUsdValue.add(txSummary.swapUsdValue ?? 0);
           break;
         }
         case ClassifiedType.ORACLE: {
@@ -1044,6 +1076,28 @@ export class IngestionService {
     return primary ?? transfers[0];
   }
 
+  private async buildTransactionSummary(
+    classificationType: ClassifiedType,
+    transfers: NeoTransfer[],
+    pricingContext: SwapPricingContext,
+  ): Promise<{
+    asset?: string;
+    amountRaw?: bigint;
+    swapUsdValue: Prisma.Decimal | null;
+  }> {
+    const pricing =
+      classificationType === ClassifiedType.SWAP
+        ? await this.calculateSwapPricing(transfers, pricingContext)
+        : { usdValue: null };
+    const preferredTransfer = pricing.anchorTransfer ?? this.getPrimaryTransfer(transfers);
+
+    return {
+      asset: normalizeAsset(preferredTransfer?.asset) ?? undefined,
+      amountRaw: this.toBigInt(preferredTransfer?.amount) ?? undefined,
+      swapUsdValue: pricing.usdValue,
+    };
+  }
+
   private toBigInt(value?: string): bigint | null {
     if (!value) {
       return null;
@@ -1195,11 +1249,14 @@ export class IngestionService {
     }
   }
 
-  private async calculateSwapUsdValue(
+  private async calculateSwapPricing(
     transfers: NeoTransfer[],
     pricingContext: SwapPricingContext,
-  ): Promise<Prisma.Decimal> {
-    let total = new Prisma.Decimal(0);
+  ): Promise<SwapPricingResult> {
+    let best: {
+      transfer: NeoTransfer;
+      usdValue: Prisma.Decimal;
+    } | null = null;
 
     for (const transfer of transfers) {
       const asset = normalizeAsset(transfer.asset);
@@ -1219,10 +1276,19 @@ export class IngestionService {
       }
 
       const scaledAmount = this.scaleAmountRaw(amountRaw, decimals);
-      total = total.add(scaledAmount.mul(price));
+      const usdValue = scaledAmount.mul(price);
+      if (!best || usdValue.greaterThan(best.usdValue)) {
+        best = {
+          transfer,
+          usdValue,
+        };
+      }
     }
 
-    return total;
+    return {
+      anchorTransfer: best?.transfer,
+      usdValue: best?.usdValue ?? null,
+    };
   }
 
   private groupTransfersForPricing(
@@ -1422,5 +1488,87 @@ export class IngestionService {
     }
 
     return state.maxBlockIndex - state.minBlockIndex + 1;
+  }
+
+  private resolveTouchedDayLabels(start: Date, end: Date): string[] {
+    const startTime = start.getTime();
+    const endTime = end.getTime();
+    if (!Number.isFinite(startTime) || !Number.isFinite(endTime) || endTime <= startTime) {
+      return [formatDate(start, 'UTC')];
+    }
+
+    const startDay = parseDate(formatDate(start, 'UTC'));
+    const inclusiveEnd = new Date(endTime - 1);
+    const endDay = parseDate(formatDate(inclusiveEnd, 'UTC'));
+    const days: string[] = [];
+
+    for (
+      let cursor = new Date(startDay);
+      cursor <= endDay;
+      cursor = new Date(cursor.getTime() + DAY_IN_MS)
+    ) {
+      days.push(formatDate(cursor, 'UTC'));
+    }
+
+    return days;
+  }
+
+  private async withDayLock<T>(date: string, callback: () => Promise<T>): Promise<T> {
+    const lockKey = this.buildDayLockKey(date);
+    const holder = randomUUID();
+    const acquired = await this.tryAcquireDayLock(lockKey, holder);
+    if (!acquired) {
+      throw new IngestionBusyError(date);
+    }
+
+    try {
+      return await callback();
+    } finally {
+      await this.releaseDayLock(lockKey, holder);
+    }
+  }
+
+  private buildDayLockKey(date: string): string {
+    const network = this.configService.get<string>('app.neoNetwork') ?? 'MainNet';
+
+    return `${network}:${date}`;
+  }
+
+  private async tryAcquireDayLock(lockKey: string, holder: string): Promise<boolean> {
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + INGESTION_LOCK_TTL_MS);
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.ingestionLock.deleteMany({
+        where: {
+          lockKey,
+          expiresAt: {
+            lte: now,
+          },
+        },
+      });
+
+      const result = await tx.ingestionLock.createMany({
+        data: [
+          {
+            lockKey,
+            holder,
+            expiresAt,
+          },
+        ],
+        skipDuplicates: true,
+      });
+
+      return result.count === 1;
+    });
+  }
+
+  private async releaseDayLock(lockKey: string, holder: string): Promise<void> {
+    await this.prisma.ingestionLock.deleteMany({
+      where: {
+        lockKey,
+        holder,
+      },
+    });
   }
 }
