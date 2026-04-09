@@ -62,6 +62,7 @@ export type DashboardAddress = {
 
 export type DashboardAssetBreakdown = {
   assetLabel: string;
+  assetHref?: string;
   transferCount: string;
   volumeLabel: string;
 };
@@ -214,6 +215,7 @@ export type DayTransaction = {
 
 export type DayAssetStat = {
   assetLabel: string;
+  assetHref?: string;
   transferCount: number;
   volumeLabel: string;
 };
@@ -237,6 +239,89 @@ export type DayData = SharedPageData & {
   assetStats?: DayAssetStat[];
 };
 
+export type AssetSummary = {
+  volumeLabel: string;
+  transferCount: string;
+  txCount: string;
+  activeAddresses: string;
+  uniqueSenders: string;
+  uniqueReceivers: string;
+  swapsCount: string;
+  transfersCount: string;
+  otherCount: string;
+  swapShare: string;
+  transferShare: string;
+  oracleCount: string;
+  gasClaimsCount: string;
+  ignoredCount: string;
+};
+
+export type AssetDefiRelation = {
+  marketSymbol: string;
+  currentPrice: string | null;
+  change24h: string | null;
+  change7d: string | null;
+  change30d: string | null;
+  trackedLiquidityUsd: string | null;
+  trackedLiquidityBalance: string | null;
+  stablecoin: boolean;
+  hasMarketPrice: boolean;
+  hasTrackedLiquidity: boolean;
+};
+
+export type AssetTypeBreakdown = {
+  key: string;
+  label: string;
+  count: string;
+  share: string;
+};
+
+export type AssetDailyActivity = {
+  dateLabel: string;
+  dayHref: string;
+  transferCount: string;
+  txCount: string;
+  uniqueSenders: string;
+  uniqueReceivers: string;
+  volumeLabel: string;
+};
+
+export type AssetAddress = {
+  address: string;
+  shortAddress: string;
+  addressLabel?: string;
+  transferCount: string;
+  volumeLabel: string;
+};
+
+export type AssetRecentTransaction = {
+  txid: string;
+  shortTxid: string;
+  timestampLabel: string;
+  dayLabel: string;
+  dayHref: string;
+  type: string;
+  amountLabel: string;
+  transferCount: string;
+  method: string | null;
+};
+
+export type AssetData = SharedPageData & {
+  nav?: NavState;
+  assetLabel?: string;
+  assetId?: string;
+  rangeLabel?: string;
+  rangeFrom?: string;
+  rangeTo?: string;
+  summary?: AssetSummary | null;
+  defiRelation?: AssetDefiRelation | null;
+  typeBreakdown?: AssetTypeBreakdown[];
+  dailyActivity?: AssetDailyActivity[];
+  topSenders?: AssetAddress[];
+  topReceivers?: AssetAddress[];
+  recentTransactions?: AssetRecentTransaction[];
+};
+
 export type AdminData = SharedPageData & {
   email?: string;
   defaultDate?: string;
@@ -249,4 +334,11 @@ export type AdminLoginData = SharedPageData & {
   error?: string;
 };
 
-export type PageData = DashboardData | DefiData | DaysData | DayData | AdminData | AdminLoginData;
+export type PageData =
+  | DashboardData
+  | DefiData
+  | DaysData
+  | DayData
+  | AssetData
+  | AdminData
+  | AdminLoginData;

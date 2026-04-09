@@ -36,6 +36,7 @@ describe('DayPage', () => {
       assetStats: [
         {
           assetLabel: 'NEO',
+          assetHref: '/asset/NEO?from=2024-01-01&to=2024-01-01',
           transferCount: 3,
           volumeLabel: '20',
         },
@@ -78,6 +79,10 @@ describe('DayPage', () => {
     expect(screen.getByText('Oracle transactions (subset)')).toBeInTheDocument();
     expect(screen.getByText('Included in transactions excluding GAS claims')).toBeInTheDocument();
     expect(screen.getByText('Asset transfer volume')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'NEO' })).toHaveAttribute(
+      'href',
+      '/asset/NEO?from=2024-01-01&to=2024-01-01',
+    );
     expect(screen.getByText('Transaction explorer')).toBeInTheDocument();
     expect(screen.getByText('Showing 1-1 of 3 transactions')).toBeInTheDocument();
     expect(screen.getByText('Page 1 of 3')).toBeInTheDocument();

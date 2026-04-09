@@ -768,6 +768,15 @@ h3 {
   font-size: 0.95rem;
 }
 
+.list-card a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.list-card a:hover {
+  text-decoration: underline;
+}
+
 .list-card .performance-change.is-positive {
   color: var(--accent);
 }
@@ -1451,6 +1460,18 @@ h3 {
   border: 1px solid rgba(var(--accent-rgb), 0.08);
   color: var(--ink);
   line-height: 1.55;
+}
+
+.asset-type-list li {
+  align-items: center;
+}
+
+.asset-address-value {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+  gap: 4px;
 }
 
 [data-animate] {

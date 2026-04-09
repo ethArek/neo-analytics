@@ -2,6 +2,7 @@ import { join } from 'node:path';
 import { expect, type Page, type TestInfo, test } from '@playwright/test';
 import type {
   AdminLoginData,
+  AssetData,
   DashboardData,
   DayData,
   DaysData,
@@ -64,6 +65,85 @@ const defiSeed: PageSeed<DefiData> = {
   data: {
     nav: {
       defi: true,
+    },
+    tokenPerformance: {
+      last24h: {
+        label: 'Last 24h',
+        gainers: [
+          {
+            symbol: 'FUSD',
+            detail: '$1.00',
+            changeLabel: '+0.15%',
+            tone: 'positive',
+          },
+        ],
+        losers: [
+          {
+            symbol: 'GAS',
+            detail: '$3.21',
+            changeLabel: '-1.10%',
+            tone: 'negative',
+          },
+        ],
+      },
+      last7d: {
+        label: 'Last 7 days',
+        gainers: [
+          {
+            symbol: 'NEO',
+            detail: '$12.34',
+            changeLabel: '+5.20%',
+            tone: 'positive',
+          },
+        ],
+        losers: [
+          {
+            symbol: 'WBTC',
+            detail: '$65,000.00',
+            changeLabel: '-2.30%',
+            tone: 'negative',
+          },
+        ],
+      },
+      last30d: {
+        label: 'Last 30 days',
+        gainers: [
+          {
+            symbol: 'bNEO',
+            detail: '$13.10',
+            changeLabel: '+12.00%',
+            tone: 'positive',
+          },
+        ],
+        losers: [
+          {
+            symbol: 'FLM',
+            detail: '$0.08',
+            changeLabel: '-9.20%',
+            tone: 'negative',
+          },
+        ],
+      },
+    },
+    onChainOverview: {
+      latestDayDexVolume: '$12,000.00',
+      latestDayLabel: '2026-03-10',
+      last7dDexVolume: '$45,123.90',
+      last7dLabel: '2026-03-04 to 2026-03-10',
+      recentVolumeNotice: 'Partial coverage',
+      trackedTvl: '$719,999.31',
+      stablecoinLiquidity: '$306,986.22',
+      stablecoinShare: '42.64%',
+      poolCount: '60',
+      pricedAssets: '10',
+      topLiquidityAssets: [
+        {
+          symbol: 'FUSD',
+          balanceLabel: '293,276.14',
+          usdValueLabel: '$272,479.53',
+          stablecoin: true,
+        },
+      ],
     },
     totals: {
       estimatedSwapUsdValue: '$45,123.90',
@@ -179,6 +259,96 @@ const faqSeed: PageSeed<DashboardData> = {
   },
 };
 
+const assetSeed: PageSeed<AssetData> = {
+  page: 'asset',
+  data: {
+    nav: {
+      dashboard: true,
+    },
+    assetLabel: 'FUSD',
+    assetId: '0xfusd',
+    rangeLabel: '2026-03-01 to 2026-03-07',
+    rangeFrom: '2026-03-01',
+    rangeTo: '2026-03-07',
+    summary: {
+      volumeLabel: '12,340.00',
+      transferCount: '210',
+      txCount: '140',
+      activeAddresses: '98',
+      uniqueSenders: '52',
+      uniqueReceivers: '63',
+      swapsCount: '82',
+      transfersCount: '48',
+      otherCount: '10',
+      swapShare: '58.57%',
+      transferShare: '34.29%',
+      oracleCount: '4',
+      gasClaimsCount: '1',
+      ignoredCount: '5',
+    },
+    defiRelation: {
+      marketSymbol: 'FUSD',
+      currentPrice: '$1.00',
+      change24h: '+0.15%',
+      change7d: '-1.20%',
+      change30d: '-2.10%',
+      trackedLiquidityUsd: '$272,479.53',
+      trackedLiquidityBalance: '293,276.14',
+      stablecoin: true,
+      hasMarketPrice: true,
+      hasTrackedLiquidity: true,
+    },
+    typeBreakdown: [
+      {
+        key: 'SWAP',
+        label: 'Swap',
+        count: '82',
+        share: '58.57%',
+      },
+    ],
+    dailyActivity: [
+      {
+        dateLabel: '2026-03-07',
+        dayHref: '/day/2026-03-07',
+        transferCount: '32',
+        txCount: '20',
+        uniqueSenders: '12',
+        uniqueReceivers: '14',
+        volumeLabel: '1,240.00',
+      },
+    ],
+    topSenders: [
+      {
+        address: 'Nsender',
+        shortAddress: 'Nsend...nder',
+        transferCount: '44',
+        volumeLabel: '5,500.00',
+      },
+    ],
+    topReceivers: [
+      {
+        address: 'Nreceiver',
+        shortAddress: 'Nrece...iver',
+        transferCount: '40',
+        volumeLabel: '4,800.00',
+      },
+    ],
+    recentTransactions: [
+      {
+        txid: '0xabc123',
+        shortTxid: '0xabc1...c123',
+        timestampLabel: '2026-03-07 12:30 UTC',
+        dayLabel: '2026-03-07',
+        dayHref: '/day/2026-03-07',
+        type: 'Swap',
+        amountLabel: '1,000.00',
+        transferCount: '2',
+        method: 'swapTokens',
+      },
+    ],
+  },
+};
+
 const adminLoginSeed: PageSeed<AdminLoginData> = {
   page: 'admin-login',
   data: {
@@ -213,22 +383,19 @@ test.describe('frontend rendering', () => {
     await seedAppPage(page, dashboardSeed);
     await expect(page.getByRole('heading', { name: 'Yesterday stats' })).toBeVisible();
     await expect(
-      page.locator('.summary-grid').getByText('Transactions excluding GAS claims'),
+      page.locator('.summary-grid span').filter({ hasText: /^Transactions excluding GAS claims$/ }),
     ).toBeVisible();
-    await expect(page.getByText('DeFi metrics')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Range analytics' })).toBeVisible();
     await expect(page.getByText('Top senders')).toBeVisible();
     await captureScreenshot(page, testInfo, 'dashboard.png');
   });
 
   test('defi page renders boundary and table', async ({ page }, testInfo) => {
     await seedAppPage(page, defiSeed);
-    await expect(
-      page.getByRole('heading', {
-        name: 'Estimated swap USD metrics with a clear historical boundary.',
-      }),
-    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'DeFi overview' })).toBeVisible();
+    await expect(page.getByText('On-chain liquidity and recent volume')).toBeVisible();
     await expect(page.getByText('Partial coverage')).toBeVisible();
-    await expect(page.getByRole('cell', { name: '$12,000.00' })).toBeVisible();
+    await expect(page.getByText('$12,000.00')).toBeVisible();
     await captureScreenshot(page, testInfo, 'defi.png');
   });
 
@@ -256,6 +423,14 @@ test.describe('frontend rendering', () => {
     await expect(page.getByText('How often is data updated?')).toBeVisible();
     await expect(page.getByRole('link', { name: 'Open dashboard' })).toBeVisible();
     await captureScreenshot(page, testInfo, 'faq.png');
+  });
+
+  test('asset page renders detail sections', async ({ page }, testInfo) => {
+    await seedAppPage(page, assetSeed);
+    await expect(page.getByRole('heading', { name: 'FUSD' })).toBeVisible();
+    await expect(page.getByText('DeFi relation')).toBeVisible();
+    await expect(page.getByText('Recent transactions')).toBeVisible();
+    await captureScreenshot(page, testInfo, 'asset.png');
   });
 
   test('admin login renders form fields', async ({ page }, testInfo) => {

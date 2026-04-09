@@ -1,6 +1,7 @@
 import type React from 'react';
 import { AdminLoginPage } from './pages/AdminLoginPage';
 import { AdminPage } from './pages/AdminPage';
+import { AssetPage } from './pages/AssetPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { DayPage } from './pages/DayPage';
 import { DaysPage } from './pages/DaysPage';
@@ -15,6 +16,7 @@ const pages: Record<string, React.FC> = {
   defi: DefiPage,
   days: DaysPage,
   day: DayPage,
+  asset: AssetPage,
   faq: FaqPage,
   'special-thanks': SpecialThanksPage,
   admin: AdminPage,
