@@ -14,6 +14,9 @@ import { AdminController } from './admin/admin.controller';
 import { AdminService } from './admin/admin.service';
 import { AssetMetadataService } from './web/asset-metadata.service';
 import { DefiLiquidityService } from './web/defi-liquidity.service';
+import { NeoXHistoryJob } from './web/neo-x-history.job';
+import { NeoXHistoryService } from './web/neo-x-history.service';
+import { NeoXService } from './web/neo-x.service';
 import { TokenPerformanceService } from './web/token-performance.service';
 
 @Module({
@@ -34,6 +37,9 @@ import { TokenPerformanceService } from './web/token-performance.service';
     AssetMetadataService,
     TokenPerformanceService,
     DefiLiquidityService,
+    NeoXService,
+    NeoXHistoryService,
+    NeoXHistoryJob,
     {
       provide: NEO_CLIENT,
       useClass: RpcNeoClient,

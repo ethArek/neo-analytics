@@ -159,8 +159,8 @@ export const DashboardPage: React.FC = () => {
                       {asset.assetLabel}
                     </a>
                   ) : (
-                    <div className="mono">{asset.assetLabel}</div>
-                  )}
+                    <span className="mono">{asset.assetLabel}</span>
+                  )}{' '}
                   <small>{asset.transferCount} transfers</small>
                 </div>
                 <strong>{asset.volumeLabel}</strong>

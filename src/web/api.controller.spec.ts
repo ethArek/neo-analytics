@@ -56,11 +56,26 @@ class IngestionServiceStub {
   }
 }
 
+class NeoXHistoryServiceStub {
+  async syncRecentHistory(): Promise<{
+    availableFrom: string | null;
+    availableTo: string | null;
+    persistedDays: number;
+  }> {
+    return {
+      availableFrom: '2026-03-01',
+      availableTo: '2026-04-10',
+      persistedDays: 41,
+    };
+  }
+}
+
 describe('ApiController', () => {
   it('serializes transactions excluding GAS claims in summary totals', async () => {
     const controller = Reflect.construct(ApiController, [
       new StatsServiceStub(),
       new IngestionServiceStub(),
+      new NeoXHistoryServiceStub(),
       new ConfigService({
         app: {
           adminToken: 'secret',
@@ -92,6 +107,7 @@ describe('ApiController', () => {
     const controller = Reflect.construct(ApiController, [
       new StatsServiceStub(),
       new IngestionServiceStub(),
+      new NeoXHistoryServiceStub(),
       new ConfigService({
         app: {
           adminToken: 'secret',
@@ -112,6 +128,7 @@ describe('ApiController', () => {
     const controller = Reflect.construct(ApiController, [
       new StatsServiceStub(),
       ingestionService,
+      new NeoXHistoryServiceStub(),
       new ConfigService({
         app: {
           adminToken: 'secret',
@@ -140,6 +157,7 @@ describe('ApiController', () => {
     const controller = Reflect.construct(ApiController, [
       new StatsServiceStub(),
       new IngestionServiceStub(),
+      new NeoXHistoryServiceStub(),
       new ConfigService({
         app: {
           adminToken: 'secret',
@@ -160,6 +178,7 @@ describe('ApiController', () => {
     const controller = Reflect.construct(ApiController, [
       new StatsServiceStub(),
       ingestionService,
+      new NeoXHistoryServiceStub(),
       new ConfigService({
         app: {
           adminToken: 'secret',
@@ -176,6 +195,55 @@ describe('ApiController', () => {
       status: 'error',
       message: 'Ingestion already running for 2026-03-01.',
       date: '2026-03-01',
+    });
+  });
+
+  it('syncs Neo X history when authorized', async () => {
+    const neoXHistoryService = new NeoXHistoryServiceStub();
+    const controller = Reflect.construct(ApiController, [
+      new StatsServiceStub(),
+      new IngestionServiceStub(),
+      neoXHistoryService,
+      new ConfigService({
+        app: {
+          adminToken: 'secret',
+        },
+      }),
+    ]) as ApiController;
+    const syncSpy = jest.spyOn(neoXHistoryService, 'syncRecentHistory').mockResolvedValue({
+      availableFrom: '2026-03-01',
+      availableTo: '2026-04-10',
+      persistedDays: 41,
+    });
+
+    const result = await controller.syncNeoXHistory('secret');
+
+    expect(syncSpy).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({
+      status: 'ok',
+      availableFrom: '2026-03-01',
+      availableTo: '2026-04-10',
+      persistedDays: 41,
+    });
+  });
+
+  it('rejects Neo X history sync when unauthorized', async () => {
+    const controller = Reflect.construct(ApiController, [
+      new StatsServiceStub(),
+      new IngestionServiceStub(),
+      new NeoXHistoryServiceStub(),
+      new ConfigService({
+        app: {
+          adminToken: 'secret',
+        },
+      }),
+    ]) as ApiController;
+
+    const result = await controller.syncNeoXHistory('wrong');
+
+    expect(result).toEqual({
+      status: 'error',
+      message: 'Unauthorized',
     });
   });
 });

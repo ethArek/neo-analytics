@@ -794,6 +794,17 @@ h3 {
   font-size: 0.75rem;
 }
 
+.neo-x-tokens-scroll {
+  max-height: 640px;
+  margin-top: 12px;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.neo-x-tokens-scroll ul {
+  margin-top: 0;
+}
+
 .performance-empty {
   margin-top: 12px;
 }

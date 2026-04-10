@@ -5,6 +5,7 @@ import { Prisma } from '@prisma/client';
 import { formatDate, parseDate, yesterdayInTimeZone } from '../ingestion/date-utils';
 import { IngestionBusyError, IngestionService } from '../ingestion/ingestion.service';
 import { StatsService } from '../stats/stats.service';
+import { NeoXHistoryService } from './neo-x-history.service';
 
 @ApiTags('stats')
 @Controller('api')
@@ -14,6 +15,7 @@ export class ApiController {
   constructor(
     @Inject(StatsService) private readonly statsService: StatsService,
     @Inject(IngestionService) private readonly ingestionService: IngestionService,
+    @Inject(NeoXHistoryService) private readonly neoXHistoryService: NeoXHistoryService,
     @Inject(ConfigService) private readonly configService: ConfigService,
   ) {}
 
@@ -162,6 +164,27 @@ export class ApiController {
     }
 
     return { status: 'ok', date: target };
+  }
+
+  @Post('jobs/neo-x-sync')
+  @ApiExcludeEndpoint()
+  async syncNeoXHistory(@Headers('x-admin-token') token?: string) {
+    if (!this.isAuthorized(token)) {
+      return { status: 'error', message: 'Unauthorized' };
+    }
+
+    try {
+      const result = await this.neoXHistoryService.syncRecentHistory();
+
+      return {
+        status: 'ok',
+        availableFrom: result.availableFrom,
+        availableTo: result.availableTo,
+        persistedDays: result.persistedDays,
+      };
+    } catch (error) {
+      return this.serializeJobError(error);
+    }
   }
 
   @Post('jobs/rebuild')

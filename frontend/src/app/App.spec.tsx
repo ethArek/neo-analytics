@@ -9,6 +9,10 @@ jest.mock('../charts/defi', () => ({
   initDefiCharts: jest.fn(),
 }));
 
+jest.mock('../charts/neo-x', () => ({
+  initNeoXCharts: jest.fn(),
+}));
+
 describe('App', () => {
   beforeEach(() => {
     delete window.__PAGE__;
@@ -90,6 +94,29 @@ describe('App', () => {
 
     expect(screen.getByRole('heading', { name: 'FUSD' })).toBeInTheDocument();
     expect(screen.getByText('DeFi relation')).toBeInTheDocument();
+  });
+
+  it('renders the Neo X page when requested', () => {
+    window.__PAGE__ = 'neo-x';
+    window.__PAGE_DATA__ = {
+      nav: {
+        neoX: true,
+      },
+      rangeLabel: '2026-04-01 to 2026-04-08',
+      summaryCards: [
+        {
+          label: 'Transactions in range',
+          value: '300',
+        },
+      ],
+      recentTransactions: [],
+      topTokens: [],
+    };
+
+    render(<App />);
+
+    expect(screen.getByRole('heading', { name: 'Neo X overview' })).toBeInTheDocument();
+    expect(screen.getByText('Transactions in range')).toBeInTheDocument();
   });
 
   it('falls back to the dashboard page', () => {

@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { ApiExcludeController } from '@nestjs/swagger';
 import { Prisma } from '@prisma/client';
 import type { Response } from 'express';
+import { getConfigUrl } from '../common/config.utils';
 import { isStablecoinSymbol, normalizeAsset } from '../common/normalize.utils';
 import { formatDate, parseDate, yesterdayInTimeZone } from '../ingestion/date-utils';
 import { StatsService } from '../stats/stats.service';
@@ -17,9 +18,20 @@ import {
   resolveFlamingoRecentVolume,
   resolveRecentVolumeWindow,
 } from './defi-recent-volume';
+import { NeoXHistoryService } from './neo-x-history.service';
+import { DEFAULT_NEO_X_RECENT_TRANSACTIONS_LIMIT, NeoXService } from './neo-x.service';
+import type { NeoXNetworkStats } from './neo-x.service.types';
 import { renderReactPage } from './react-view';
 import { TokenPerformanceService } from './token-performance.service';
 import type { StatTotals } from './web.controller.types';
+
+type ResolvedNeoXRange = {
+  status: 'ready' | 'partial' | 'empty' | 'invalid' | 'unavailable';
+  requestedFrom: string | null;
+  requestedTo: string | null;
+  effectiveFrom: string | null;
+  effectiveTo: string | null;
+};
 
 @ApiExcludeController()
 @Controller()
@@ -38,6 +50,9 @@ export class WebController {
     private readonly tokenPerformanceService: TokenPerformanceService,
     @Inject(DefiLiquidityService)
     private readonly defiLiquidityService: DefiLiquidityService,
+    @Inject(NeoXHistoryService)
+    private readonly neoXHistoryService: NeoXHistoryService,
+    @Inject(NeoXService) private readonly neoXService: NeoXService,
   ) {}
 
   @Get('/favicon.ico')
@@ -176,6 +191,119 @@ export class WebController {
             transferCount: formatNumber(entry.transferCount),
           })),
           assetBreakdown,
+        },
+      }),
+    );
+  }
+
+  @Get('/neo-x')
+  async neoX(@Res() res: Response, @Query('from') from?: string, @Query('to') to?: string) {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    const [marketPrices, dashboardHistory, recentTransactions, topTokens] = await Promise.all([
+      this.getMarketPrices(),
+      this.neoXHistoryService.getDashboardHistory(),
+      this.neoXService.getRecentTransactions(DEFAULT_NEO_X_RECENT_TRANSACTIONS_LIMIT),
+      this.neoXService.getTopTokens(20),
+    ]);
+    const networkStats = dashboardHistory.networkStats;
+    const transactionChart = dashboardHistory.transactionChart;
+    const availableFrom = transactionChart[0]?.date ?? '';
+    const availableTo = transactionChart[transactionChart.length - 1]?.date ?? '';
+    const range = this.resolveNeoXRange({
+      requestedFrom: from,
+      requestedTo: to,
+      availableFrom,
+      availableTo,
+      fallbackDays: 30,
+    });
+    const neoXRangeFrom = range.effectiveFrom;
+    const neoXRangeTo = range.effectiveTo;
+    const filteredTransactionChart =
+      neoXRangeFrom && neoXRangeTo
+        ? transactionChart.filter((point) => {
+            return point.date >= neoXRangeFrom && point.date <= neoXRangeTo;
+          })
+        : [];
+    const hasExplorerData = Boolean(networkStats) || transactionChart.length > 0;
+    const hasVisibleTransactionHistory =
+      filteredTransactionChart.length > 0 || transactionChart.length === 0;
+    const status =
+      range.status === 'invalid'
+        ? 'error'
+        : !hasExplorerData
+          ? 'error'
+          : range.status === 'empty' || !hasVisibleTransactionHistory
+            ? 'empty'
+            : 'ready';
+    const message =
+      range.status === 'invalid'
+        ? 'Choose a valid date range. "From" must be on or before "To".'
+        : !hasExplorerData
+          ? 'Neo X explorer data is temporarily unavailable.'
+          : range.status === 'empty' || !hasVisibleTransactionHistory
+            ? 'No Neo X transaction history is available for the selected range yet.'
+            : null;
+    const summaryCards = this.buildNeoXSummaryCards(
+      filteredTransactionChart,
+      networkStats,
+      neoXRangeFrom,
+      neoXRangeTo,
+      availableTo,
+    );
+    const chartData =
+      filteredTransactionChart.length > 0
+        ? this.buildNeoXChartData(filteredTransactionChart)
+        : null;
+    const rangeFrom = range.requestedFrom ?? neoXRangeFrom ?? '';
+    const rangeTo = range.requestedTo ?? neoXRangeTo ?? rangeFrom;
+
+    return res.send(
+      renderReactPage({
+        title: 'Neo Analytics - Neo X',
+        page: 'neo-x',
+        data: {
+          marketPrices,
+          nav: {
+            neoX: true,
+          },
+          status,
+          message,
+          rangeLabel:
+            this.buildNeoXRangeLabel(neoXRangeFrom, neoXRangeTo) ??
+            this.buildNeoXRangeLabel(range.requestedFrom, range.requestedTo) ??
+            'Live explorer snapshot',
+          rangeFrom,
+          rangeTo,
+          availableRangeLabel: this.buildNeoXRangeLabel(availableFrom, availableTo),
+          summaryCards,
+          chartData,
+          recentTransactions: recentTransactions.map((transaction) => ({
+            hash: transaction.hash,
+            shortHash: this.shortenAddress(transaction.hash),
+            timestampLabel:
+              this.formatNeoXTimestamp(transaction.timestamp) ?? transaction.timestamp,
+            methodLabel: this.formatNeoXMethodLabel(transaction.method),
+            statusLabel: this.formatNeoXStatusLabel(transaction.status),
+            fromLabel: this.formatNeoXAddressLabel(transaction.from),
+            fromMeta: transaction.from?.hash ?? '-',
+            fromHref: this.buildNeoXExplorerAddressHref(transaction.from?.hash),
+            toLabel: this.formatNeoXAddressLabel(transaction.to),
+            toMeta: transaction.to?.hash ?? '-',
+            toHref: this.buildNeoXExplorerAddressHref(transaction.to?.hash),
+            feeLabel: this.formatNeoXNativeAmount(transaction.feeWei),
+            typeLabel: this.formatNeoXTypeLabel(transaction.txTypes),
+          })),
+          topTokens: topTokens.map((token) => ({
+            address: token.address,
+            shortAddress: this.shortenAddress(token.address),
+            symbol: token.symbol,
+            name: token.name,
+            holdersLabel: token.holders === null ? '-' : formatNumber(token.holders),
+            totalSupplyLabel: this.formatNeoXTokenSupply(token.totalSupply, token.decimals),
+            typeLabel: token.type ?? 'Token',
+          })),
         },
       }),
     );
@@ -673,6 +801,363 @@ export class WebController {
         },
       }),
     );
+  }
+
+  private resolveNeoXRange(params: {
+    requestedFrom?: string;
+    requestedTo?: string;
+    availableFrom?: string;
+    availableTo?: string;
+    fallbackDays: number;
+  }): ResolvedNeoXRange {
+    const availableFrom = normalizeIsoDate(params.availableFrom);
+    const availableTo = normalizeIsoDate(params.availableTo);
+    const requestedFrom = normalizeIsoDate(params.requestedFrom);
+    const requestedTo = normalizeIsoDate(params.requestedTo);
+    if (!availableFrom || !availableTo) {
+      return {
+        status: 'unavailable',
+        requestedFrom,
+        requestedTo,
+        effectiveFrom: null,
+        effectiveTo: null,
+      };
+    }
+
+    const fallbackTo = availableTo;
+    const tentativeFallbackFrom = this.shiftIsoDate(fallbackTo, -(params.fallbackDays - 1));
+    const fallbackFrom =
+      tentativeFallbackFrom < availableFrom ? availableFrom : tentativeFallbackFrom;
+    const normalizedFrom = requestedFrom ?? fallbackFrom;
+    const normalizedTo = requestedTo ?? fallbackTo;
+    if (normalizedFrom > normalizedTo) {
+      return {
+        status: 'invalid',
+        requestedFrom: normalizedFrom,
+        requestedTo: normalizedTo,
+        effectiveFrom: null,
+        effectiveTo: null,
+      };
+    }
+
+    const effectiveFrom = normalizedFrom < availableFrom ? availableFrom : normalizedFrom;
+    const effectiveTo = normalizedTo > availableTo ? availableTo : normalizedTo;
+    if (effectiveFrom > effectiveTo) {
+      return {
+        status: 'empty',
+        requestedFrom: normalizedFrom,
+        requestedTo: normalizedTo,
+        effectiveFrom: null,
+        effectiveTo: null,
+      };
+    }
+
+    return {
+      status:
+        effectiveFrom !== normalizedFrom || effectiveTo !== normalizedTo ? 'partial' : 'ready',
+      requestedFrom: normalizedFrom,
+      requestedTo: normalizedTo,
+      effectiveFrom,
+      effectiveTo,
+    };
+  }
+
+  private buildNeoXSummaryCards(
+    points: Array<{
+      date: string;
+      txCount: number;
+    }>,
+    networkStats: NeoXNetworkStats | null,
+    rangeFrom: string | null,
+    rangeTo: string | null,
+    latestAvailableDay: string,
+  ) {
+    const totalTransactions = points.reduce((total, point) => total + point.txCount, 0);
+    const coveredDays = countInclusiveDays(rangeFrom, rangeTo);
+    const averageTransactions =
+      coveredDays > 0 ? Math.round((totalTransactions / coveredDays) * 100) / 100 : null;
+    const peakDay = points.reduce<{ date: string; txCount: number } | null>((current, point) => {
+      if (!current || point.txCount > current.txCount) {
+        return point;
+      }
+
+      return current;
+    }, null);
+
+    return [
+      {
+        label: 'Transactions in range',
+        value: points.length > 0 ? formatNumber(totalTransactions) : '-',
+        detail:
+          coveredDays > 0
+            ? `${formatNumber(coveredDays)} day${coveredDays === 1 ? '' : 's'} covered`
+            : 'No transaction history for this range',
+        accent: true,
+      },
+      {
+        label: 'Average per day',
+        value:
+          averageTransactions === null ? '-' : this.formatNeoXCompactNumber(averageTransactions),
+        detail:
+          coveredDays > 0
+            ? `Across ${formatNumber(coveredDays)} selected day${coveredDays === 1 ? '' : 's'}`
+            : 'Waiting for range activity',
+      },
+      {
+        label: 'Peak day',
+        value: peakDay ? formatNumber(peakDay.txCount) : '-',
+        detail: peakDay ? peakDay.date : 'No peak day in this range',
+      },
+      {
+        label: 'Transactions today',
+        value:
+          networkStats?.transactionsToday === null || networkStats?.transactionsToday === undefined
+            ? '-'
+            : formatNumber(networkStats.transactionsToday),
+        detail: latestAvailableDay || 'Explorer snapshot',
+      },
+      {
+        label: 'Total addresses',
+        value:
+          networkStats?.totalAddresses === null || networkStats?.totalAddresses === undefined
+            ? '-'
+            : formatNumber(networkStats.totalAddresses),
+        detail: 'Explorer-reported network total',
+      },
+      {
+        label: 'Total blocks',
+        value:
+          networkStats?.totalBlocks === null || networkStats?.totalBlocks === undefined
+            ? '-'
+            : formatNumber(networkStats.totalBlocks),
+        detail: 'Explorer-reported network total',
+      },
+      {
+        label: 'Average block time',
+        value: this.formatNeoXDuration(networkStats?.averageBlockTimeMs ?? null),
+        detail: 'Recent explorer average',
+      },
+      {
+        label: 'Average gas price',
+        value: this.formatNeoXGasPrice(networkStats?.averageGasPriceGwei ?? null),
+        detail: 'Explorer-reported average',
+      },
+      {
+        label: 'Gas used today',
+        value: this.formatNeoXIntegerValue(networkStats?.gasUsedToday ?? null),
+        detail: latestAvailableDay || 'Latest UTC day',
+      },
+    ];
+  }
+
+  private buildNeoXChartData(points: Array<{ date: string; txCount: number }>) {
+    const labels = points.map((point) => point.date);
+    const transactions = points.map((point) => point.txCount);
+    const rollingAverage = transactions.map((_, index) => {
+      const start = Math.max(0, index - 6);
+      const window = transactions.slice(start, index + 1);
+      const sum = window.reduce((total, value) => total + value, 0);
+
+      return Math.round(sum / window.length);
+    });
+    let runningTotal = 0;
+    const cumulativeTransactions = transactions.map((value) => {
+      runningTotal += value;
+
+      return runningTotal;
+    });
+
+    return {
+      labels,
+      series: {
+        transactions,
+        rollingAverage,
+        cumulativeTransactions,
+      },
+    };
+  }
+
+  private buildNeoXRangeLabel(from?: string | null, to?: string | null): string | null {
+    const normalizedFrom = normalizeIsoDate(from);
+    const normalizedTo = normalizeIsoDate(to);
+    if (!normalizedFrom || !normalizedTo) {
+      return null;
+    }
+
+    return `${normalizedFrom} to ${normalizedTo}`;
+  }
+
+  private formatNeoXTimestamp(value?: string | null): string | null {
+    if (!value) {
+      return null;
+    }
+
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return null;
+    }
+
+    return parsed.toISOString().replace('T', ' ').replace('.000Z', ' UTC');
+  }
+
+  private formatNeoXMethodLabel(value?: string | null): string {
+    if (!value) {
+      return 'Contract interaction';
+    }
+
+    return value;
+  }
+
+  private formatNeoXStatusLabel(value: string): string {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'ok' || normalized === 'success') {
+      return 'Success';
+    }
+
+    if (normalized === 'error' || normalized === 'failed') {
+      return 'Failed';
+    }
+
+    return value;
+  }
+
+  private formatNeoXTypeLabel(values: string[]): string {
+    if (values.length === 0) {
+      return 'General';
+    }
+
+    return values
+      .slice(0, 2)
+      .map((value) => value.replace(/[_-]+/g, ' '))
+      .map((value) => value.replace(/\b\w/g, (match) => match.toUpperCase()))
+      .join(', ');
+  }
+
+  private formatNeoXAddressLabel(
+    value:
+      | {
+          hash: string;
+          name: string | null;
+        }
+      | null
+      | undefined,
+  ): string {
+    if (!value) {
+      return '-';
+    }
+
+    return value.name ?? this.shortenAddress(value.hash);
+  }
+
+  private buildNeoXExplorerAddressHref(value?: string | null): string | null {
+    if (!value) {
+      return null;
+    }
+
+    const baseUrl = this.getNeoXExplorerBaseUrl();
+    if (!baseUrl) {
+      return null;
+    }
+
+    return `${baseUrl}/address/${encodeURIComponent(value)}`;
+  }
+
+  private getNeoXExplorerBaseUrl(): string | null {
+    const apiUrl = getConfigUrl(this.configService, 'app.neoXExplorerApiUrl');
+    if (!apiUrl) {
+      return null;
+    }
+
+    if (apiUrl.endsWith('/api/v2')) {
+      return apiUrl.slice(0, -'/api/v2'.length);
+    }
+
+    const apiMarkerIndex = apiUrl.indexOf('/api/');
+    if (apiMarkerIndex >= 0) {
+      return apiUrl.slice(0, apiMarkerIndex);
+    }
+
+    return apiUrl;
+  }
+
+  private formatNeoXDuration(value: number | null): string {
+    if (value === null || !Number.isFinite(value) || value <= 0) {
+      return '-';
+    }
+
+    const seconds = value >= 1000 ? value / 1000 : value;
+
+    return `${seconds.toFixed(seconds >= 10 ? 1 : 2)} s`;
+  }
+
+  private formatNeoXGasPrice(value: number | null): string {
+    if (value === null || !Number.isFinite(value) || value <= 0) {
+      return '-';
+    }
+
+    return `${value.toFixed(value >= 10 ? 2 : 3)} Gwei`;
+  }
+
+  private formatNeoXIntegerValue(value: string | null): string {
+    if (!value) {
+      return '-';
+    }
+
+    try {
+      return new Intl.NumberFormat('en-US').format(BigInt(value));
+    } catch (_error) {
+      return value;
+    }
+  }
+
+  private formatNeoXNativeAmount(value: string | null): string {
+    if (!value) {
+      return '-';
+    }
+
+    try {
+      const raw = formatUnits(BigInt(value), 18);
+
+      return this.formatNeoXDecimalString(raw, 6);
+    } catch (_error) {
+      return value;
+    }
+  }
+
+  private formatNeoXTokenSupply(value: string | null, decimals: number | null): string {
+    if (!value) {
+      return '-';
+    }
+
+    try {
+      const raw = formatUnits(BigInt(value), decimals ?? 0);
+
+      return this.formatNeoXDecimalString(raw, 4);
+    } catch (_error) {
+      return value;
+    }
+  }
+
+  private formatNeoXDecimalString(value: string, maxFractionDigits: number): string {
+    const [wholePart, fractionPart = ''] = value.split('.');
+    const groupedWhole = wholePart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    const trimmedFraction = fractionPart.slice(0, maxFractionDigits).replace(/0+$/, '');
+    if (!trimmedFraction) {
+      return groupedWhole;
+    }
+
+    return `${groupedWhole}.${trimmedFraction}`;
+  }
+
+  private formatNeoXCompactNumber(value: number): string {
+    if (!Number.isFinite(value)) {
+      return '-';
+    }
+
+    return new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: value % 1 === 0 ? 0 : 2,
+      maximumFractionDigits: 2,
+    }).format(value);
   }
 
   private getDefiMetricsAvailableFrom(): string | null {

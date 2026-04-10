@@ -7,12 +7,14 @@ import { DayPage } from './pages/DayPage';
 import { DaysPage } from './pages/DaysPage';
 import { DefiPage } from './pages/DefiPage';
 import { FaqPage } from './pages/FaqPage';
+import { NeoXPage } from './pages/NeoXPage';
 import { SpecialThanksPage } from './pages/SpecialThanksPage';
 import { ThemeProvider } from './theme';
 import { getPageName } from './utils';
 
 const pages: Record<string, React.FC> = {
   dashboard: DashboardPage,
+  'neo-x': NeoXPage,
   defi: DefiPage,
   days: DaysPage,
   day: DayPage,

@@ -7,6 +7,7 @@ import type {
   DayData,
   DaysData,
   DefiData,
+  NeoXData,
 } from '../../src/app/types';
 import type { PageSeed } from './frontend-render.types';
 
@@ -159,6 +160,74 @@ const defiSeed: PageSeed<DefiData> = {
         swaps: [80, 75, 82, 84],
       },
     },
+  },
+};
+
+const neoXSeed: PageSeed<NeoXData> = {
+  page: 'neo-x',
+  data: {
+    nav: {
+      neoX: true,
+    },
+    status: 'ready',
+    rangeLabel: '2026-04-01 to 2026-04-08',
+    rangeFrom: '2026-04-01',
+    rangeTo: '2026-04-08',
+    availableRangeLabel: '2026-03-10 to 2026-04-08',
+    summaryCards: [
+      {
+        label: 'Transactions in range',
+        value: '4,799',
+        detail: '8 days covered',
+        accent: true,
+      },
+      {
+        label: 'Average gas price',
+        value: '39.21 Gwei',
+        detail: 'Explorer-reported average',
+      },
+      {
+        label: 'Total addresses',
+        value: '17,512',
+        detail: 'Explorer-reported network total',
+      },
+    ],
+    chartData: {
+      labels: ['2026-04-06', '2026-04-07', '2026-04-08'],
+      series: {
+        transactions: [311, 503, 406],
+        rollingAverage: [311, 407, 407],
+        cumulativeTransactions: [311, 814, 1220],
+      },
+    },
+    recentTransactions: [
+      {
+        hash: '0xabc123',
+        shortHash: '0xabc1...c123',
+        timestampLabel: '2026-04-09 17:11:50 UTC',
+        methodLabel: 'transmit',
+        statusLabel: 'Success',
+        fromLabel: '0x895e...5C2F',
+        fromMeta: '0x895efB0Fd69712a36b13143533287Ece94FD5C2F',
+        fromHref: 'https://xexplorer.neo.org/address/0x895efB0Fd69712a36b13143533287Ece94FD5C2F',
+        toLabel: 'CommitStore',
+        toMeta: '0xA449B032Ee7A6e35e4dd20dBBbDDf75783a2370d',
+        toHref: 'https://xexplorer.neo.org/address/0xA449B032Ee7A6e35e4dd20dBBbDDf75783a2370d',
+        feeLabel: '0.004767',
+        typeLabel: 'Contract Call',
+      },
+    ],
+    topTokens: [
+      {
+        address: '0xtoken',
+        shortAddress: '0xtoke...oken',
+        symbol: 'xBNB',
+        name: 'NeoX BNB',
+        holdersLabel: '950',
+        totalSupplyLabel: '9.9268',
+        typeLabel: 'ERC-20',
+      },
+    ],
   },
 };
 
@@ -397,6 +466,19 @@ test.describe('frontend rendering', () => {
     await expect(page.getByText('Partial coverage')).toBeVisible();
     await expect(page.getByText('$12,000.00')).toBeVisible();
     await captureScreenshot(page, testInfo, 'defi.png');
+  });
+
+  test('neo x page renders explorer-backed overview and lists', async ({ page }, testInfo) => {
+    await seedAppPage(page, neoXSeed);
+    await expect(page.getByRole('heading', { name: 'Neo X overview' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Recent transactions' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Top ERC-20 tokens' })).toBeVisible();
+    await expect(page.getByText('CommitStore')).toBeVisible();
+    await expect(page.getByRole('link', { name: '0x895e...5C2F' })).toHaveAttribute(
+      'href',
+      'https://xexplorer.neo.org/address/0x895efB0Fd69712a36b13143533287Ece94FD5C2F',
+    );
+    await captureScreenshot(page, testInfo, 'neo-x.png');
   });
 
   test('days table renders range rows', async ({ page }, testInfo) => {

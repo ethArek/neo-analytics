@@ -118,6 +118,11 @@ describe('DashboardPage', () => {
     expect(screen.getByText('receiver-1')).toBeInTheDocument();
     expect(screen.getByText('Asset transfer volume')).toBeInTheDocument();
     expect(screen.getByText('33 transfers')).toBeInTheDocument();
+    const assetEntry = screen.getByRole('link', { name: 'NEO' }).closest('li');
+    if (!assetEntry) {
+      throw new Error('Expected dashboard asset entry to exist.');
+    }
+    expect(assetEntry).toHaveTextContent('NEO 33 transfers');
     expect(screen.getByRole('link', { name: 'NEO' })).toHaveAttribute(
       'href',
       '/asset/NEO?from=2024-01-01&to=2024-01-01',
