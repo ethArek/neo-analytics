@@ -2,6 +2,7 @@ export type ChangeTone = 'positive' | 'negative' | 'neutral';
 
 export type NavState = {
   dashboard?: boolean;
+  neoX?: boolean;
   defi?: boolean;
   faq?: boolean;
   specialThanks?: boolean;
@@ -171,6 +172,62 @@ export type DefiData = SharedPageData & {
   recentSwaps?: DefiSwapTransaction[];
 };
 
+export type MetricCard = {
+  label: string;
+  value: string;
+  detail?: string;
+  accent?: boolean;
+};
+
+export type NeoXChartData = {
+  labels: string[];
+  series: {
+    transactions: number[];
+    rollingAverage: number[];
+    cumulativeTransactions: number[];
+  };
+};
+
+export type NeoXRecentTransaction = {
+  hash: string;
+  shortHash: string;
+  timestampLabel: string;
+  methodLabel: string;
+  statusLabel: string;
+  fromLabel: string;
+  fromMeta: string;
+  fromHref?: string | null;
+  toLabel: string;
+  toMeta: string;
+  toHref?: string | null;
+  feeLabel: string;
+  typeLabel: string;
+};
+
+export type NeoXToken = {
+  address: string;
+  shortAddress: string;
+  symbol: string;
+  name: string;
+  holdersLabel: string;
+  totalSupplyLabel: string;
+  typeLabel: string;
+};
+
+export type NeoXData = SharedPageData & {
+  nav?: NavState;
+  status?: 'ready' | 'empty' | 'error';
+  message?: string | null;
+  rangeLabel?: string;
+  rangeFrom?: string;
+  rangeTo?: string;
+  availableRangeLabel?: string | null;
+  summaryCards?: MetricCard[];
+  chartData?: NeoXChartData | null;
+  recentTransactions?: NeoXRecentTransaction[];
+  topTokens?: NeoXToken[];
+};
+
 export type DaysStat = {
   dateLabel: string;
   totalTxCountLabel: string;
@@ -337,6 +394,7 @@ export type AdminLoginData = SharedPageData & {
 export type PageData =
   | DashboardData
   | DefiData
+  | NeoXData
   | DaysData
   | DayData
   | AssetData

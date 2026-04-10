@@ -6,10 +6,15 @@ import { ThemeToggle } from './ThemeToggle';
 
 const navClass = (isActive?: boolean) => (isActive ? 'nav-link is-active' : 'nav-link');
 
-export const Navbar: React.FC<NavbarProps> = ({ nav, marketPrices }) => (
+export const Navbar: React.FC<NavbarProps> = ({
+  nav,
+  marketPrices,
+  brandMark = 'N3',
+  brandHref = '/dashboard',
+}) => (
   <nav className="navbar" data-animate style={delayStyle('0s')}>
-    <a className="nav-brand" href="/dashboard">
-      <span className="nav-mark">N3</span>
+    <a className="nav-brand" href={brandHref}>
+      <span className="nav-mark">{brandMark}</span>
       <span className="nav-copy">
         <span className="nav-title">Neo Analytics</span>
       </span>
@@ -18,11 +23,14 @@ export const Navbar: React.FC<NavbarProps> = ({ nav, marketPrices }) => (
     <div className="nav-actions">
       <div className="nav-links">
         <a className={navClass(nav?.dashboard)} href="/dashboard">
-          Dashboard
+          Neo N3
+        </a>
+        <a className={navClass(nav?.neoX)} href="/neo-x">
+          <span>Neo X</span>
+          <span className="nav-badge">new</span>
         </a>
         <a className={navClass(nav?.defi)} href="/defi">
-          <span>DeFi</span>
-          <span className="nav-badge">new</span>
+          DeFi
         </a>
         <a className={navClass(nav?.faq)} href="/faq">
           FAQ
