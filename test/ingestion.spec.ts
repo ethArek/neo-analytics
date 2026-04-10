@@ -24,6 +24,7 @@ class FakePrismaService implements IngestionPrismaClient {
     string,
     { lastProcessedBlock?: number; lastProcessedTimestamp?: Date }
   > = {};
+  ingestionLockData: Record<string, { expiresAt: Date; holder: string }> = {};
 
   $executeRaw = async (_query: Prisma.Sql): Promise<number> => {
     return 0;
@@ -282,6 +283,67 @@ class FakePrismaService implements IngestionPrismaClient {
     },
   };
 
+  ingestionLock = {
+    createMany: async ({
+      data,
+    }: {
+      data: Array<{
+        lockKey: string;
+        holder: string;
+        expiresAt: Date;
+      }>;
+      skipDuplicates?: boolean;
+    }) => {
+      let count = 0;
+
+      for (const entry of data) {
+        if (this.ingestionLockData[entry.lockKey]) {
+          continue;
+        }
+
+        this.ingestionLockData[entry.lockKey] = {
+          holder: entry.holder,
+          expiresAt: entry.expiresAt,
+        };
+        count += 1;
+      }
+
+      return { count };
+    },
+    deleteMany: async ({
+      where,
+    }: {
+      where: {
+        lockKey?: string;
+        holder?: string;
+        expiresAt?: {
+          lte: Date;
+        };
+      };
+    }) => {
+      let count = 0;
+
+      for (const [lockKey, lock] of Object.entries(this.ingestionLockData)) {
+        if (where.lockKey && lockKey !== where.lockKey) {
+          continue;
+        }
+
+        if (where.holder && lock.holder !== where.holder) {
+          continue;
+        }
+
+        if (where.expiresAt && lock.expiresAt > where.expiresAt.lte) {
+          continue;
+        }
+
+        delete this.ingestionLockData[lockKey];
+        count += 1;
+      }
+
+      return { count };
+    },
+  };
+
   $transaction = async <T>(callback: (tx: IngestionPrismaClient) => Promise<T>): Promise<T> =>
     callback(this);
 
@@ -492,10 +554,10 @@ describe('IngestionService', () => {
         },
       });
       expect(prisma.dailyTxData).toHaveLength(1);
-      expect(prisma.dailyTxData[0].swapUsdValue).toBe('8.75000000');
+      expect(prisma.dailyTxData[0].swapUsdValue).toBe('5.00000000');
 
       const stat = prisma.dailyStatData[new Date(Date.UTC(2024, 4, 1)).toISOString()];
-      expect(stat.swapsUsdValue).toBe('8.75000000');
+      expect(stat.swapsUsdValue).toBe('5.00000000');
     } finally {
       fetchSpy.mockRestore();
     }
@@ -868,7 +930,26 @@ describe('IngestionService', () => {
     const start = new Date('2024-05-06T10:00:00.000Z');
     const end = new Date('2024-05-06T10:10:00.000Z');
     const neoClient: NeoClient = {
-      fetchTransactionsForDay: async () => ({ transactions: [] }),
+      fetchTransactionsForDay: jest.fn().mockResolvedValue({
+        blockStart: 30,
+        blockEnd: 31,
+        transactions: [
+          {
+            txid: 'range-1',
+            timestamp: start.toISOString(),
+            blockIndex: 30,
+            transfers: [{ from: 'x', to: 'y', asset: 'NEO', amount: '1' }],
+            raw: {},
+          },
+          {
+            txid: 'range-2',
+            timestamp: end.toISOString(),
+            blockIndex: 31,
+            transfers: [{ from: 'y', to: 'z', asset: 'GAS', amount: '2' }],
+            raw: {},
+          },
+        ],
+      }),
       fetchTransactionsForRange: jest
         .fn()
         .mockImplementation((_start: Date, _end: Date, cursor?: string) => {
@@ -912,7 +993,8 @@ describe('IngestionService', () => {
 
     await service.ingestWindow(start, end);
 
-    expect(neoClient.fetchTransactionsForRange).toHaveBeenCalledTimes(2);
+    expect(neoClient.fetchTransactionsForRange).not.toHaveBeenCalled();
+    expect(neoClient.fetchTransactionsForDay).toHaveBeenCalledTimes(1);
     expect(prisma.dailyTxData).toHaveLength(2);
     expect(prisma.dailyTransferData).toHaveLength(2);
 

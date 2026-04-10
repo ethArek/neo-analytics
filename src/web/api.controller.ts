@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { ApiExcludeEndpoint, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { Prisma } from '@prisma/client';
 import { formatDate, parseDate, yesterdayInTimeZone } from '../ingestion/date-utils';
-import { IngestionService } from '../ingestion/ingestion.service';
+import { IngestionBusyError, IngestionService } from '../ingestion/ingestion.service';
 import { StatsService } from '../stats/stats.service';
 
 @ApiTags('stats')
@@ -148,10 +148,18 @@ export class ApiController {
 
   @Post('jobs/run')
   @ApiExcludeEndpoint()
-  async runJob(@Body('date') date?: string) {
+  async runJob(@Body('date') date?: string, @Headers('x-admin-token') token?: string) {
+    if (!this.isAuthorized(token)) {
+      return { status: 'error', message: 'Unauthorized' };
+    }
+
     const target = date ?? yesterdayInTimeZone('Europe/Warsaw');
     this.logger.log(`Manual ingestion requested for ${target}.`);
-    await this.ingestionService.ingestDay(target);
+    try {
+      await this.ingestionService.ingestDay(target);
+    } catch (error) {
+      return this.serializeJobError(error);
+    }
 
     return { status: 'ok', date: target };
   }
@@ -159,13 +167,16 @@ export class ApiController {
   @Post('jobs/rebuild')
   @ApiExcludeEndpoint()
   async rebuild(@Body('date') date: string, @Headers('x-admin-token') token?: string) {
-    const adminToken = this.configService.get<string>('app.adminToken');
-    if (!adminToken || token !== adminToken) {
+    if (!this.isAuthorized(token)) {
       return { status: 'error', message: 'Unauthorized' };
     }
 
     this.logger.log(`Rebuild requested for ${date}.`);
-    await this.ingestionService.rebuildDay(date);
+    try {
+      await this.ingestionService.rebuildDay(date);
+    } catch (error) {
+      return this.serializeJobError(error);
+    }
 
     return { status: 'ok', date };
   }
@@ -177,8 +188,7 @@ export class ApiController {
     @Body('to') to: string,
     @Headers('x-admin-token') token?: string,
   ) {
-    const adminToken = this.configService.get<string>('app.adminToken');
-    if (!adminToken || token !== adminToken) {
+    if (!this.isAuthorized(token)) {
       return { status: 'error', message: 'Unauthorized' };
     }
 
@@ -188,9 +198,13 @@ export class ApiController {
 
     const days = this.buildDateRange(from, to);
     this.logger.log(`Backfill requested from ${from} to ${to} (${days.length} days).`);
-    for (const day of days) {
-      this.logger.log(`Backfill ingesting ${day}.`);
-      await this.ingestionService.ingestDay(day);
+    try {
+      for (const day of days) {
+        this.logger.log(`Backfill ingesting ${day}.`);
+        await this.ingestionService.ingestDay(day);
+      }
+    } catch (error) {
+      return this.serializeJobError(error);
     }
 
     return { status: 'ok', from, to, days: days.length };
@@ -199,8 +213,7 @@ export class ApiController {
   @Post('jobs/backfill-last-30')
   @ApiExcludeEndpoint()
   async backfillLast30(@Headers('x-admin-token') token?: string) {
-    const adminToken = this.configService.get<string>('app.adminToken');
-    if (!adminToken || token !== adminToken) {
+    if (!this.isAuthorized(token)) {
       return { status: 'error', message: 'Unauthorized' };
     }
 
@@ -210,9 +223,13 @@ export class ApiController {
     const from = formatDate(start, 'UTC');
     const days = this.buildDateRange(from, endDate);
     this.logger.log(`Backfill last 30 days requested (${from} to ${endDate}).`);
-    for (const day of days) {
-      this.logger.log(`Backfill ingesting ${day}.`);
-      await this.ingestionService.ingestDay(day);
+    try {
+      for (const day of days) {
+        this.logger.log(`Backfill ingesting ${day}.`);
+        await this.ingestionService.ingestDay(day);
+      }
+    } catch (error) {
+      return this.serializeJobError(error);
     }
 
     return { status: 'ok', from, to: endDate, days: days.length };
@@ -225,8 +242,7 @@ export class ApiController {
     @Body('to') to: string | undefined,
     @Headers('x-admin-token') token?: string,
   ) {
-    const adminToken = this.configService.get<string>('app.adminToken');
-    if (!adminToken || token !== adminToken) {
+    if (!this.isAuthorized(token)) {
       return { status: 'error', message: 'Unauthorized' };
     }
 
@@ -234,22 +250,25 @@ export class ApiController {
       return { status: 'error', message: 'from is required' };
     }
 
-    const result = await this.ingestionService.backfillSwapUsdValues(from, to);
+    try {
+      const result = await this.ingestionService.backfillSwapUsdValues(from, to);
 
-    return {
-      status: 'ok',
-      from,
-      to: result.to,
-      days: result.days,
-      transactions: result.transactions,
-    };
+      return {
+        status: 'ok',
+        from,
+        to: result.to,
+        days: result.days,
+        transactions: result.transactions,
+      };
+    } catch (error) {
+      return this.serializeJobError(error);
+    }
   }
 
   @Post('jobs/backfill-10-minutes')
   @ApiExcludeEndpoint()
   async backfillTenMinutes(@Body('from') from?: string, @Headers('x-admin-token') token?: string) {
-    const adminToken = this.configService.get<string>('app.adminToken');
-    if (!adminToken || token !== adminToken) {
+    if (!this.isAuthorized(token)) {
       return { status: 'error', message: 'Unauthorized' };
     }
 
@@ -262,9 +281,22 @@ export class ApiController {
     this.logger.log(
       `Backfill 10-minute window requested (${start.toISOString()} to ${end.toISOString()}).`,
     );
-    await this.ingestionService.ingestWindow(start, end);
+    try {
+      await this.ingestionService.ingestWindow(start, end);
+    } catch (error) {
+      return this.serializeJobError(error);
+    }
 
     return { status: 'ok', from: start.toISOString(), to: end.toISOString() };
+  }
+
+  private isAuthorized(token?: string): boolean {
+    const adminToken = this.configService.get<string>('app.adminToken');
+    if (!adminToken || token !== adminToken) {
+      return false;
+    }
+
+    return true;
   }
 
   private sumStats(stats: Array<Awaited<ReturnType<StatsService['getLatestStats']>>[number]>) {
@@ -395,5 +427,17 @@ export class ApiController {
     }
 
     return days;
+  }
+
+  private serializeJobError(error: unknown) {
+    if (error instanceof IngestionBusyError) {
+      return {
+        status: 'error',
+        message: error.message,
+        date: error.date,
+      };
+    }
+
+    throw error;
   }
 }

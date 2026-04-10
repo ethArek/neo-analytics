@@ -28,6 +28,9 @@ export const AdminLoginPage: React.FC = () => {
           <h2>Log in</h2>
         </div>
         {data.error ? <p className="form-error">{data.error}</p> : null}
+        <p className="summary-subtitle">
+          Admin accounts are provisioned separately, and successful sessions expire after 7 days.
+        </p>
         <form className="form-grid" method="post" action="/admin/login">
           <label>
             Email

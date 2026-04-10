@@ -154,13 +154,13 @@ export const DashboardPage: React.FC = () => {
             {assetBreakdown.map((asset) => (
               <li key={asset.assetLabel}>
                 <div>
-                  <div className="mono">
-                    {asset.assetHref ? (
-                      <a href={asset.assetHref}>{asset.assetLabel}</a>
-                    ) : (
-                      asset.assetLabel
-                    )}
-                  </div>
+                  {asset.assetHref ? (
+                    <a className="mono" href={asset.assetHref}>
+                      {asset.assetLabel}
+                    </a>
+                  ) : (
+                    <div className="mono">{asset.assetLabel}</div>
+                  )}
                   <small>{asset.transferCount} transfers</small>
                 </div>
                 <strong>{asset.volumeLabel}</strong>

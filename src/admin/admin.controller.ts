@@ -2,13 +2,11 @@ import { Body, Controller, Get, Inject, Post, Req, Res } from '@nestjs/common';
 import { ApiExcludeController } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import { formatDate, parseDate, yesterdayInTimeZone } from '../ingestion/date-utils';
-import { IngestionService } from '../ingestion/ingestion.service';
+import { IngestionBusyError, IngestionService } from '../ingestion/ingestion.service';
 import { renderReactPage } from '../web/react-view';
 import { TokenPerformanceService } from '../web/token-performance.service';
+import { SESSION_COOKIE, SESSION_COOKIE_PATH, SESSION_MAX_AGE } from './admin.constants';
 import { AdminService } from './admin.service';
-
-const SESSION_COOKIE = 'admin_session';
-const SESSION_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
 
 @ApiExcludeController()
 @Controller('admin')
@@ -44,8 +42,24 @@ export class AdminController {
   async login(@Req() req: Request, @Body() body: Record<string, string>, @Res() res: Response) {
     const email = body.email ?? '';
     const password = body.password ?? '';
-    const admin = await this.adminService.authenticateAdmin(email, password);
-    if (!admin) {
+    const authentication = await this.adminService.authenticateAdmin(
+      email,
+      password,
+      this.getClientIp(req),
+    );
+    if (authentication.status === 'blocked') {
+      res.status(429);
+      return res.send(
+        await this.renderAdminLoginPage({
+          error: `Too many failed sign-in attempts. Try again in ${Math.ceil(
+            authentication.retryAfterSeconds / 60,
+          )} minute(s).`,
+          email,
+        }),
+      );
+    }
+
+    if (authentication.status !== 'success') {
       res.status(401);
       return res.send(
         await this.renderAdminLoginPage({
@@ -55,11 +69,12 @@ export class AdminController {
       );
     }
 
-    const token = await this.adminService.createSession(admin.id);
+    const token = await this.adminService.createSession(authentication.admin.id);
     res.cookie(SESSION_COOKIE, token, {
       httpOnly: true,
-      sameSite: 'lax',
       maxAge: SESSION_MAX_AGE,
+      path: SESSION_COOKIE_PATH,
+      sameSite: 'strict',
       secure: this.shouldUseSecureCookies(req),
     });
 
@@ -94,7 +109,18 @@ export class AdminController {
           message: `Ingestion completed for ${targetDate}.`,
         }),
       );
-    } catch (_error) {
+    } catch (error) {
+      if (error instanceof IngestionBusyError) {
+        res.status(409);
+        return res.send(
+          await this.renderAdminPage({
+            email: admin.email,
+            defaultDate: targetDate,
+            error: error.message,
+          }),
+        );
+      }
+
       res.status(500);
       return res.send(
         await this.renderAdminPage({
@@ -112,7 +138,7 @@ export class AdminController {
     if (token) {
       await this.adminService.clearSession(token);
     }
-    res.clearCookie(SESSION_COOKIE);
+    this.clearSessionCookie(req, res);
     return res.redirect('/admin/login');
   }
 
@@ -125,7 +151,7 @@ export class AdminController {
 
     const admin = await this.adminService.findAdminBySession(token);
     if (!admin) {
-      res.clearCookie(SESSION_COOKIE);
+      this.clearSessionCookie(req, res);
       res.redirect('/admin/login');
       return null;
     }
@@ -166,6 +192,14 @@ export class AdminController {
     return proto === 'https';
   }
 
+  private clearSessionCookie(req: Request, res: Response): void {
+    res.clearCookie(SESSION_COOKIE, {
+      path: SESSION_COOKIE_PATH,
+      sameSite: 'strict',
+      secure: this.shouldUseSecureCookies(req),
+    });
+  }
+
   private isValidDate(value: string): boolean {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
       return false;
@@ -177,6 +211,22 @@ export class AdminController {
     }
 
     return formatDate(parsed, 'UTC') === value;
+  }
+
+  private getClientIp(req: Request): string {
+    const forwardedFor = req.headers['x-forwarded-for'];
+    if (typeof forwardedFor === 'string') {
+      const candidate = forwardedFor.split(',')[0]?.trim();
+      if (candidate) {
+        return candidate;
+      }
+    }
+
+    if (Array.isArray(forwardedFor) && forwardedFor[0]) {
+      return forwardedFor[0];
+    }
+
+    return req.ip ?? 'unknown';
   }
 
   private async renderAdminPage(data: {

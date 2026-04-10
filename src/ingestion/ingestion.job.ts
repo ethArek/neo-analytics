@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { yesterdayInTimeZone } from './date-utils';
-import { IngestionService } from './ingestion.service';
+import { IngestionBusyError, IngestionService } from './ingestion.service';
 
 const WARSAW_TIME_ZONE = 'Europe/Warsaw';
 
@@ -55,6 +55,15 @@ export class IngestionJob {
         this.logger.warn(`Daily ingestion missing for ${date}. Starting ${source} retry.`);
       }
       await this.ingestionService.ingestDay(date);
+    } catch (error) {
+      if (error instanceof IngestionBusyError) {
+        this.logger.warn(
+          `Ingestion already running for ${error.date}. Skipping ${source} trigger.`,
+        );
+        return;
+      }
+
+      throw error;
     } finally {
       this.isRunning = false;
       this.runningDate = undefined;

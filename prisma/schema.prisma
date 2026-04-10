@@ -130,13 +130,25 @@ model IngestionCursor {
   updatedAt              DateTime  @updatedAt
 }
 
+model IngestionLock {
+  id        Int      @id @default(autoincrement())
+  lockKey   String   @unique
+  holder    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([expiresAt])
+}
+
 model AdminUser {
-  id           Int       @id @default(autoincrement())
-  email        String    @unique
-  passwordHash String
-  passwordSalt String
-  sessionToken String?   @unique
-  lastLoginAt  DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id               Int       @id @default(autoincrement())
+  email            String    @unique
+  passwordHash     String
+  passwordSalt     String
+  sessionToken     String?   @unique
+  sessionExpiresAt DateTime?
+  lastLoginAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 }

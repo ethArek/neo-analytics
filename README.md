@@ -5,6 +5,7 @@ Neo Analytics is a NestJS + React (Vite) dashboard that tracks Neo N3 daily acti
 ## Project overview
 
 - **Data ingestion**: Pulls Neo N3 block data via Dora REST API, extracts NEP-17 transfer activity, and stores per-transaction/per-transfer records plus daily aggregates in PostgreSQL (via Prisma).
+- **Scheduling**: A daily cron runs at `01:10 Europe/Warsaw` to ingest the previous UTC day, and an hourly retry checks whether the latest day is still missing.
 - **Classification**: Deterministic rules classify transactions into swaps, oracle transactions, gas claims, transfers, or ignored (self/zero), using swap method allowlists, known swap contracts, oracle/data-feed notifications, and DEX notifications.
 - **Presentation**: NestJS renders the HTML shell + page data, React (Vite) hydrates the UI, and a JSON API exposes analytics for external consumers.
 
@@ -113,6 +114,12 @@ is still used for token performance windows and historical swap USD pricing.
 
    ```bash
    npm run start:dev
+   ```
+
+5. If you want to use the admin UI, provision at least one admin user:
+
+   ```bash
+   npm run admin:create -- --email admin@example.com --password "replace-with-a-strong-password"
    ```
 
 ## Running
@@ -251,12 +258,12 @@ Stats responses include daily counters such as `swapsCount`, `oracleCount`, `tra
 
 ## Admin job endpoints
 
-- `POST /api/jobs/run` with optional `{ "date": "YYYY-MM-DD" }`.
+- `POST /api/jobs/run` with optional `{ "date": "YYYY-MM-DD" }` and `x-admin-token` header.
 - `POST /api/jobs/rebuild` with `{ "date": "YYYY-MM-DD" }` and `x-admin-token` header.
 - `POST /api/jobs/backfill` with `{ "from": "YYYY-MM-DD", "to": "YYYY-MM-DD" }` and `x-admin-token` header.
 - `POST /api/jobs/backfill-last-30` with `x-admin-token` header (ingests yesterday + previous 29 days).
-- `POST /api/jobs/backfill-swap-usd` with `{ "from": "YYYY-MM-DD", "to": "YYYY-MM-DD" }` and `x-admin-token` header (recomputes swap USD values for already ingested days using Flamingo historical pricing).
-- `POST /api/jobs/backfill-10-minutes` with optional `{ "from": "YYYY-MM-DDTHH:mm:ssZ" }` and `x-admin-token` header (defaults to last 10 minutes).
+- `POST /api/jobs/backfill-swap-usd` with `{ "from": "YYYY-MM-DD", "to": "YYYY-MM-DD" }` and `x-admin-token` header (recomputes swap USD values and aligned swap asset attribution for already ingested days using Flamingo historical pricing).
+- `POST /api/jobs/backfill-10-minutes` with optional `{ "from": "YYYY-MM-DDTHH:mm:ssZ" }` and `x-admin-token` header (defaults to the last 10 minutes, but safely rebuilds every touched UTC day instead of replacing one day with a partial slice).
 
 ## Admin UI
 
@@ -265,6 +272,13 @@ Stats responses include daily counters such as `swapsCount`, `oracleCount`, `tra
 - `POST /admin/login` submits credentials and creates a session.
 - `POST /admin/ingest` triggers ingestion for a given date (requires a valid session).
 - `POST /admin/logout` clears the session cookie.
+
+Admin UI notes:
+
+- Admin accounts are stored in the `AdminUser` table and are not created automatically from environment variables.
+- Use `npm run admin:create -- --email admin@example.com --password "..."` to create or rotate an admin account password.
+- Admin sessions now expire server-side after 7 days.
+- Failed login attempts are rate-limited per client to reduce brute-force exposure.
 
 ## Tests
 
