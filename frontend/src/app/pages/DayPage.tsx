@@ -160,8 +160,7 @@ export const DayPage: React.FC = () => {
                     </a>
                   ) : (
                     <span className="mono">{asset.assetLabel}</span>
-                  )}
-                  {' '}
+                  )}{' '}
                   <small>{asset.transferCount} transfers</small>
                 </div>
                 <strong>{asset.volumeLabel}</strong>
