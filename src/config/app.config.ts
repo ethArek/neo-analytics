@@ -19,6 +19,7 @@ export default registerAs('app', () => ({
   flamingoTvlApiUrl:
     process.env.FLAMINGO_TVL_API_URL ??
     'https://flamingo-us-1.b-cdn.net/flamingo/analytics/flamingo/usd-value-locked',
+  neoXExplorerApiUrl: process.env.NEOX_EXPLORER_API_URL ?? 'https://xexplorer.neo.org/api/v2',
   defiMetricsAvailableFrom: process.env.DEFI_METRICS_AVAILABLE_FROM?.trim() ?? '',
   adminToken: process.env.ADMIN_TOKEN ?? '',
 }));

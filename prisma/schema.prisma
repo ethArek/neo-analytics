@@ -122,6 +122,23 @@ model DailyContractStat {
   @@index([date])
 }
 
+model NeoXDailyStat {
+  id                  Int      @id @default(autoincrement())
+  date                DateTime @unique
+  txCount             Int      @default(0)
+  transactionsToday   Int?
+  totalAddresses      Int?
+  totalBlocks         Int?
+  totalTransactions   Int?
+  averageBlockTimeMs  Decimal? @db.Decimal(20, 3)
+  averageGasPriceGwei Decimal? @db.Decimal(20, 9)
+  gasUsedToday        Decimal? @db.Decimal(78, 0)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([date])
+}
+
 model IngestionCursor {
   id                     Int       @id @default(autoincrement())
   network                String    @unique
