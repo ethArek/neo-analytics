@@ -175,6 +175,43 @@ describe('NeoXService', () => {
     );
   });
 
+  it('limits Neo X recent transactions to eight by default', async () => {
+    const service = new NeoXService(createConfigService());
+
+    jest.spyOn(global, 'fetch').mockImplementation(async (input) => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url === `${apiUrl}/main-page/transactions`) {
+        return new Response(
+          JSON.stringify(
+            Array.from({ length: 10 }, (_, index) => ({
+              hash: `0x${index.toString(16).padStart(2, '0')}`,
+              timestamp: `2026-04-09T17:${String(index).padStart(2, '0')}:00.000000Z`,
+              status: 'ok',
+              tx_types: ['contract_call'],
+            })),
+          ),
+          { status: 200 },
+        );
+      }
+
+      return new Response('not-found', { status: 404 });
+    });
+
+    const transactions = await service.getRecentTransactions();
+
+    expect(transactions).toHaveLength(8);
+    expect(transactions.map((transaction) => transaction.hash)).toEqual([
+      '0x00',
+      '0x01',
+      '0x02',
+      '0x03',
+      '0x04',
+      '0x05',
+      '0x06',
+      '0x07',
+    ]);
+  });
+
   it('normalizes recent transactions and excludes LP tokens from ERC-20 rankings', async () => {
     const service = new NeoXService(createConfigService());
 

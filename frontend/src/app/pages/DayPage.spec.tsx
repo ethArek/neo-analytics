@@ -79,6 +79,11 @@ describe('DayPage', () => {
     expect(screen.getByText('Oracle transactions (subset)')).toBeInTheDocument();
     expect(screen.getByText('Included in transactions excluding GAS claims')).toBeInTheDocument();
     expect(screen.getByText('Asset transfer volume')).toBeInTheDocument();
+    const assetEntry = screen.getByRole('link', { name: 'NEO' }).closest('li');
+    if (!assetEntry) {
+      throw new Error('Expected day asset entry to exist.');
+    }
+    expect(assetEntry).toHaveTextContent('NEO 3 transfers');
     expect(screen.getByRole('link', { name: 'NEO' })).toHaveAttribute(
       'href',
       '/asset/NEO?from=2024-01-01&to=2024-01-01',

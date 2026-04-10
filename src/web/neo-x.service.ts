@@ -16,6 +16,7 @@ const NETWORK_STATS_CACHE_TTL_MS = 15 * 1000;
 const TRANSACTION_CHART_CACHE_TTL_MS = 30 * 1000;
 const RECENT_TRANSACTIONS_CACHE_TTL_MS = 15 * 1000;
 const TOKENS_CACHE_TTL_MS = 60 * 1000;
+export const DEFAULT_NEO_X_RECENT_TRANSACTIONS_LIMIT = 8;
 
 type NeoXCachedValue<T> = {
   value: T;
@@ -103,7 +104,9 @@ export class NeoXService {
     );
   }
 
-  async getRecentTransactions(limit = 6): Promise<NeoXRecentTransaction[]> {
+  async getRecentTransactions(
+    limit = DEFAULT_NEO_X_RECENT_TRANSACTIONS_LIMIT,
+  ): Promise<NeoXRecentTransaction[]> {
     const transactions = await this.getCachedValue(
       this.recentTransactionsCache,
       async () => {

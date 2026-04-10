@@ -19,7 +19,7 @@ import {
   resolveRecentVolumeWindow,
 } from './defi-recent-volume';
 import { NeoXHistoryService } from './neo-x-history.service';
-import { NeoXService } from './neo-x.service';
+import { DEFAULT_NEO_X_RECENT_TRANSACTIONS_LIMIT, NeoXService } from './neo-x.service';
 import type { NeoXNetworkStats } from './neo-x.service.types';
 import { renderReactPage } from './react-view';
 import { TokenPerformanceService } from './token-performance.service';
@@ -204,7 +204,7 @@ export class WebController {
     const [marketPrices, dashboardHistory, recentTransactions, topTokens] = await Promise.all([
       this.getMarketPrices(),
       this.neoXHistoryService.getDashboardHistory(),
-      this.neoXService.getRecentTransactions(9),
+      this.neoXService.getRecentTransactions(DEFAULT_NEO_X_RECENT_TRANSACTIONS_LIMIT),
       this.neoXService.getTopTokens(20),
     ]);
     const networkStats = dashboardHistory.networkStats;
