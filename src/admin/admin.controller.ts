@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Inject, Post, Req, Res } from '@nestjs/common';
 import { ApiExcludeController } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
-import { formatDate, parseDate, yesterdayInTimeZone } from '../ingestion/date-utils';
+import { isValidIsoDate, yesterdayInTimeZone } from '../ingestion/date-utils';
 import { IngestionBusyError, IngestionService } from '../ingestion/ingestion.service';
 import { renderReactPage } from '../web/react-view';
 import { TokenPerformanceService } from '../web/token-performance.service';
@@ -201,16 +201,7 @@ export class AdminController {
   }
 
   private isValidDate(value: string): boolean {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-      return false;
-    }
-
-    const parsed = parseDate(value);
-    if (Number.isNaN(parsed.getTime())) {
-      return false;
-    }
-
-    return formatDate(parsed, 'UTC') === value;
+    return isValidIsoDate(value);
   }
 
   private getClientIp(req: Request): string {

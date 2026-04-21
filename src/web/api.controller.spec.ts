@@ -103,6 +103,23 @@ describe('ApiController', () => {
     expect(Object.prototype.hasOwnProperty.call(result.totals ?? {}, 'realUsageTotal')).toBe(false);
   });
 
+  it('rejects invalid summary date ranges', async () => {
+    const controller = Reflect.construct(ApiController, [
+      new StatsServiceStub(),
+      new IngestionServiceStub(),
+      new NeoXHistoryServiceStub(),
+      new ConfigService({
+        app: {
+          adminToken: 'secret',
+        },
+      }),
+    ]) as ApiController;
+
+    await expect(controller.summary('2026-02-30', '2026-03-01')).rejects.toThrow(
+      'Invalid "from" date. Expected YYYY-MM-DD.',
+    );
+  });
+
   it('rejects swap usd backfill when unauthorized', async () => {
     const controller = Reflect.construct(ApiController, [
       new StatsServiceStub(),

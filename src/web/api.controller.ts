@@ -1,8 +1,23 @@
-import { Body, Controller, Get, Headers, Inject, Logger, Post, Query } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Headers,
+  Inject,
+  Logger,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiExcludeEndpoint, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { Prisma } from '@prisma/client';
-import { formatDate, parseDate, yesterdayInTimeZone } from '../ingestion/date-utils';
+import {
+  formatDate,
+  parseDate,
+  validateOptionalDateRange,
+  yesterdayInTimeZone,
+} from '../ingestion/date-utils';
 import { IngestionBusyError, IngestionService } from '../ingestion/ingestion.service';
 import { StatsService } from '../stats/stats.service';
 import { NeoXHistoryService } from './neo-x-history.service';
@@ -23,6 +38,7 @@ export class ApiController {
   @ApiQuery({ name: 'from', required: false, example: '2024-05-01' })
   @ApiQuery({ name: 'to', required: false, example: '2024-05-31' })
   async stats(@Query('from') from?: string, @Query('to') to?: string) {
+    this.assertValidDateRange(from, to);
     if (from && to) {
       const stats = await this.statsService.getStatsRange(from, to);
 
@@ -38,6 +54,7 @@ export class ApiController {
   @ApiQuery({ name: 'from', required: false, example: '2024-05-01' })
   @ApiQuery({ name: 'to', required: false, example: '2024-05-31' })
   async summary(@Query('from') from?: string, @Query('to') to?: string) {
+    this.assertValidDateRange(from, to);
     const { stats, range } = await this.statsService.getRangeOrLatest(from, to);
     if (!range) {
       return { range: null, totals: null };
@@ -61,6 +78,7 @@ export class ApiController {
   @ApiQuery({ name: 'from', required: false, example: '2024-05-01' })
   @ApiQuery({ name: 'to', required: false, example: '2024-05-31' })
   async assets(@Query('from') from?: string, @Query('to') to?: string) {
+    this.assertValidDateRange(from, to);
     const { range } = await this.statsService.getRangeOrLatest(from, to);
     if (!range) {
       return [];
@@ -83,6 +101,7 @@ export class ApiController {
     @Query('to') to?: string,
     @Query('limit') limit?: string,
   ) {
+    this.assertValidDateRange(from, to);
     const { range } = await this.statsService.getRangeOrLatest(from, to);
     if (!range) {
       return [];
@@ -106,6 +125,7 @@ export class ApiController {
     @Query('to') to?: string,
     @Query('limit') limit?: string,
   ) {
+    this.assertValidDateRange(from, to);
     const { range } = await this.statsService.getRangeOrLatest(from, to);
     if (!range) {
       return [];
@@ -131,6 +151,7 @@ export class ApiController {
     @Query('type') type?: string,
     @Query('limit') limit?: string,
   ) {
+    this.assertValidDateRange(from, to);
     const { range } = await this.statsService.getRangeOrLatest(from, to);
     if (!range) {
       return [];
@@ -156,6 +177,7 @@ export class ApiController {
     }
 
     const target = date ?? yesterdayInTimeZone('Europe/Warsaw');
+    this.assertValidDateInput(target, 'date');
     this.logger.log(`Manual ingestion requested for ${target}.`);
     try {
       await this.ingestionService.ingestDay(target);
@@ -194,6 +216,7 @@ export class ApiController {
       return { status: 'error', message: 'Unauthorized' };
     }
 
+    this.assertValidDateInput(date, 'date');
     this.logger.log(`Rebuild requested for ${date}.`);
     try {
       await this.ingestionService.rebuildDay(date);
@@ -219,6 +242,7 @@ export class ApiController {
       return { status: 'error', message: 'from and to are required' };
     }
 
+    this.assertValidDateRange(from, to);
     const days = this.buildDateRange(from, to);
     this.logger.log(`Backfill requested from ${from} to ${to} (${days.length} days).`);
     try {
@@ -273,6 +297,7 @@ export class ApiController {
       return { status: 'error', message: 'from is required' };
     }
 
+    this.assertValidDateRange(from, to);
     try {
       const result = await this.ingestionService.backfillSwapUsdValues(from, to);
 
@@ -462,5 +487,29 @@ export class ApiController {
     }
 
     throw error;
+  }
+
+  private assertValidDateInput(value: string | undefined, field: 'date' | 'from' | 'to'): void {
+    if (!value) {
+      return;
+    }
+
+    try {
+      parseDate(value);
+    } catch (_error) {
+      throw new BadRequestException(`Invalid "${field}" date. Expected YYYY-MM-DD.`);
+    }
+  }
+
+  private assertValidDateRange(from?: string, to?: string): void {
+    try {
+      validateOptionalDateRange(from, to);
+    } catch (error) {
+      if (error instanceof RangeError) {
+        throw new BadRequestException(error.message);
+      }
+
+      throw error;
+    }
   }
 }
