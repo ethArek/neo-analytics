@@ -1,11 +1,25 @@
-import { Controller, Get, Inject, Param, Query, Redirect, Res } from '@nestjs/common';
+import {
+  BadRequestException,
+  Controller,
+  Get,
+  Inject,
+  Param,
+  Query,
+  Redirect,
+  Res,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiExcludeController } from '@nestjs/swagger';
 import { Prisma } from '@prisma/client';
 import type { Response } from 'express';
 import { getConfigUrl } from '../common/config.utils';
 import { isStablecoinSymbol, normalizeAsset } from '../common/normalize.utils';
-import { formatDate, parseDate, yesterdayInTimeZone } from '../ingestion/date-utils';
+import {
+  formatDate,
+  parseDate,
+  validateOptionalDateRange,
+  yesterdayInTimeZone,
+} from '../ingestion/date-utils';
 import { StatsService } from '../stats/stats.service';
 import type { SwapUsdCoverage } from '../stats/stats.service.types';
 import { formatNumber, formatUnits, toNumber } from '../stats/stats.utils';
@@ -101,6 +115,7 @@ export class WebController {
 
   @Get('/dashboard')
   async dashboard(@Res() res: Response, @Query('from') from?: string, @Query('to') to?: string) {
+    this.assertValidDateRange(from, to);
     const [{ stats, range }, marketPrices] = await Promise.all([
       this.statsService.getRangeOrLatest(from, to, 30),
       this.getMarketPrices(),
@@ -499,6 +514,7 @@ export class WebController {
   }
   @Get('/days')
   async days(@Res() res: Response, @Query('from') from?: string, @Query('to') to?: string) {
+    this.assertValidDateRange(from, to);
     const [{ stats, range }, marketPrices] = await Promise.all([
       this.statsService.getRangeOrLatest(from, to, 90),
       this.getMarketPrices(),
@@ -561,6 +577,7 @@ export class WebController {
     @Query('from') from?: string,
     @Query('to') to?: string,
   ) {
+    this.assertValidDateRange(from, to);
     const normalizedAsset = normalizeAsset(asset) ?? asset.trim();
     const [{ range }, marketPrices] = await Promise.all([
       this.statsService.getRangeOrLatest(from, to, 30),
@@ -985,6 +1002,18 @@ export class WebController {
     }
 
     return `${normalizedFrom} to ${normalizedTo}`;
+  }
+
+  private assertValidDateRange(from?: string, to?: string): void {
+    try {
+      validateOptionalDateRange(from, to);
+    } catch (error) {
+      if (error instanceof RangeError) {
+        throw new BadRequestException(error.message);
+      }
+
+      throw error;
+    }
   }
 
   private formatNeoXTimestamp(value?: string | null): string | null {

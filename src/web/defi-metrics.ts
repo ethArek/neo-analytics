@@ -1,4 +1,4 @@
-import { formatDate, parseDate } from '../ingestion/date-utils';
+import { isValidIsoDate, parseDate } from '../ingestion/date-utils';
 import type { ResolveDefiWindowOptions, ResolvedDefiWindow } from './defi-metrics.types';
 
 const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
@@ -10,12 +10,7 @@ export const normalizeIsoDate = (value?: string | null): string | null => {
   }
 
   const trimmed = value.trim();
-  if (!isoDatePattern.test(trimmed)) {
-    return null;
-  }
-
-  const parsed = parseDate(trimmed);
-  if (formatDate(parsed, 'UTC') !== trimmed) {
+  if (!isoDatePattern.test(trimmed) || !isValidIsoDate(trimmed)) {
     return null;
   }
 

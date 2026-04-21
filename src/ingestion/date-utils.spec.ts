@@ -1,4 +1,9 @@
-import { formatDate, parseDate, yesterdayInTimeZone } from './date-utils';
+import {
+  formatDate,
+  parseDate,
+  validateOptionalDateRange,
+  yesterdayInTimeZone,
+} from './date-utils';
 
 describe('date-utils', () => {
   afterEach(() => {
@@ -32,6 +37,21 @@ describe('date-utils', () => {
     const parsed = parseDate('2024-05-09');
 
     expect(parsed.toISOString()).toBe('2024-05-09T00:00:00.000Z');
+  });
+
+  it('rejects invalid YYYY-MM-DD values', () => {
+    expect(() => parseDate('2024-02-30')).toThrow(
+      'Invalid date "2024-02-30". Expected YYYY-MM-DD.',
+    );
+    expect(() => parseDate('2024/05/09')).toThrow(
+      'Invalid date "2024/05/09". Expected YYYY-MM-DD.',
+    );
+  });
+
+  it('rejects date ranges where from is after to', () => {
+    expect(() => validateOptionalDateRange('2024-05-10', '2024-05-09')).toThrow(
+      'The "from" date must be on or before the "to" date.',
+    );
   });
 
   it('returns yesterday for a timezone using deterministic system time', () => {

@@ -246,20 +246,19 @@ export class StatsService {
     from: string,
     to: string,
   ): Promise<AssetTransactionTypeCount[]> {
+    const transferRangeFilter = this.buildAssetTransferRangeFilter(asset, from, to);
     const rows = await this.prisma.$queryRaw<
       Array<{
         type: TxType;
         txCount: bigint | number | string;
       }>
-    >`
+    >(Prisma.sql`
       SELECT tx."type", COUNT(DISTINCT tx."txid")::bigint AS "txCount"
       FROM "DailyTransfer" AS transfer
       INNER JOIN "DailyTx" AS tx ON tx."txid" = transfer."txid"
-      WHERE transfer."asset" = ${asset}
-        AND transfer."date" >= ${parseDate(from)}
-        AND transfer."date" <= ${parseDate(to)}
+      ${transferRangeFilter}
       GROUP BY tx."type"
-    `;
+    `);
 
     return rows
       .map((row) => ({
@@ -275,6 +274,7 @@ export class StatsService {
     to: string,
     limit = 10,
   ): Promise<AssetRecentTransaction[]> {
+    const transferRangeFilter = this.buildAssetTransferRangeFilter(asset, from, to);
     const rows = await this.prisma.$queryRaw<
       Array<{
         date: Date;
@@ -285,7 +285,7 @@ export class StatsService {
         transferCount: bigint | number | string;
         method: string | null;
       }>
-    >`
+    >(Prisma.sql`
       SELECT
         tx."date",
         tx."txid",
@@ -296,13 +296,11 @@ export class StatsService {
         COUNT(*)::bigint AS "transferCount"
       FROM "DailyTransfer" AS transfer
       INNER JOIN "DailyTx" AS tx ON tx."txid" = transfer."txid"
-      WHERE transfer."asset" = ${asset}
-        AND transfer."date" >= ${parseDate(from)}
-        AND transfer."date" <= ${parseDate(to)}
+      ${transferRangeFilter}
       GROUP BY tx."date", tx."txid", tx."type", tx."timestamp", tx."method"
       ORDER BY tx."timestamp" DESC, tx."txid" DESC
       LIMIT ${limit}
-    `;
+    `);
 
     return rows.map((row) => ({
       date: row.date,
@@ -658,6 +656,18 @@ export class StatsService {
         hasNextPage: page < totalPages,
       } satisfies DayDetailsPagination,
     };
+  }
+
+  private buildAssetTransferRangeFilter(asset: string, from: string, to: string): Prisma.Sql {
+    const fromDate = parseDate(from);
+    const toDate = parseDate(to);
+
+    // Keep user-controlled values bound as Prisma parameters instead of string-building SQL.
+    return Prisma.sql`
+      WHERE transfer."asset" = ${asset}
+        AND transfer."date" >= ${fromDate}
+        AND transfer."date" <= ${toDate}
+    `;
   }
 
   private sortCounts(map: Map<string, number>): AggregatedCount[] {
